@@ -1,8 +1,15 @@
+import logging
 from typing import List, Dict
 from app.models.domain import ChartData
 from app.engine.aspects import AspectsEngine
 from app.engine.dasha import DashaEngine
 from app.engine.navamsha import NavamshaEngine
+from app.utils.cache import get_astrology_cache
+from app.utils.safe_execution import execute_safely
+from app.utils.logger import log_calculation_step
+
+
+logger = logging.getLogger(__name__)
 
 class AstrologyAdvancedService:
     """Service layer coordinating advanced astrological math engines."""
@@ -11,12 +18,21 @@ class AstrologyAdvancedService:
         self.aspects_engine = AspectsEngine()
         self.dasha_engine = DashaEngine()
         self.navamsha_engine = NavamshaEngine()
+        self.cache = get_astrology_cache()
 
     def generate_advanced_data(self, chart_data_models: List[ChartData], user_dob: str) -> Dict:
         """
         Coordinates the Aspects, Dasha, and Navamsha engines.
         Returns a master dictionary containing all three advanced analysis sets.
         """
+        log_calculation_step("advanced_analysis_started", chart_points=len(chart_data_models), user_dob=user_dob)
+        user_id = chart_data_models[0].user_id if chart_data_models else 0
+        if user_id:
+            cached_advanced = self.cache.get("advanced_data", user_id)
+            if cached_advanced is not None:
+                logger.info("Advanced analysis cache hit for user %s.", user_id)
+                return cached_advanced
+
         # 1. Transpile domain models to the dictionary shapes expected by engines
         # Aspects input: {"Planet": {"house": X}}
         aspects_input = {cd.planet_name: {"house": cd.house} for cd in chart_data_models}
@@ -40,14 +56,38 @@ class AstrologyAdvancedService:
                 break
 
         # 2. Execute engines
-        aspects_output = self.aspects_engine.calculate_aspects(aspects_input)
-        navamsha_output = self.navamsha_engine.calculate_navamsha(navamsha_input)
-        dasha_output = self.dasha_engine.calculate_dasha(moon_absolute_longitude, user_dob)
+        aspects_output = execute_safely(
+            lambda: self.aspects_engine.calculate_aspects(aspects_input),
+            logger=logger,
+            operation_name="Aspects calculation",
+            user_message="Advanced aspect analysis is unavailable right now.",
+            fallback={},
+        )
+        navamsha_output = execute_safely(
+            lambda: self.navamsha_engine.calculate_navamsha(navamsha_input),
+            logger=logger,
+            operation_name="Navamsha calculation",
+            user_message="Navamsha analysis is unavailable right now.",
+            fallback={},
+        )
+        dasha_output = execute_safely(
+            lambda: self.dasha_engine.calculate_dasha(moon_absolute_longitude, user_dob),
+            logger=logger,
+            operation_name="Dasha calculation",
+            user_message="Dasha analysis is unavailable right now.",
+            fallback=[],
+        )
 
         # Step 17: Enhance Dasha with Event Detection Tags
         from app.engine.event_detector import EventDetectorEngine
         event_detector = EventDetectorEngine()
-        dasha_output = event_detector.detect_events(dasha_output, chart_data_models)
+        dasha_output = execute_safely(
+            lambda: event_detector.detect_events(dasha_output, chart_data_models),
+            logger=logger,
+            operation_name="Timeline event detection",
+            user_message="Timeline event detection is unavailable right now.",
+            fallback=dasha_output,
+        )
 
         # Step 18: Execute all dynamic user-plugins seamlessly
         from app.plugins.plugin_manager import PluginManager
@@ -55,12 +95,21 @@ class AstrologyAdvancedService:
         # Reconstruct a generic user stub for dob requirement (since we only have chart models explicitly passed here)
         user_stub = User(id=chart_data_models[0].user_id if chart_data_models else 0, dob=user_dob, name="", tob="", place="", latitude=0.0, longitude=0.0)
         plugin_manger = PluginManager()
-        plugins_output = plugin_manger.execute_all(chart_data_models, user_stub)
+        plugins_output = execute_safely(
+            lambda: plugin_manger.execute_all(chart_data_models, user_stub),
+            logger=logger,
+            operation_name="Plugin execution",
+            user_message="Plugin analysis is unavailable right now.",
+            fallback={},
+        )
 
         # 3. Compile Master Output
-        return {
+        advanced_payload = {
             "aspects": aspects_output,
             "navamsha": navamsha_output,
             "dasha": dasha_output,
             "plugins": plugins_output
         }
+        if user_id:
+            self.cache.set("advanced_data", user_id, advanced_payload)
+        return advanced_payload

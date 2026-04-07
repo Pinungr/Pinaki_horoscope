@@ -5,7 +5,17 @@ from typing import Any, Dict, List
 
 from PyQt6.QtCore import QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen
-from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsView
+from PyQt6.QtWidgets import (
+    QGraphicsRectItem,
+    QGraphicsScene,
+    QGraphicsSimpleTextItem,
+    QGraphicsView,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QWidget,
+)
 
 
 class TimelineBarItem(QGraphicsRectItem):
@@ -15,13 +25,37 @@ class TimelineBarItem(QGraphicsRectItem):
         super().__init__(rect, parent)
         self._payload = payload
         self._click_handler = click_handler
+        self._default_pen = QPen(QColor("#64748b"))
+        self._default_brush = QBrush(QColor("#cbd5e1"))
         self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def mousePressEvent(self, event):
         if callable(self._click_handler):
-            self._click_handler(self._payload)
+            self._click_handler(self, self._payload)
         super().mousePressEvent(event)
+
+    def remember_style(self, pen: QPen, brush: QBrush) -> None:
+        """Stores the base styling so selection can be toggled safely."""
+        self._default_pen = QPen(pen)
+        self._default_brush = QBrush(brush)
+
+    def set_selected(self, selected: bool) -> None:
+        """Applies a stronger outline to the selected dasha bar."""
+        if selected:
+            selected_pen = QPen(QColor("#0f172a"))
+            selected_pen.setWidth(max(self._default_pen.width() + 1, 3))
+            self.setPen(selected_pen)
+
+            selected_brush = QBrush(self._default_brush)
+            selected_color = QColor(selected_brush.color())
+            selected_color.setAlpha(min(selected_color.alpha() + 30, 255))
+            selected_brush.setColor(selected_color)
+            self.setBrush(selected_brush)
+            return
+
+        self.setPen(QPen(self._default_pen))
+        self.setBrush(QBrush(self._default_brush))
 
 
 class TimelineWidget(QGraphicsView):
@@ -45,10 +79,14 @@ class TimelineWidget(QGraphicsView):
     TOP_MARGIN = 20
     RIGHT_MARGIN = 40
     BOTTOM_MARGIN = 24
+    CONTROL_HEIGHT = 34
     ROW_HEIGHT = 72
     BAR_HEIGHT = 24
     MIN_BAR_WIDTH = 120
     PIXELS_PER_DAY = 0.18
+    MIN_ZOOM_PERCENT = 70
+    MAX_ZOOM_PERCENT = 220
+    ZOOM_STEP = 15
     EVENT_COLORS = {
         "career": QColor("#3b82f6"),
         "marriage": QColor("#ec4899"),
@@ -65,7 +103,14 @@ class TimelineWidget(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._scene = QGraphicsScene(self)
+        self._all_timeline_rows: List[Dict[str, Any]] = []
         self._timeline_rows: List[Dict[str, Any]] = []
+        self._active_filter = "all"
+        self._zoom_percent = 100
+        self._selected_bar_item: TimelineBarItem | None = None
+        self._filter_buttons: Dict[str, QPushButton] = {}
+        self._zoom_label: QLabel | None = None
+        self._content_top = self.TOP_MARGIN + self.CONTROL_HEIGHT + 20
 
         self.setScene(self._scene)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -76,27 +121,66 @@ class TimelineWidget(QGraphicsView):
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
         self.setMinimumHeight(280)
         self.setStyleSheet("background: #fbfbfd; border: 1px solid #d9dce3;")
+        self._controls_widget = self._build_controls_widget()
 
         self.set_timeline_data({"timeline": []})
 
     def set_timeline_data(self, data: Dict[str, Any]) -> None:
         """Loads timeline JSON data and redraws the scene."""
         timeline = data.get("timeline", []) if isinstance(data, dict) else []
-        self._timeline_rows = [row for row in timeline if isinstance(row, dict)]
-        self._redraw_scene()
+        self._all_timeline_rows = [row for row in timeline if isinstance(row, dict)]
+        self._apply_filter()
 
     def clear_timeline(self) -> None:
         """Clears all rendered timeline content."""
         self.set_timeline_data({"timeline": []})
 
+    def set_event_filter(self, filter_name: str) -> None:
+        """Applies a category filter such as all, career, marriage, or finance."""
+        normalized = str(filter_name or "all").strip().lower() or "all"
+        if normalized not in {"all", "career", "marriage", "finance"}:
+            normalized = "all"
+        self._active_filter = normalized
+        self._apply_filter()
+
+    def set_zoom_percent(self, value: int) -> None:
+        """Adjusts horizontal zoom while preserving vertical readability."""
+        clamped = max(self.MIN_ZOOM_PERCENT, min(self.MAX_ZOOM_PERCENT, int(value)))
+        self._zoom_percent = clamped
+        self.resetTransform()
+        self.scale(clamped / 100.0, 1.0)
+        self._refresh_control_states()
+
+    def reset_zoom(self) -> None:
+        """Restores the default zoom."""
+        self.set_zoom_percent(100)
+
+    def wheelEvent(self, event) -> None:
+        """Supports Ctrl plus mouse wheel zooming while keeping scroll behavior intact."""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            step = self.ZOOM_STEP if delta > 0 else -self.ZOOM_STEP
+            self.set_zoom_percent(self._zoom_percent + step)
+            event.accept()
+            return
+        super().wheelEvent(event)
+
+    def resizeEvent(self, event) -> None:
+        """Keeps the overlay controls anchored to the top-left of the viewport."""
+        super().resizeEvent(event)
+        self._position_controls()
+
     def _redraw_scene(self) -> None:
         self._scene.clear()
+        self._selected_bar_item = None
+        self._position_controls()
 
         if not self._timeline_rows:
-            empty_text = self._scene.addText("No timeline data available.")
+            empty_text = self._scene.addText(self._empty_state_text())
             empty_text.setDefaultTextColor(QColor("#6b7280"))
-            empty_text.setPos(self.LEFT_MARGIN, self.TOP_MARGIN)
-            self._scene.setSceneRect(QRectF(0, 0, 640, 180))
+            empty_text.setPos(self.LEFT_MARGIN, self._content_top + 8)
+            self._scene.setSceneRect(QRectF(0, 0, 760, self._content_top + 120))
+            self._refresh_control_states()
             return
 
         parsed_rows = []
@@ -119,8 +203,9 @@ class TimelineWidget(QGraphicsView):
         if not parsed_rows:
             invalid_text = self._scene.addText("Timeline data has no valid date ranges.")
             invalid_text.setDefaultTextColor(QColor("#b45309"))
-            invalid_text.setPos(self.LEFT_MARGIN, self.TOP_MARGIN)
-            self._scene.setSceneRect(QRectF(0, 0, 680, 180))
+            invalid_text.setPos(self.LEFT_MARGIN, self._content_top + 8)
+            self._scene.setSceneRect(QRectF(0, 0, 760, self._content_top + 120))
+            self._refresh_control_states()
             return
 
         parsed_rows.sort(key=lambda row: row["_start_date"])
@@ -135,9 +220,9 @@ class TimelineWidget(QGraphicsView):
         title_item = self._scene.addText("Life Timeline")
         title_item.setDefaultTextColor(QColor("#111827"))
         title_item.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        title_item.setPos(self.LEFT_MARGIN, 0)
+        title_item.setPos(self.LEFT_MARGIN, self._content_top)
 
-        self._draw_legend(title_item.boundingRect().width() + self.LEFT_MARGIN + 24, 2)
+        self._draw_legend(title_item.boundingRect().width() + self.LEFT_MARGIN + 24, self._content_top + 2)
 
         for index, row in enumerate(parsed_rows):
             self._draw_timeline_row(
@@ -148,9 +233,10 @@ class TimelineWidget(QGraphicsView):
                 total_days=total_days,
             )
 
-        scene_height = self.TOP_MARGIN + (len(parsed_rows) * self.ROW_HEIGHT) + self.BOTTOM_MARGIN
+        scene_height = self._content_top + 24 + (len(parsed_rows) * self.ROW_HEIGHT) + self.BOTTOM_MARGIN
         scene_width = self.LEFT_MARGIN + timeline_width + self.RIGHT_MARGIN
         self._scene.setSceneRect(QRectF(0, 0, scene_width, scene_height))
+        self._refresh_control_states()
 
     def _draw_timeline_row(
         self,
@@ -169,7 +255,7 @@ class TimelineWidget(QGraphicsView):
         confidence = self._normalize_confidence(primary_event.get("confidence"))
         emphasis = self._style_for_confidence(confidence)
 
-        row_top = self.TOP_MARGIN + 22 + (row_index * self.ROW_HEIGHT)
+        row_top = self._content_top + 38 + (row_index * self.ROW_HEIGHT)
         start_offset = (start_date - timeline_start).days
         bar_x = self.LEFT_MARGIN + ((start_offset / total_days) * timeline_width)
         bar_width = max((duration_days / total_days) * timeline_width, self.MIN_BAR_WIDTH)
@@ -204,6 +290,7 @@ class TimelineWidget(QGraphicsView):
         bar_item = TimelineBarItem(bar_rect, payload, self._handle_period_click)
         bar_item.setPen(bar_pen)
         bar_item.setBrush(QBrush(fill_color))
+        bar_item.remember_style(bar_pen, QBrush(fill_color))
         bar_item.setToolTip(self._build_dasha_tooltip(payload))
         self._scene.addItem(bar_item)
 
@@ -235,6 +322,84 @@ class TimelineWidget(QGraphicsView):
             return datetime.strptime(str(value), "%Y-%m-%d").date()
         except ValueError:
             return None
+
+    def _build_controls_widget(self) -> QWidget:
+        """Builds fixed overlay controls for timeline filtering and zoom."""
+        controls = QWidget(self.viewport())
+        controls.setStyleSheet(
+            """
+            QWidget {
+                background: #f8fafc;
+                border: 1px solid #d8dee9;
+                border-radius: 10px;
+            }
+            QLabel {
+                color: #334155;
+                font-weight: 600;
+            }
+            QPushButton {
+                background: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 7px;
+                color: #334155;
+                padding: 5px 10px;
+            }
+            QPushButton:checked {
+                background: #e0f2fe;
+                border: 1px solid #38bdf8;
+                color: #0f172a;
+            }
+            """
+        )
+        controls.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+
+        layout = QHBoxLayout()
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(8)
+
+        layout.addWidget(QLabel("Filter"))
+        self._filter_buttons = {}
+        for filter_name, label in (
+            ("all", "All"),
+            ("career", "Career"),
+            ("marriage", "Marriage"),
+            ("finance", "Finance"),
+        ):
+            button = QPushButton(label)
+            button.setCheckable(True)
+            button.clicked.connect(lambda checked=False, value=filter_name: self.set_event_filter(value))
+            layout.addWidget(button)
+            self._filter_buttons[filter_name] = button
+
+        zoom_out_button = QPushButton("Zoom -")
+        zoom_out_button.clicked.connect(lambda: self.set_zoom_percent(self._zoom_percent - self.ZOOM_STEP))
+        layout.addWidget(zoom_out_button)
+
+        zoom_reset_button = QPushButton("Reset")
+        zoom_reset_button.clicked.connect(self.reset_zoom)
+        layout.addWidget(zoom_reset_button)
+
+        zoom_in_button = QPushButton("Zoom +")
+        zoom_in_button.clicked.connect(lambda: self.set_zoom_percent(self._zoom_percent + self.ZOOM_STEP))
+        layout.addWidget(zoom_in_button)
+
+        self._zoom_label = QLabel()
+        layout.addWidget(self._zoom_label)
+        layout.addStretch(1)
+
+        controls.setLayout(layout)
+        controls.adjustSize()
+        controls.show()
+        self._position_controls()
+        return controls
+
+    def _position_controls(self) -> None:
+        """Pins the controls overlay inside the viewport instead of the zoomable scene."""
+        if not hasattr(self, "_controls_widget") or self._controls_widget is None:
+            return
+        self._controls_widget.adjustSize()
+        self._controls_widget.move(self.LEFT_MARGIN, self.TOP_MARGIN)
+        self._controls_widget.raise_()
 
     def _draw_legend(self, x: float, y: float) -> None:
         """Draws a small color legend for event types and confidence emphasis."""
@@ -361,9 +526,46 @@ class TimelineWidget(QGraphicsView):
                 lines.append(f"{event_type} ({confidence})")
         return "\n".join(lines)
 
-    def _handle_period_click(self, payload: Dict[str, Any]) -> None:
-        """Emits the selected dasha payload for controller-level handling."""
+    def _handle_period_click(self, item: TimelineBarItem, payload: Dict[str, Any]) -> None:
+        """Highlights the selected bar and emits the payload for controller handling."""
+        if self._selected_bar_item is not None and self._selected_bar_item is not item:
+            self._selected_bar_item.set_selected(False)
+
+        self._selected_bar_item = item
+        self._selected_bar_item.set_selected(True)
+        self.centerOn(item)
         self.period_selected.emit(payload)
+
+    def _apply_filter(self) -> None:
+        """Rebuilds the visible rows based on the active timeline filter."""
+        if self._active_filter == "all":
+            self._timeline_rows = list(self._all_timeline_rows)
+        else:
+            self._timeline_rows = [
+                row for row in self._all_timeline_rows if self._row_matches_filter(row, self._active_filter)
+            ]
+        self._redraw_scene()
+
+    def _row_matches_filter(self, row: Dict[str, Any], filter_name: str) -> bool:
+        """Checks whether a dasha period contains the requested event category."""
+        for event in self._normalize_events(row.get("events", [])):
+            if self._normalize_event_type(event.get("type")) == filter_name:
+                return True
+        return False
+
+    def _refresh_control_states(self) -> None:
+        """Keeps embedded control states aligned after redraws and zoom changes."""
+        for filter_name, button in self._filter_buttons.items():
+            button.setChecked(filter_name == self._active_filter)
+        if self._zoom_label is not None:
+            self._zoom_label.setText(f"{self._zoom_percent}%")
+        self._position_controls()
+
+    def _empty_state_text(self) -> str:
+        """Returns a filter-aware empty message."""
+        if self._active_filter == "all":
+            return "No timeline data available."
+        return f"No timeline periods match the {self._active_filter.title()} filter."
 
     def _normalize_events(self, raw_events: Any) -> List[Dict[str, str]]:
         """Normalizes incoming event payloads into a consistent list of typed events."""
@@ -376,6 +578,7 @@ class TimelineWidget(QGraphicsView):
                         {
                             "type": self._normalize_event_type(raw_event.get("type")),
                             "confidence": self._normalize_confidence(raw_event.get("confidence")),
+                            "summary": str(raw_event.get("summary", "")).strip(),
                         }
                     )
                 elif raw_event:
@@ -383,6 +586,7 @@ class TimelineWidget(QGraphicsView):
                         {
                             "type": self._normalize_event_type(raw_event),
                             "confidence": "medium",
+                            "summary": "",
                         }
                     )
         elif isinstance(raw_events, str) and raw_events.strip():
@@ -390,6 +594,7 @@ class TimelineWidget(QGraphicsView):
                 {
                     "type": self._normalize_event_type(raw_events),
                     "confidence": "medium",
+                    "summary": "",
                 }
             )
 

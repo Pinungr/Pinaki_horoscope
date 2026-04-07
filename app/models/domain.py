@@ -9,6 +9,8 @@ class User:
     place: str
     latitude: float
     longitude: float
+    state: Optional[str] = None
+    city: Optional[str] = None
     id: Optional[int] = None
 
 @dataclass
@@ -31,6 +33,7 @@ class Rule:
     result_text: str
     priority: int = 0
     category: Optional[str] = None
+    effect: str = "positive"
     weight: float = 1.0
     confidence: str = "medium"
     id: Optional[int] = None
@@ -38,7 +41,11 @@ class Rule:
     def __post_init__(self) -> None:
         """Normalizes optional scoring fields while remaining backward compatible."""
         self.category = self.category or "general"
-        self.weight = float(self.weight or 1.0)
+        self.effect = (self.effect or "positive").strip().lower()
+        if self.effect not in {"positive", "negative"}:
+            self.effect = "positive"
+
+        self.weight = abs(float(self.weight or 1.0))
 
         normalized_confidence = (self.confidence or "medium").strip().lower()
         if normalized_confidence not in {"low", "medium", "high"}:

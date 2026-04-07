@@ -53,11 +53,19 @@ class ChartDisplay(QWidget):
             for category, details in predictions.items():
                 score = float(details.get("score", 0))
                 confidence = str(details.get("confidence", "low")).upper()
+                effect = str(details.get("effect", "neutral")).upper()
                 summary = details.get("summary", "")
-                score_color = "#d9534f" if score >= 2 else "#5bc0de" if score >= 1 else "#777"
+                if score < 0:
+                    score_color = "#d9534f"
+                elif score >= 2:
+                    score_color = "#2d8f5b"
+                elif score >= 1:
+                    score_color = "#5bc0de"
+                else:
+                    score_color = "#777"
                 html += f"<li style='margin-bottom: 8px;'>"
                 html += f"<span style='color: white; background-color: {score_color}; border-radius: 3px; padding: 2px 4px; font-size: 10px; margin-right: 5px;'>"
-                html += f"{category.upper()} | {score:.2f} | {confidence}</span> "
+                html += f"{category.upper()} | {score:.2f} | {confidence} | {effect}</span> "
                 html += f"{summary}</li>"
         else:
             for p in predictions:

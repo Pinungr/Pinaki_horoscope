@@ -1,7 +1,7 @@
 import json
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, 
-    QLineEdit, QPushButton, QLabel, QSpinBox, QScrollArea,
+    QLineEdit, QPushButton, QLabel, QSpinBox, QDoubleSpinBox, QScrollArea,
     QMessageBox, QFormLayout
 )
 from PyQt6.QtCore import pyqtSignal, Qt
@@ -96,6 +96,14 @@ class RuleEditorScreen(QWidget):
         
         self.category_input = QLineEdit()
         self.category_input.setPlaceholderText("e.g. Yoga, General")
+
+        self.effect_input = QComboBox()
+        self.effect_input.addItems(["Positive", "Negative"])
+
+        self.weight_input = QDoubleSpinBox()
+        self.weight_input.setRange(0.1, 10.0)
+        self.weight_input.setSingleStep(0.1)
+        self.weight_input.setValue(1.0)
         
         self.priority_input = QSpinBox()
         self.priority_input.setRange(0, 1000)
@@ -103,6 +111,8 @@ class RuleEditorScreen(QWidget):
         
         form_layout.addRow("Result Text:", self.result_input)
         form_layout.addRow("Category:", self.category_input)
+        form_layout.addRow("Effect:", self.effect_input)
+        form_layout.addRow("Weight:", self.weight_input)
         form_layout.addRow("Priority (Higher = First):", self.priority_input)
         
         main_layout.addLayout(form_layout)
@@ -159,12 +169,16 @@ class RuleEditorScreen(QWidget):
             "condition_json": json.dumps(json_cond),
             "result_text": result_text,
             "category": self.category_input.text().strip(),
+            "effect": self.effect_input.currentText().strip().lower(),
+            "weight": self.weight_input.value(),
             "priority": self.priority_input.value()
         })
         
     def clear_form(self):
         self.result_input.clear()
         self.category_input.clear()
+        self.effect_input.setCurrentIndex(0)
+        self.weight_input.setValue(1.0)
         self.priority_input.setValue(10)
         while len(self.conditions) > 1:
             self.remove_condition_row(self.conditions[-1])

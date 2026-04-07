@@ -1,22 +1,48 @@
 import json
+import logging
 from typing import List, Dict, Any
 from app.models.domain import Rule, ChartData
+from app.utils.logger import log_rule_match
+
+
+logger = logging.getLogger(__name__)
 
 class RuleEngine:
     def __init__(self, rules: List[Rule]):
         self.rules = sorted(rules, key=lambda r: r.priority, reverse=True)
 
-    def evaluate(self, chart_data: List[ChartData]) -> List[str]:
+    def evaluate(self, chart_data: List[ChartData]) -> List[Dict[str, Any]]:
         """Evaluates all rules against the provided chart data."""
-        predictions = []
+        logger.info("Starting rule evaluation for %d rule(s) against %d chart row(s).", len(self.rules), len(chart_data))
+        predictions: List[Dict[str, Any]] = []
         for rule in self.rules:
             try:
                 condition = json.loads(rule.condition_json)
                 if self._evaluate_condition(condition, chart_data):
-                    predictions.append(rule.result_text)
+                    predictions.append(
+                        {
+                            "text": rule.result_text,
+                            "result_text": rule.result_text,
+                            "category": rule.category,
+                            "effect": rule.effect,
+                            "weight": rule.weight,
+                            "rule_confidence": rule.confidence,
+                            "rule_id": rule.id,
+                            "priority": rule.priority,
+                        }
+                    )
+                    log_rule_match(
+                        rule_id=rule.id,
+                        result_text=rule.result_text,
+                        category=rule.category,
+                        priority=rule.priority,
+                        effect=rule.effect,
+                        weight=rule.weight,
+                    )
             except json.JSONDecodeError:
-                # Log error in real app
+                logger.warning("Skipping invalid rule JSON for rule_id=%s.", rule.id)
                 continue
+        logger.info("Rule evaluation completed with %d match(es).", len(predictions))
         return predictions
 
     def _evaluate_condition(self, condition: Any, chart_data: List[ChartData]) -> bool:

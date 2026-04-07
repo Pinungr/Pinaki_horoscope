@@ -1,5 +1,10 @@
 from datetime import datetime, timedelta
+import logging
 from typing import List, Dict
+from app.utils.logger import log_calculation_step
+
+
+logger = logging.getLogger(__name__)
 
 class DashaEngine:
     """Calculates Vimshottari Mahadasha progression based on Moon's longitude."""
@@ -26,6 +31,7 @@ class DashaEngine:
         dob format: 'YYYY-MM-DD'
         Returns list of sequential dicts: [{"planet": "Sun", "start": "2020-01-01", "end": "2026-01-01"}, ...]
         """
+        log_calculation_step("dasha_calculation_started", moon_longitude=moon_longitude, dob=dob)
         if float(moon_longitude) < 0 or float(moon_longitude) >= 360:
             moon_longitude = moon_longitude % 360.0
             
@@ -47,6 +53,7 @@ class DashaEngine:
         try:
             current_date = datetime.strptime(dob, "%Y-%m-%d")
         except ValueError:
+            logger.warning("Invalid DOB '%s' received for dasha calculation. Falling back to UTC now.", dob)
             current_date = datetime.utcnow() # fallback
             
         timeline = []
@@ -58,6 +65,7 @@ class DashaEngine:
             "start": current_date.strftime("%Y-%m-%d"),
             "end": end_date.strftime("%Y-%m-%d")
         })
+        log_calculation_step("dasha_period_computed", planet=start_planet, start=timeline[-1]["start"], end=timeline[-1]["end"])
         current_date = end_date
         
         # 5. Populate the remainder of the 120-year lifespan cycle
@@ -71,7 +79,9 @@ class DashaEngine:
                 "start": current_date.strftime("%Y-%m-%d"),
                 "end": end_date.strftime("%Y-%m-%d")
             })
+            log_calculation_step("dasha_period_computed", planet=planet, start=timeline[-1]["start"], end=timeline[-1]["end"])
             current_date = end_date
             current_idx = (current_idx + 1) % 9
             
+        log_calculation_step("dasha_calculation_completed", periods=len(timeline))
         return timeline

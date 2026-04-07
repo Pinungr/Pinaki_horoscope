@@ -1,0 +1,5 @@
+2026-04-08 01:44:05 | INFO | horoscope | Logging initialized. | log_file='C:\\Users\\pinun\\OneDrive\\Documents\\GitHub\\Pinaki_horoscope\\logs\\horoscope.log'
+2026-04-08 01:44:05 | INFO | phase3.verify | phase3 logger smoke test
+2026-04-08 01:44:05 | INFO | horoscope | User action: verification_action | user_id=123
+2026-04-08 01:44:05 | INFO | horoscope | Rule matched | rule_id=42, result_text='Sample match', category='career'
+2026-04-08 01:44:05 | INFO | horoscope | Calculation step: verification_step | status='ok'

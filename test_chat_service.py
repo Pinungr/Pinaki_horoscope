@@ -91,6 +91,14 @@ def test_chat_service_local_mode() -> None:
     assert follow_up_result["intent"] == "finance"
     assert "earlier finance question" in follow_up_result["response"].lower()
 
+    multi_intent_result = chat_service.ask(user_id, "How are my career and finances together?")
+    print(f"Multi Intent Result: {multi_intent_result['intents']}")
+    print(f"Multi Intent Response: {multi_intent_result['response']}")
+    assert "career" in multi_intent_result["intents"]
+    assert "finance" in multi_intent_result["intents"]
+    assert "career outlook" in multi_intent_result["response"].lower()
+    assert "financial outlook" in multi_intent_result["response"].lower()
+
     extra_queries = [
         "Will I get a promotion?",
         "Is love life supportive?",
@@ -103,6 +111,7 @@ def test_chat_service_local_mode() -> None:
     print(f"Stored Memory Count: {len(recent_queries)}")
     assert len(recent_queries) == 5
     assert recent_queries[-1]["query"] == "How are my earnings?"
+    assert chat_service.last_query_by_user[user_id] == "How are my earnings?"
 
 
 if __name__ == "__main__":

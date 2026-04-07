@@ -50,18 +50,24 @@ def _normalize_prediction(prediction: Any) -> Dict[str, Any]:
         ).strip()
         category = str(prediction.get("category") or "general").strip().lower()
 
+        effect = str(prediction.get("effect") or "positive").strip().lower()
+        if effect not in {"positive", "negative"}:
+            effect = "positive"
+
         try:
-            weight = float(prediction.get("weight", 1.0) or 1.0)
+            weight = abs(float(prediction.get("weight", 1.0) or 1.0))
         except (TypeError, ValueError):
             weight = 1.0
     else:
         text = str(prediction).strip()
         category = "general"
+        effect = "positive"
         weight = 1.0
 
     return {
         "text": text,
         "category": category or "general",
+        "effect": effect,
         "weight": weight,
     }
 
@@ -167,10 +173,25 @@ def _merge_texts(texts: Iterable[str]) -> str:
     return " ".join(merged_sentences)
 
 
+def _merge_conflicting_texts(positive_texts: Iterable[str], negative_texts: Iterable[str], net_score: float) -> str:
+    """Builds a readable summary when both positive and negative rules match."""
+    positive_summary = _merge_texts(positive_texts)
+    negative_summary = _merge_texts(negative_texts)
+
+    if positive_summary and negative_summary:
+        if net_score > 0:
+            return f"{positive_summary} However, {negative_summary}"
+        if net_score < 0:
+            return f"{negative_summary} Still, {positive_summary}"
+        return f"{positive_summary} At the same time, {negative_summary}"
+    return positive_summary or negative_summary
+
+
 def _confidence_from_score(score: float) -> str:
-    if score >= 2:
+    magnitude = abs(score)
+    if magnitude >= 2:
         return "high"
-    if score >= 1:
+    if magnitude >= 1:
         return "medium"
     return "low"
 
@@ -199,21 +220,37 @@ def score_predictions(predictions: list) -> dict:
         bucket = grouped.setdefault(
             category,
             {
-                "score": 0.0,
-                "texts": [],
+                "positive_score": 0.0,
+                "negative_score": 0.0,
+                "positive_texts": [],
+                "negative_texts": [],
             },
         )
 
-        bucket["score"] += normalized["weight"]
-        bucket["texts"].append(normalized["text"])
+        if normalized["effect"] == "negative":
+            bucket["negative_score"] += normalized["weight"]
+            bucket["negative_texts"].append(normalized["text"])
+        else:
+            bucket["positive_score"] += normalized["weight"]
+            bucket["positive_texts"].append(normalized["text"])
 
     scored_output: Dict[str, Dict[str, Any]] = {}
     for category, bucket in grouped.items():
-        score = round(bucket["score"], 2)
+        positive_score = round(bucket["positive_score"], 2)
+        negative_score = round(bucket["negative_score"], 2)
+        score = round(positive_score - negative_score, 2)
+        effect = "positive" if score > 0 else "negative" if score < 0 else "neutral"
         scored_output[category] = {
             "score": score,
             "confidence": _confidence_from_score(score),
-            "summary": _merge_texts(bucket["texts"]),
+            "effect": effect,
+            "positive_score": positive_score,
+            "negative_score": negative_score,
+            "summary": _merge_conflicting_texts(
+                bucket["positive_texts"],
+                bucket["negative_texts"],
+                score,
+            ),
         }
 
     return scored_output

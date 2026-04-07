@@ -1,9 +1,13 @@
 import os
 import importlib
 import inspect
+import logging
 from typing import List, Dict, Any
 from app.models.domain import ChartData, User
 from app.plugins.base_plugin import AstrologyPlugin
+
+
+logger = logging.getLogger(__name__)
 
 class PluginManager:
     """Dynamically loads and executes external astrology modules."""
@@ -33,20 +37,20 @@ class PluginManager:
                         if issubclass(obj, AstrologyPlugin) and obj is not AstrologyPlugin:
                             # Instantiate and register
                             self.plugins.append(obj())
+                            logger.info("Plugin loaded: %s", obj.__name__)
                 except Exception as e:
-                    import logging
-                    logging.warning(f"Failed to load plugin {module_name}: {e}")
+                    logger.warning("Failed to load plugin %s: %s", module_name, e)
 
     def execute_all(self, chart_data: List[ChartData], user: User) -> Dict[str, Any]:
         """Runs all registered plugins and aggregates their output."""
         aggregated_results = {}
         for plugin in self.plugins:
             try:
+                logger.info("Executing plugin: %s", plugin.get_plugin_name())
                 result = plugin.process(chart_data, user)
                 aggregated_results[plugin.get_plugin_name()] = result
             except Exception as e:
-                import logging
-                logging.error(f"Plugin {plugin.get_plugin_name()} crashed during execution: {e}")
+                logger.error("Plugin %s crashed during execution: %s", plugin.get_plugin_name(), e)
                 aggregated_results[plugin.get_plugin_name()] = {"error": str(e)}
 
         return aggregated_results

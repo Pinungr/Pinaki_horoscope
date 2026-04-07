@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+import logging
 
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 from app.ui.main_window import MainWindow
@@ -9,6 +10,11 @@ from app.services.app_settings_service import AppSettingsService
 from app.services.openai_refiner_service import OpenAIRefinerService
 from app.services.report_service import ReportService
 from app.repositories.database_manager import DatabaseManager
+from app.utils.safe_execution import AppError
+from app.utils.logger import log_user_action
+
+
+logger = logging.getLogger(__name__)
 
 class MainController:
     """Acts as the bridge between UI inputs and Backend logic/storage."""
@@ -33,6 +39,8 @@ class MainController:
         # Connect signals
         self.view.input_form.generate_requested.connect(self.handle_generate)
         self.view.input_form.save_requested.connect(self.handle_save)
+        self.view.input_form.state_changed.connect(self.handle_state_changed)
+        self.view.input_form.city_changed.connect(self.handle_city_changed)
         
         self.view.user_list_screen.load_requested.connect(self.handle_load_user)
         self.view.user_list_screen.delete_requested.connect(self.handle_delete_user)
@@ -43,25 +51,37 @@ class MainController:
         self.view.settings_screen.save_requested.connect(self.handle_save_settings)
         
         # Populate initial user list
+        self._load_location_options()
         self.refresh_user_list()
+
+    @staticmethod
+    def _friendly_error(exc: Exception, fallback_message: str) -> str:
+        """Maps internal exceptions to safe UI text."""
+        if isinstance(exc, AppError):
+            return exc.user_message
+        return fallback_message
 
     def handle_save_rule(self, rule_data: dict):
         try:
+            log_user_action("controller_save_rule", category=rule_data.get("category", "general"))
             self.service.save_astrology_rule(rule_data)
             self.view.rule_editor_screen.clear_form()
             QMessageBox.information(self.view, "Success", "Rule saved successfully!")
         except Exception as e:
-            QMessageBox.critical(self.view, "Error", f"Failed to save rule: {str(e)}")
+            logger.exception("Failed to save rule: %s", e)
+            QMessageBox.critical(self.view, "Error", self._friendly_error(e, "Failed to save rule."))
 
     def refresh_user_list(self):
         try:
             users_data = self.service.get_all_users_dicts()
             self.view.user_list_screen.populate_users(users_data)
         except Exception as e:
-            QMessageBox.critical(self.view, "Error", f"Failed to load users: {str(e)}")
+            logger.exception("Failed to load users: %s", e)
+            QMessageBox.critical(self.view, "Error", self._friendly_error(e, "Failed to load users."))
 
     def handle_load_user(self, user_id: int):
         try:
+            log_user_action("controller_load_user", user_id=user_id)
             display_data, predictions = self.service.load_chart_for_user(user_id)
             self.view.chart_display.display_chart(display_data)
             self.view.chart_display.display_predictions(predictions)
@@ -70,23 +90,27 @@ class MainController:
             # Switch back to Chart Generator tab
             self.view.tabs.setCurrentIndex(0)
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            QMessageBox.critical(self.view, "Error", f"Failed to load chart: {str(e)}")
+            logger.exception("Failed to load chart for user %s: %s", user_id, e)
+            QMessageBox.critical(self.view, "Error", self._friendly_error(e, "Failed to load chart."))
 
     def handle_delete_user(self, user_id: int):
         try:
+            log_user_action("controller_delete_user", user_id=user_id)
             self.service.delete_user(user_id)
             if self.active_user_id == user_id:
                 self.active_user_id = None
             self.refresh_user_list()
         except Exception as e:
-            QMessageBox.critical(self.view, "Error", f"Failed to delete user: {str(e)}")
+            logger.exception("Failed to delete user %s: %s", user_id, e)
+            QMessageBox.critical(self.view, "Error", self._friendly_error(e, "Failed to delete user."))
 
     def handle_generate(self, user_data: dict):
         try:
+            log_user_action("controller_generate", name=user_data.get("name"), state=user_data.get("state"), city=user_data.get("city"))
+            validated_data = self.service.prepare_user_input(user_data)
+
             # 1. Generate and save phase 1 data
-            display_data, predictions = self.service.generate_and_save_chart(user_data)
+            display_data, predictions = self.service.generate_and_save_chart(validated_data)
             self.view.chart_display.display_chart(display_data)
             self.view.chart_display.display_predictions(predictions)
             
@@ -101,12 +125,50 @@ class MainController:
             # Switch back to Chart Generator tab if not already
             self.view.tabs.setCurrentIndex(0)
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            QMessageBox.critical(self.view, "Error", str(e))
+            logger.exception("Failed to generate chart: %s", e)
+            QMessageBox.critical(
+                self.view,
+                "Error",
+                self._friendly_error(e, str(e) if isinstance(e, ValueError) else "Failed to generate chart."),
+            )
 
     def handle_save(self, user_data: dict):
-        QMessageBox.information(self.view, "Info", "Save feature is implicitly handled during Generate!")
+        try:
+            log_user_action("controller_validate_input", name=user_data.get("name"))
+            self.service.prepare_user_input(user_data)
+            QMessageBox.information(
+                self.view,
+                "Info",
+                "Input is valid. Save is handled automatically during Generate.",
+            )
+        except Exception as exc:
+            logger.warning("Input validation failed: %s", exc)
+            QMessageBox.warning(self.view, "Validation Error", str(exc))
+
+    def handle_state_changed(self, state: str):
+        """Loads cities for the selected state into the input form."""
+        try:
+            log_user_action("controller_select_state", state=state)
+            cities = self.service.get_cities_for_state(state)
+            self.view.input_form.set_cities(cities)
+        except Exception as exc:
+            logger.exception("Failed to load cities for state %s: %s", state, exc)
+            QMessageBox.warning(self.view, "Location Error", self._friendly_error(exc, "Failed to load cities."))
+
+    def handle_city_changed(self, state: str, city: str):
+        """Auto-fills coordinates from the selected city."""
+        try:
+            log_user_action("controller_select_city", state=state, city=city)
+            location = self.service.get_location_details(state, city)
+            self.view.input_form.set_location_details(
+                state=location["state"],
+                city=location["city"],
+                latitude=location["latitude"],
+                longitude=location["longitude"],
+            )
+        except Exception as exc:
+            logger.exception("Failed to load location details for %s, %s: %s", city, state, exc)
+            QMessageBox.warning(self.view, "Location Error", self._friendly_error(exc, "Failed to load location details."))
 
     def handle_generate_report(self):
         """Prompts for a file path and generates the current user's PDF report."""
@@ -127,6 +189,7 @@ class MainController:
             return
 
         try:
+            log_user_action("controller_generate_report", user_id=self.active_user_id, output_path=output_path)
             saved_path = self.report_service.generate_pdf(self.active_user_id, output_path)
             QMessageBox.information(
                 self.view,
@@ -134,7 +197,8 @@ class MainController:
                 f"Horoscope report saved successfully.\n{saved_path}",
             )
         except Exception as exc:
-            QMessageBox.critical(self.view, "Report Error", f"Failed to generate report: {exc}")
+            logger.exception("Failed to generate report for user %s: %s", self.active_user_id, exc)
+            QMessageBox.critical(self.view, "Report Error", self._friendly_error(exc, "Failed to generate report."))
 
     def handle_timeline_period_selected(self, period_data: dict):
         """Shows detailed predictions for a clicked dasha period."""
@@ -163,6 +227,7 @@ class MainController:
     def handle_save_settings(self, settings_data: dict):
         """Persists app settings and keeps chat mode available with graceful fallback."""
         try:
+            log_user_action("controller_save_settings", ai_enabled=settings_data.get("ai_enabled"))
             saved_settings = self.settings_service.save(settings_data)
             self.view.settings_screen.load_settings(saved_settings)
 
@@ -177,7 +242,8 @@ class MainController:
                 f"Chat settings updated. Current mode: {mode_text}."
             )
         except Exception as exc:
-            QMessageBox.critical(self.view, "Settings Error", f"Failed to save settings: {exc}")
+            logger.exception("Failed to save settings: %s", exc)
+            QMessageBox.critical(self.view, "Settings Error", self._friendly_error(exc, "Failed to save settings."))
 
     def _build_report_filename(self, user_name: str) -> str:
         """Builds a filesystem-safe default report filename from the active user name."""
@@ -186,28 +252,50 @@ class MainController:
             cleaned_name = "Horoscope"
         return f"{cleaned_name}_Horoscope_Report.pdf"
 
+    def _load_location_options(self):
+        """Loads the state dropdown from the local location database."""
+        try:
+            states = self.service.get_available_states()
+            self.view.input_form.set_states(states)
+        except Exception as exc:
+            logger.exception("Failed to load states: %s", exc)
+            QMessageBox.warning(self.view, "Location Error", self._friendly_error(exc, "Failed to load states."))
+
     def _populate_advanced_views(self, user_id: int):
         """Refreshes advanced analysis tabs, including the life timeline."""
         from app.services.astrology_advanced_service import AstrologyAdvancedService
         import json
 
-        advanced_service = AstrologyAdvancedService()
-        user_model = self.service.user_repo.get_by_id(user_id)
-        if not user_model:
+        try:
+            advanced_service = AstrologyAdvancedService()
+            user_model = self.service.user_repo.get_by_id(user_id)
+            if not user_model:
+                self.view.timeline_view.clear_timeline()
+                return
+
+            chart_models = self.service.chart_repo.get_by_user_id(user_id)
+            advanced_data = advanced_service.generate_advanced_data(chart_models, user_model.dob)
+            self.view.aspects_view.setText(json.dumps(advanced_data["aspects"], indent=2))
+            self.view.dasha_view.setText(json.dumps(advanced_data["dasha"], indent=2))
+            self.view.navamsha_view.setText(json.dumps(advanced_data["navamsha"], indent=2))
+            self.view.plugins_view.setText(json.dumps(advanced_data["plugins"], indent=2))
+            self.active_user_id = user_id
+            self.view.chat_screen.set_active_user(user_id)
+
+            timeline_data = self.service.get_timeline_data(user_id)
+            self.view.timeline_view.set_timeline_data(timeline_data)
+        except Exception as exc:
+            logger.exception("Failed to populate advanced views for user %s: %s", user_id, exc)
+            self.view.aspects_view.setText("{}")
+            self.view.dasha_view.setText("[]")
+            self.view.navamsha_view.setText("{}")
+            self.view.plugins_view.setText("{}")
             self.view.timeline_view.clear_timeline()
-            return
-
-        chart_models = self.service.chart_repo.get_by_user_id(user_id)
-        advanced_data = advanced_service.generate_advanced_data(chart_models, user_model.dob)
-        self.view.aspects_view.setText(json.dumps(advanced_data["aspects"], indent=2))
-        self.view.dasha_view.setText(json.dumps(advanced_data["dasha"], indent=2))
-        self.view.navamsha_view.setText(json.dumps(advanced_data["navamsha"], indent=2))
-        self.view.plugins_view.setText(json.dumps(advanced_data["plugins"], indent=2))
-        self.active_user_id = user_id
-        self.view.chat_screen.set_active_user(user_id)
-
-        timeline_data = self.service.get_timeline_data(user_id)
-        self.view.timeline_view.set_timeline_data(timeline_data)
+            QMessageBox.warning(
+                self.view,
+                "Advanced Analysis",
+                self._friendly_error(exc, "Some advanced analysis could not be loaded right now."),
+            )
 
     def show(self):
         self.view.show()

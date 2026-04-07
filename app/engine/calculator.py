@@ -1,14 +1,29 @@
 import swisseph as swe
 from datetime import datetime
+import logging
 import pytz
 from timezonefinder import TimezoneFinder
 from app.models.domain import User, ChartData
+from app.config.config_loader import get_astrology_config_loader
+from app.utils.logger import log_calculation_step
+from app.utils.runtime_paths import get_ephemeris_dir
+
+
+logger = logging.getLogger(__name__)
 
 class AstrologyEngine:
+    AYANAMSA_MAP = {
+        "lahiri": swe.SIDM_LAHIRI,
+        "raman": getattr(swe, "SIDM_RAMAN", swe.SIDM_LAHIRI),
+        "krishnamurti": getattr(swe, "SIDM_KRISHNAMURTI", swe.SIDM_LAHIRI),
+    }
+
     def __init__(self):
         # Set ephemeris path if data is external, but we use internal for now
-        # Set Sidereal mode for Vedic Astrology (Lahiri Ayanamsa)
-        swe.set_sid_mode(swe.SIDM_LAHIRI)
+        self.config_loader = get_astrology_config_loader()
+        self.config = self.config_loader.load()
+        self._configure_ephemeris_path()
+        self._apply_ayanamsa_setting()
         self.tf = TimezoneFinder()
         
         # Planets to calculate
@@ -29,18 +44,59 @@ class AstrologyEngine:
             "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
         ]
 
+        configured_house_system = str(self.config.get("house_system", "whole_sign")).strip().lower()
+        if configured_house_system != "whole_sign":
+            logger.warning(
+                "Configured house_system '%s' is not implemented yet. Falling back to whole_sign.",
+                configured_house_system,
+            )
+
+    def _configure_ephemeris_path(self) -> None:
+        """Configures Swiss Ephemeris to use bundled offline ephemeris files when present."""
+        ephemeris_dir = get_ephemeris_dir()
+        if ephemeris_dir is None:
+            logger.info("No external ephemeris directory found. Using Swiss Ephemeris defaults.")
+            return
+
+        swe.set_ephe_path(str(ephemeris_dir))
+        log_calculation_step("ephemeris_path_configured", ephemeris_path=str(ephemeris_dir))
+
+    def _apply_ayanamsa_setting(self) -> None:
+        """Applies the configured ayanamsa while preserving Lahiri as the default."""
+        configured_ayanamsa = str(self.config.get("ayanamsa", "Lahiri")).strip().lower()
+        sid_mode = self.AYANAMSA_MAP.get(configured_ayanamsa, swe.SIDM_LAHIRI)
+        if configured_ayanamsa not in self.AYANAMSA_MAP:
+            logger.warning("Unsupported ayanamsa '%s'. Falling back to Lahiri.", configured_ayanamsa)
+        swe.set_sid_mode(sid_mode)
+        log_calculation_step("ayanamsa_applied", ayanamsa=configured_ayanamsa or "lahiri")
+
     def _get_utc_datetime(self, dob: str, tob: str, lat: float, lon: float) -> datetime:
         """
         Converts the local Date and Time of Birth to UTC using coordinates for timezone.
         """
         dt_str = f"{dob} {tob}"
         local_dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
-        
-        tz_name = self.tf.timezone_at(lng=lon, lat=lat)
-        if tz_name is None:
+
+        timezone_mode = str(self.config.get("timezone_mode", "auto")).strip().lower() or "auto"
+        if timezone_mode == "utc":
+            tz_name = "UTC"
+        elif timezone_mode not in {"auto", "utc"}:
+            tz_name = self.config.get("timezone_mode")
+        else:
+            tz_name = self.tf.timezone_at(lng=lon, lat=lat)
+
+        if not tz_name:
             tz_name = "UTC" # Fallback if timezone not found
+            logger.warning("Timezone lookup failed for lat=%s lon=%s. Falling back to UTC.", lat, lon)
             
         local_tz = pytz.timezone(tz_name)
+        log_calculation_step(
+            "timezone_resolved",
+            timezone=tz_name,
+            timezone_mode=timezone_mode,
+            latitude=lat,
+            longitude=lon,
+        )
         
         # Localize naive datetime
         local_dt = local_tz.localize(local_dt)
@@ -63,6 +119,14 @@ class AstrologyEngine:
         """
         Calculates Sidereal planetary positions and houses (Whole Sign) for the given user.
         """
+        log_calculation_step(
+            "chart_calculation_started",
+            user_id=user.id or 0,
+            name=user.name,
+            dob=user.dob,
+            latitude=user.latitude,
+            longitude=user.longitude,
+        )
         utc_dt = self._get_utc_datetime(user.dob, user.tob, user.latitude, user.longitude)
         
         # Convert to Julian Day
@@ -72,6 +136,7 @@ class AstrologyEngine:
             utc_dt.hour, utc_dt.minute, utc_dt.second,
             swe.GREG_CAL
         )
+        log_calculation_step("julian_day_computed", jd_ut=jd_ut)
                                      
         # Calculate Ascendant (Lagna)
         # swe.houses returns (cusps, ascmc)
@@ -79,6 +144,7 @@ class AstrologyEngine:
         asc_long = ascmc[0] # Ascendant is the 1st element of ascmc list
         
         asc_sign_idx, asc_sign_name, asc_deg = self._get_sign_and_degree(asc_long)
+        log_calculation_step("ascendant_computed", sign=asc_sign_name, degree=round(asc_deg, 4))
         
         chart_data_list = []
         
@@ -111,6 +177,13 @@ class AstrologyEngine:
                 house=house_num,
                 degree=round(p_deg, 4)
             ))
+            log_calculation_step(
+                "planet_computed",
+                planet=planet_name,
+                sign=p_sign_name,
+                house=house_num,
+                degree=round(p_deg, 4),
+            )
             
             # Compute Ketu (180 degrees from Rahu)
             if planet_name == "Rahu":
@@ -125,5 +198,13 @@ class AstrologyEngine:
                     house=k_house_num,
                     degree=round(k_deg, 4)
                 ))
+                log_calculation_step(
+                    "planet_computed",
+                    planet="Ketu",
+                    sign=k_sign_name,
+                    house=k_house_num,
+                    degree=round(k_deg, 4),
+                )
                 
+        log_calculation_step("chart_calculation_completed", user_id=user.id or 0, points=len(chart_data_list))
         return chart_data_list

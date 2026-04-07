@@ -1,13 +1,14 @@
 import sys
-import logging
 from PyQt6.QtWidgets import QApplication
-from app.ui.main_window import MainWindow
+from app.config.config_loader import get_astrology_config
+from app.utils.logger import setup_logging, get_logger
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def main():
+    setup_logging()
     logger.info("Initializing Horoscope Application UI...")
+    logger.info("Active astrology config: %s", get_astrology_config())
     
     # Initialize DB Schema
     from app.repositories.database_manager import DatabaseManager
