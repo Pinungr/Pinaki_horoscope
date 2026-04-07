@@ -1,0 +1,4 @@
+PyQt6>=6.6.0
+pyswisseph>=2.10.3.2
+timezonefinder>=6.0.0
+pytz
