@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 from app.repositories.database_manager import DatabaseManager
 from app.models.domain import Rule
 
@@ -9,8 +9,8 @@ class RuleRepository:
     def save(self, rule: Rule) -> int:
         """Saves a new astrology rule to the database."""
         sql = '''
-        INSERT INTO rules (condition_json, result_text, priority, category)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO rules (condition_json, result_text, priority, category, weight, confidence)
+        VALUES (?, ?, ?, ?, ?, ?)
         '''
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
@@ -18,7 +18,9 @@ class RuleRepository:
                 rule.condition_json,
                 rule.result_text,
                 rule.priority,
-                rule.category
+                rule.category,
+                rule.weight,
+                rule.confidence
             ))
             conn.commit()
             return cursor.lastrowid
@@ -36,7 +38,9 @@ class RuleRepository:
                     condition_json=row['condition_json'],
                     result_text=row['result_text'],
                     priority=row['priority'],
-                    category=row['category']
+                    category=row['category'],
+                    weight=row['weight'],
+                    confidence=row['confidence']
                 ))
         return rules
 

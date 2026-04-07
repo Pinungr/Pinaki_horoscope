@@ -1,7 +1,10 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QHeaderView
-from typing import List, Dict
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView
+from typing import List, Dict, Any
 
 class ChartDisplay(QWidget):
+    generate_report_requested = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self.init_ui()
@@ -22,30 +25,47 @@ class ChartDisplay(QWidget):
         self.predictions_text = QLabel("Awaiting generation...")
         self.predictions_text.setWordWrap(True)
 
+        self.report_button = QPushButton("Generate Report")
+        self.report_button.setEnabled(False)
+        self.report_button.clicked.connect(self.generate_report_requested.emit)
+
         layout.addWidget(self.title_label)
         layout.addWidget(self.kundli_widget)
         layout.addWidget(self.predictions_label)
         layout.addWidget(self.predictions_text)
+        layout.addWidget(self.report_button)
         
         self.setLayout(layout)
 
     def display_chart(self, chart_data: List[Dict]):
         """Pass the dictionary data strictly to the visual map representation."""
         self.kundli_widget.update_chart(chart_data)
+        self.report_button.setEnabled(bool(chart_data))
 
-    def display_predictions(self, predictions: List[Dict]):
-        """Show matching rules/predictions as scored categories."""
+    def display_predictions(self, predictions: Any):
+        """Show structured scored predictions without breaking older list-based payloads."""
         if not predictions:
             self.predictions_text.setText("No predictions found for this chart.")
             return
-            
+
         html = "<ul>"
-        for p in predictions:
-            score_color = "#d9534f" if p["score"] > 50 else "#5bc0de" if p["score"] > 20 else "#777"
-            html += f"<li style='margin-bottom: 5px;'>"
-            html += f"<span style='color: white; background-color: {score_color}; border-radius: 3px; padding: 2px 4px; font-size: 10px; margin-right: 5px;'>"
-            html += f"{p['category'].upper()} | {p['score']}</span> "
-            html += f"{p['text']}</li>"
+        if isinstance(predictions, dict):
+            for category, details in predictions.items():
+                score = float(details.get("score", 0))
+                confidence = str(details.get("confidence", "low")).upper()
+                summary = details.get("summary", "")
+                score_color = "#d9534f" if score >= 2 else "#5bc0de" if score >= 1 else "#777"
+                html += f"<li style='margin-bottom: 8px;'>"
+                html += f"<span style='color: white; background-color: {score_color}; border-radius: 3px; padding: 2px 4px; font-size: 10px; margin-right: 5px;'>"
+                html += f"{category.upper()} | {score:.2f} | {confidence}</span> "
+                html += f"{summary}</li>"
+        else:
+            for p in predictions:
+                score_color = "#d9534f" if p["score"] > 50 else "#5bc0de" if p["score"] > 20 else "#777"
+                html += f"<li style='margin-bottom: 5px;'>"
+                html += f"<span style='color: white; background-color: {score_color}; border-radius: 3px; padding: 2px 4px; font-size: 10px; margin-right: 5px;'>"
+                html += f"{p['category'].upper()} | {p['score']}</span> "
+                html += f"{p['text']}</li>"
         html += "</ul>"
         
         self.predictions_text.setText(html)

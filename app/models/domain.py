@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional
 
 @dataclass
 class User:
@@ -31,4 +31,16 @@ class Rule:
     result_text: str
     priority: int = 0
     category: Optional[str] = None
+    weight: float = 1.0
+    confidence: str = "medium"
     id: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        """Normalizes optional scoring fields while remaining backward compatible."""
+        self.category = self.category or "general"
+        self.weight = float(self.weight or 1.0)
+
+        normalized_confidence = (self.confidence or "medium").strip().lower()
+        if normalized_confidence not in {"low", "medium", "high"}:
+            normalized_confidence = "medium"
+        self.confidence = normalized_confidence

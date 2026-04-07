@@ -53,14 +53,26 @@ class MainWindow(QMainWindow):
         self.plugins_view = QTextEdit()
         self.plugins_view.setReadOnly(True)
 
+        from app.ui.widgets.timeline_widget import TimelineWidget
+        self.timeline_view = TimelineWidget()
+
+        from app.ui.chat_screen import ChatScreen
+        self.chat_screen = ChatScreen()
+
+        from app.ui.settings_screen import SettingsScreen
+        self.settings_screen = SettingsScreen()
+
         # Add tabs
         self.tabs.addTab(self.chart_gen_tab, "Chart Generator")
         self.tabs.addTab(self.user_list_screen, "User Management")
         self.tabs.addTab(self.rule_editor_screen, "Rule Editor")
+        self.tabs.addTab(self.chat_screen, "Horoscope Chat")
         self.tabs.addTab(self.aspects_view, "Aspects")
         self.tabs.addTab(self.dasha_view, "Dasha")
+        self.tabs.addTab(self.timeline_view, "Life Timeline")
         self.tabs.addTab(self.navamsha_view, "Navamsha D9")
         self.tabs.addTab(self.plugins_view, "Plugins")
+        self.tabs.addTab(self.settings_screen, "Settings")
 
         layout.addWidget(self.tabs)
         central_widget.setLayout(layout)

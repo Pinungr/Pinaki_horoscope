@@ -1,0 +1,2 @@
+ALTER TABLE rules ADD COLUMN weight REAL DEFAULT 1.0;
+ALTER TABLE rules ADD COLUMN confidence TEXT DEFAULT 'medium';

@@ -16,8 +16,26 @@ class DatabaseManager:
         conn.row_factory = sqlite3.Row  # Access columns by name
         return conn
 
+    def _migrate_rules_table(self, conn: sqlite3.Connection) -> None:
+        """Safely extends the existing rules table with scoring columns."""
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(rules)")
+        existing_columns = {row["name"] for row in cursor.fetchall()}
+
+        alter_statements = []
+        if "weight" not in existing_columns:
+            alter_statements.append("ALTER TABLE rules ADD COLUMN weight REAL DEFAULT 1.0")
+        if "confidence" not in existing_columns:
+            alter_statements.append("ALTER TABLE rules ADD COLUMN confidence TEXT DEFAULT 'medium'")
+
+        for statement in alter_statements:
+            cursor.execute(statement)
+
+        if alter_statements:
+            logger.info("Applied rules table migration for scoring columns.")
+
     def initialize_schema(self):
-        """Creates the initial database schema as per Step 1 requirements."""
+        """Creates the initial database schema and applies safe migrations."""
         schema = '''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,7 +67,9 @@ class DatabaseManager:
             condition_json TEXT NOT NULL,
             result_text TEXT NOT NULL,
             priority INTEGER DEFAULT 0,
-            category TEXT
+            category TEXT,
+            weight REAL DEFAULT 1.0,
+            confidence TEXT DEFAULT 'medium'
         );
         '''
         
@@ -57,6 +77,7 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 # Execution of the schema script
                 conn.executescript(schema)
+                self._migrate_rules_table(conn)
                 
                 # We optionally pre-populate the planets table if it's empty
                 cursor = conn.cursor()
