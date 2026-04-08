@@ -1,5 +1,6 @@
 import json
 import logging
+from collections.abc import Mapping
 from typing import List, Dict, Any, Optional
 from app.models.domain import Rule, ChartData
 from app.utils.logger import log_rule_match
@@ -115,7 +116,7 @@ class RuleEngine:
     @staticmethod
     def _match_conjunction_condition(
         condition: Dict[str, Any],
-        chart_data: List[ChartData],
+        chart_data: List[Any],
     ) -> bool:
         target_planets = condition.get("planets", [])
         if not isinstance(target_planets, list):
@@ -123,27 +124,64 @@ class RuleEngine:
 
         normalized_targets = []
         for planet in target_planets:
-            planet_name = str(planet or "").strip()
+            planet_name = RuleEngine._normalize_planet_name(planet)
             if planet_name and planet_name not in normalized_targets:
                 normalized_targets.append(planet_name)
 
         if len(normalized_targets) < 2:
             return False
 
-        houses_by_planet = {
-            cd.planet_name: cd.house
-            for cd in chart_data
-            if getattr(cd, "planet_name", None) and getattr(cd, "house", None) is not None
-        }
-
         target_houses = []
         for planet_name in normalized_targets:
-            house = houses_by_planet.get(planet_name)
+            house = RuleEngine.get_planet_house(chart_data, planet_name)
             if house is None:
                 return False
             target_houses.append(house)
 
         return len(set(target_houses)) == 1
+
+    @staticmethod
+    def get_planet_house(chart_data: List[Any], planet_name: str) -> Optional[int]:
+        normalized_target = RuleEngine._normalize_planet_name(planet_name)
+        if not normalized_target:
+            return None
+
+        for item in chart_data:
+            current_name = RuleEngine._extract_planet_name(item)
+            current_house = RuleEngine._extract_house(item)
+            if current_name == normalized_target and current_house is not None:
+                return current_house
+
+        return None
+
+    @staticmethod
+    def _normalize_planet_name(planet_name: Any) -> str:
+        return str(planet_name or "").strip().lower()
+
+    @staticmethod
+    def _extract_planet_name(item: Any) -> str:
+        if isinstance(item, Mapping):
+            raw_name = item.get("planet_name", item.get("planet", item.get("Planet")))
+        else:
+            raw_name = getattr(item, "planet_name", None)
+        return RuleEngine._normalize_planet_name(raw_name)
+
+    @staticmethod
+    def _extract_house(item: Any) -> Optional[int]:
+        if isinstance(item, Mapping):
+            raw_house = item.get("house", item.get("House"))
+        else:
+            raw_house = getattr(item, "house", None)
+
+        try:
+            house = int(raw_house) if raw_house is not None else None
+        except (TypeError, ValueError):
+            return None
+
+        if house is None:
+            return None
+
+        return house
 
     @staticmethod
     def _is_aspect_condition(condition: Dict[str, Any]) -> bool:

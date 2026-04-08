@@ -165,6 +165,25 @@ class RuleEngineTests(unittest.TestCase):
         self.assertEqual(1, len(predictions))
         self.assertEqual("Moon and Jupiter are conjunct.", predictions[0]["text"])
 
+    def test_evaluate_supports_case_insensitive_conjunction_with_dict_rows(self) -> None:
+        chart = [
+            {"planet_name": "moon", "house": 4},
+            {"Planet": "JUPITER", "House": 4},
+            {"planet": "Venus", "house": 7},
+        ]
+        rules = [
+            Rule(
+                condition_json='{"type": "conjunction", "planets": ["Moon", "jupiter"]}',
+                result_text="Case-insensitive conjunction matched.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Case-insensitive conjunction matched.", predictions[0]["text"])
+
     def test_evaluate_rejects_conjunction_when_planets_are_not_in_same_house(self) -> None:
         rules = [
             Rule(
@@ -175,6 +194,23 @@ class RuleEngineTests(unittest.TestCase):
         ]
 
         predictions = RuleEngine(rules).evaluate(self.chart)
+
+        self.assertEqual([], predictions)
+
+    def test_evaluate_rejects_conjunction_when_planet_is_missing_or_house_invalid(self) -> None:
+        chart = [
+            {"planet_name": "Moon", "house": "not-a-house"},
+            {"planet_name": "Jupiter"},
+        ]
+        rules = [
+            Rule(
+                condition_json='{"type": "conjunction", "planets": ["moon", "jupiter"]}',
+                result_text="This conjunction should not match.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
 
         self.assertEqual([], predictions)
 
