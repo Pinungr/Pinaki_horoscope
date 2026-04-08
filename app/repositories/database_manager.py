@@ -48,6 +48,7 @@ class DatabaseManager:
             "Moon in Cancer (Own Sign) gives deep emotional intelligence and strong intuition.": "moon_cancer_intuition",
             "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.": "budhaditya_yoga_first_house",
             "Jupiter in the 1st House grants wisdom, optimism, and a protective aura.": "jupiter_first_house_wisdom",
+            "Gajakesari Yoga is present: Moon and Jupiter combine in a kendra, supporting wisdom, recognition, and emotional strength.": "gajakesari_yoga",
         }
         for result_text, result_key in key_backfills.items():
             cursor.execute(
@@ -61,6 +62,68 @@ class DatabaseManager:
 
         if alter_statements:
             logger.info("Applied rules table migration for scoring/effect columns.")
+
+    def _seed_default_rules(self, conn: sqlite3.Connection) -> None:
+        """Ensures core bundled rules exist without creating duplicates."""
+        default_rules = [
+            (
+                '{"planet": "Sun", "house": 1}',
+                "Sun in the 1st House provides strong vitality, leadership skills, and radiant energy.",
+                "sun_first_house_vitality",
+                10,
+                "General",
+            ),
+            (
+                '{"planet": "Moon", "sign": "Cancer"}',
+                "Moon in Cancer (Own Sign) gives deep emotional intelligence and strong intuition.",
+                "moon_cancer_intuition",
+                15,
+                "Strength",
+            ),
+            (
+                '{"AND": [{"planet": "Sun", "house": 1}, {"planet": "Mercury", "house": 1}]}',
+                "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.",
+                "budhaditya_yoga_first_house",
+                50,
+                "Yoga",
+            ),
+            (
+                '{"planet": "Jupiter", "house": 1}',
+                "Jupiter in the 1st House grants wisdom, optimism, and a protective aura.",
+                "jupiter_first_house_wisdom",
+                10,
+                "General",
+            ),
+            (
+                '{"AND": [{"type": "conjunction", "planets": ["Moon", "Jupiter"]}, {"type": "in_kendra", "planet": "Jupiter"}]}',
+                "Gajakesari Yoga is present: Moon and Jupiter combine in a kendra, supporting wisdom, recognition, and emotional strength.",
+                "gajakesari_yoga",
+                60,
+                "Yoga",
+            ),
+        ]
+
+        cursor = conn.cursor()
+        for condition_json, result_text, result_key, priority, category in default_rules:
+            cursor.execute(
+                """
+                SELECT 1
+                FROM rules
+                WHERE result_key = ? OR (condition_json = ? AND result_text = ?)
+                LIMIT 1
+                """,
+                (result_key, condition_json, result_text),
+            )
+            if cursor.fetchone():
+                continue
+
+            cursor.execute(
+                """
+                INSERT INTO rules (condition_json, result_text, result_key, priority, category)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (condition_json, result_text, result_key, priority, category),
+            )
 
     def _migrate_users_table(self, conn: sqlite3.Connection) -> None:
         """Safely extends the users table with structured location columns."""
@@ -213,17 +276,7 @@ class DatabaseManager:
                 if cursor.fetchone()[0] == 0:
                     planets = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu", "Ascendant"]
                     cursor.executemany('INSERT INTO planets (name) VALUES (?)', [(p,) for p in planets])
-                
-                # Pre-populate some default astrology rules if empty
-                cursor.execute('SELECT COUNT(*) FROM rules')
-                if cursor.fetchone()[0] == 0:
-                    default_rules = [
-                        ('{"planet": "Sun", "house": 1}', "Sun in the 1st House provides strong vitality, leadership skills, and radiant energy.", "sun_first_house_vitality", 10, "General"),
-                        ('{"planet": "Moon", "sign": "Cancer"}', "Moon in Cancer (Own Sign) gives deep emotional intelligence and strong intuition.", "moon_cancer_intuition", 15, "Strength"),
-                        ('{"AND": [{"planet": "Sun", "house": 1}, {"planet": "Mercury", "house": 1}]}', "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.", "budhaditya_yoga_first_house", 50, "Yoga"),
-                        ('{"planet": "Jupiter", "house": 1}', "Jupiter in the 1st House grants wisdom, optimism, and a protective aura.", "jupiter_first_house_wisdom", 10, "General")
-                    ]
-                    cursor.executemany('INSERT INTO rules (condition_json, result_text, result_key, priority, category) VALUES (?, ?, ?, ?, ?)', default_rules)
+                self._seed_default_rules(conn)
 
                 conn.commit()
                 logger.debug("Database schema initialized successfully.")

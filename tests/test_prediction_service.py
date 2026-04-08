@@ -107,6 +107,21 @@ class HoroscopePredictionServiceTests(unittest.TestCase):
         self.assertEqual("high", events[0]["confidence"])
         self.assertIn("momentum", events[0]["summary"].lower())
 
+    def test_default_gajakesari_yoga_rule_is_seeded_and_matches(self) -> None:
+        chart_rows = [
+            ChartData(user_id=1, planet_name="Moon", sign="Leo", house=4, degree=12.5),
+            ChartData(user_id=1, planet_name="Jupiter", sign="Cancer", house=4, degree=5.0),
+            ChartData(user_id=1, planet_name="Venus", sign="Libra", house=7, degree=18.0),
+        ]
+
+        predictions = self.service._evaluate_chart_predictions(chart_rows)
+
+        self.assertIn("yoga", predictions)
+        yoga = predictions["yoga"]
+        self.assertEqual("positive", yoga["effect"])
+        self.assertIn("gajakesari_yoga", yoga["positive_summary_keys"])
+        self.assertIn("gajakesari", yoga["summary"].lower())
+
 
 if __name__ == "__main__":
     unittest.main()
