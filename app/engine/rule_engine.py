@@ -1,8 +1,14 @@
 import json
 import logging
-from collections.abc import Mapping
 from typing import List, Dict, Any, Optional
 from app.models.domain import Rule, ChartData
+from app.engine.chart_data_access import (
+    extract_house,
+    extract_planet_name,
+    get_planet_data,
+    get_planet_house,
+    normalize_planet_name,
+)
 from app.utils.logger import log_rule_match
 from core.engines.aspect_engine import calculate_aspects
 
@@ -154,17 +160,11 @@ class RuleEngine:
 
     @staticmethod
     def get_planet_house(chart_data: List[Any], planet_name: str) -> Optional[int]:
-        normalized_target = RuleEngine._normalize_planet_name(planet_name)
-        if not normalized_target:
-            return None
+        return get_planet_house(chart_data, planet_name)
 
-        for item in chart_data:
-            current_name = RuleEngine._extract_planet_name(item)
-            current_house = RuleEngine._extract_house(item)
-            if current_name == normalized_target and current_house is not None:
-                return current_house
-
-        return None
+    @staticmethod
+    def get_planet_data(chart_data: List[Any], planet_name: str) -> Optional[Dict[str, Any]]:
+        return get_planet_data(chart_data, planet_name)
 
     @staticmethod
     def _match_house_group_condition(
@@ -213,32 +213,15 @@ class RuleEngine:
 
     @staticmethod
     def _normalize_planet_name(planet_name: Any) -> str:
-        return str(planet_name or "").strip().lower()
+        return normalize_planet_name(planet_name)
 
     @staticmethod
     def _extract_planet_name(item: Any) -> str:
-        if isinstance(item, Mapping):
-            raw_name = item.get("planet_name", item.get("planet", item.get("Planet")))
-        else:
-            raw_name = getattr(item, "planet_name", None)
-        return RuleEngine._normalize_planet_name(raw_name)
+        return extract_planet_name(item)
 
     @staticmethod
     def _extract_house(item: Any) -> Optional[int]:
-        if isinstance(item, Mapping):
-            raw_house = item.get("house", item.get("House"))
-        else:
-            raw_house = getattr(item, "house", None)
-
-        try:
-            house = int(raw_house) if raw_house is not None else None
-        except (TypeError, ValueError):
-            return None
-
-        if house is None:
-            return None
-
-        return house
+        return extract_house(item)
 
     @staticmethod
     def _is_aspect_condition(condition: Dict[str, Any]) -> bool:

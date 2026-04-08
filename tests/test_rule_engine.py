@@ -367,6 +367,24 @@ class RuleEngineTests(unittest.TestCase):
 
         self.assertEqual([], predictions)
 
+    def test_get_planet_data_returns_normalized_row_for_chart_object(self) -> None:
+        data = RuleEngine.get_planet_data(self.chart, "mOoN")
+
+        self.assertIsNotNone(data)
+        self.assertEqual("moon", data["planet_name"])
+        self.assertEqual("Cancer", data["sign"])
+        self.assertEqual(10, data["house"])
+        self.assertIsInstance(data["raw"], ChartData)
+
+    def test_get_planet_house_handles_dict_rows_and_invalid_house(self) -> None:
+        chart = [
+            {"planet_name": "Jupiter", "house": "invalid"},
+            {"Planet": "Moon", "House": 4},
+        ]
+
+        self.assertIsNone(RuleEngine.get_planet_house(chart, "jupiter"))
+        self.assertEqual(4, RuleEngine.get_planet_house(chart, "MOON"))
+
 
 if __name__ == "__main__":
     unittest.main()
