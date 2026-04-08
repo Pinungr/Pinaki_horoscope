@@ -1,0 +1,98 @@
+{
+  "meta": {
+    "code": "hi",
+    "native_name": "हिन्दी"
+  },
+  "language": {
+    "english": "अंग्रेज़ी",
+    "hindi": "हिन्दी",
+    "odia": "ओड़िया"
+  },
+  "ui": {
+    "app_title": "ऑफलाइन कुंडली इंजन",
+    "chart_generator": "चार्ट जनरेटर",
+    "chart_information": "चार्ट जानकारी",
+    "birth_chart": "जन्म कुंडली",
+    "north_indian_kundli": "उत्तर भारतीय कुंडली",
+    "user_management": "उपयोगकर्ता प्रबंधन",
+    "rule_editor": "नियम संपादक",
+    "horoscope_chat": "कुंडली चैट",
+    "aspects": "दृष्टियाँ",
+    "dasha": "दशा",
+    "life_timeline": "जीवन समयरेखा",
+    "navamsha_d9": "नवांश D9",
+    "plugins": "प्लगइन्स",
+    "settings": "सेटिंग्स",
+    "name": "नाम",
+    "date_of_birth": "जन्म तिथि",
+    "time_of_birth": "जन्म समय",
+    "place": "स्थान",
+    "state": "राज्य",
+    "city": "शहर",
+    "select_state": "राज्य चुनें",
+    "select_city": "शहर चुनें",
+    "auto_fill_location": "शहर से स्वतः भरा जाएगा, या स्वयं दर्ज करें",
+    "language": "भाषा",
+    "latitude": "अक्षांश",
+    "longitude": "देशांतर",
+    "generate_chart": "चार्ट बनाएँ",
+    "save_user": "उपयोगकर्ता सहेजें",
+    "generate_report": "रिपोर्ट बनाएँ",
+    "save_settings": "सेटिंग्स सहेजें",
+    "predictions": "भविष्यवाणियाँ",
+    "hover_chart_hint": "त्वरित जानकारी देखने के लिए किसी ग्रह या भाव पर माउस ले जाएँ।",
+    "awaiting_generation": "निर्माण की प्रतीक्षा में...",
+    "no_predictions_found": "इस चार्ट के लिए कोई भविष्यवाणी नहीं मिली।",
+    "validation_error": "मान्यकरण त्रुटि",
+    "name_required": "नाम आवश्यक है!",
+    "ai_optional_info": "AI enhancement वैकल्पिक है। इसे बंद छोड़ने पर केवल स्थानीय कुंडली चैट उपयोग होगी।",
+    "enable_openai_refinement": "OpenAI refinement सक्षम करें",
+    "optional_openai_api_key": "वैकल्पिक: अपना OpenAI API key यहाँ पेस्ट करें",
+    "model_placeholder": "उदाहरण: gpt-5-mini",
+    "ai_mode": "AI मोड",
+    "openai_api_key": "OpenAI API Key",
+    "model": "मॉडल",
+    "api_key_optional_title": "API Key वैकल्पिक",
+    "api_key_optional_message": "AI mode सक्षम है, लेकिन यहाँ कोई API key सहेजी नहीं गई है। उपलब्ध होने पर ऐप OPENAI_API_KEY environment variable का उपयोग करेगा।",
+    "settings_saved_title": "सेटिंग्स सहेजी गईं",
+    "settings_saved_message": "सेटिंग्स सफलतापूर्वक सहेजी गईं।\nमोड: {mode}",
+    "mode_openai": "OpenAI enhancement सक्षम",
+    "mode_local": "केवल स्थानीय चैट"
+  },
+  "chart": {
+    "house": "भाव",
+    "sign": "राशि",
+    "planet": "ग्रह",
+    "in_house": "भाव में",
+    "insight_fallback": "चार्ट स्थितियाँ देखने के लिए माउस ले जाएँ या क्लिक करें।",
+    "planet_insight_fallback": "इस ग्रह स्थिति के लिए अभी कोई विशेष जानकारी उपलब्ध नहीं है।",
+    "house_insight_fallback": "इस भाव के लिए अभी कोई विशेष जानकारी उपलब्ध नहीं है।"
+  },
+  "planet": {
+    "sun": "सूर्य",
+    "moon": "चंद्र",
+    "mars": "मंगल",
+    "mercury": "बुध",
+    "jupiter": "गुरु",
+    "venus": "शुक्र",
+    "saturn": "शनि",
+    "rahu": "राहु",
+    "ketu": "केतु",
+    "ascendant": "लग्न",
+    "lagna": "लग्न"
+  },
+  "prediction": {
+    "connector": {
+      "however": "हालाँकि,",
+      "still": "फिर भी,",
+      "at_same_time": "साथ ही,"
+    },
+    "message": {
+      "chart_generated_no_rules": "चार्ट सफलतापूर्वक बनाया गया। कोई मेल खाता नियम नहीं मिला।",
+      "sun_first_house_vitality": "प्रथम भाव में सूर्य प्रबल जीवनशक्ति, नेतृत्व क्षमता और तेजस्वी ऊर्जा देता है।",
+      "moon_cancer_intuition": "कर्क राशि में चंद्रमा गहरी भावनात्मक बुद्धि और मजबूत अंतर्ज्ञान देता है।",
+      "budhaditya_yoga_first_house": "प्रथम भाव में बुधादित्य योग उच्च बुद्धिमत्ता, प्रभावशाली वाणी और मजबूत व्यक्तित्व देता है।",
+      "jupiter_first_house_wisdom": "प्रथम भाव में बृहस्पति ज्ञान, आशावाद और संरक्षणकारी आभा प्रदान करता है।"
+    }
+  }
+}

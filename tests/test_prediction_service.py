@@ -34,6 +34,7 @@ class HoroscopePredictionServiceTests(unittest.TestCase):
             Rule(
                 condition_json='{"planet": "Moon", "house": 10}',
                 result_text="Career growth is strongly indicated.",
+                result_key="career_growth_strong",
                 category="career",
                 weight=1.5,
                 confidence="high",
@@ -41,6 +42,7 @@ class HoroscopePredictionServiceTests(unittest.TestCase):
             Rule(
                 condition_json='{"planet": "Saturn", "house": 10}',
                 result_text="Career progress may feel delayed.",
+                result_key="career_progress_delayed",
                 category="career",
                 effect="negative",
                 weight=0.6,
@@ -67,12 +69,28 @@ class HoroscopePredictionServiceTests(unittest.TestCase):
         self.assertEqual(1.5, career["positive_score"])
         self.assertEqual(0.6, career["negative_score"])
         self.assertEqual("positive", career["effect"])
+        self.assertEqual(["career_growth_strong"], career["positive_summary_keys"])
+        self.assertEqual(["career_progress_delayed"], career["negative_summary_keys"])
         self.assertIn("however", career["summary"].lower())
 
         finance = predictions["finance"]
         self.assertEqual(1.1, finance["score"])
         self.assertEqual("positive", finance["effect"])
         self.assertIn("financial", finance["summary"].lower())
+
+    def test_rule_repository_persists_optional_result_key(self) -> None:
+        rule = Rule(
+            condition_json='{"planet": "Moon", "house": 10}',
+            result_text="Career growth is strongly indicated.",
+            result_key="career_growth_strong",
+            category="career",
+        )
+
+        rule_id = self.rule_repo.save(rule)
+        saved_rules = self.rule_repo.get_all()
+        persisted = next(item for item in saved_rules if item.id == rule_id)
+
+        self.assertEqual("career_growth_strong", persisted.result_key)
 
     def test_build_timeline_events_uses_prediction_summaries(self) -> None:
         scored_predictions = {

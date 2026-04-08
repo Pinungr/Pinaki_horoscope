@@ -11,6 +11,7 @@ from PyQt6.QtGui import QColor, QFont, QMouseEvent, QPaintEvent, QPainter, QPen
 from PyQt6.QtWidgets import QApplication, QLabel, QToolTip, QVBoxLayout, QWidget
 
 from app.models.domain import ChartData
+from app.services.language_manager import LanguageManager
 
 
 @dataclass(frozen=True)
@@ -137,8 +138,9 @@ class NorthIndianChartWidget(QWidget):
         "Ke": QColor("#7C2D12"),
     }
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: Optional[QWidget] = None, language_manager: LanguageManager | None = None) -> None:
         super().__init__(parent)
+        self.language_manager = language_manager or LanguageManager()
         self.setMinimumSize(360, 360)
         self.setMouseTracking(True)
         self._show_house_labels = True
@@ -154,6 +156,9 @@ class NorthIndianChartWidget(QWidget):
 
     def sizeHint(self) -> QSize:
         return QSize(420, 420)
+
+    def _tr(self, key: str) -> str:
+        return self.language_manager.get_text(key)
 
     def set_show_house_labels(self, visible: bool) -> None:
         self._show_house_labels = visible
@@ -274,15 +279,28 @@ class NorthIndianChartWidget(QWidget):
 
     def _draw_card_frame(self, painter: QPainter) -> None:
         painter.save()
+        
+        # 1. Subtle drop shadow to elevate the chart
+        shadow_rect = QRectF(
+            (self.MARGIN / 2) + 2,
+            (self.MARGIN / 2) + 4,
+            self.width() - self.MARGIN,
+            self.height() - self.MARGIN,
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(0, 0, 0, 10)) # Very light shadow
+        painter.drawRoundedRect(shadow_rect, 12.0, 12.0)
+
+        # 2. Main card background
         painter.setPen(QPen(self.CARD_BORDER_COLOR, 1.0))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setBrush(QColor("#FFFFFF")) # Pure white card contrast against outer cream background
         frame_rect = QRectF(
             self.MARGIN / 2,
             self.MARGIN / 2,
             self.width() - self.MARGIN,
             self.height() - self.MARGIN,
         )
-        painter.drawRoundedRect(frame_rect, 10.0, 10.0)
+        painter.drawRoundedRect(frame_rect, 12.0, 12.0)
         painter.restore()
 
     def _draw_header(self, painter: QPainter) -> None:
@@ -310,10 +328,10 @@ class NorthIndianChartWidget(QWidget):
         )
 
         subtitle_parts = [
-            f"Name: {self._header_data.name}" if self._header_data.name else "",
-            f"DOB: {self._header_data.dob}" if self._header_data.dob else "",
-            f"TOB: {self._header_data.tob}" if self._header_data.tob else "",
-            f"Place: {self._header_data.place}" if self._header_data.place else "",
+            f"{self._tr('ui.name')}: {self._header_data.name}" if self._header_data.name else "",
+            f"{self._tr('ui.date_of_birth')}: {self._header_data.dob}" if self._header_data.dob else "",
+            f"{self._tr('ui.time_of_birth')}: {self._header_data.tob}" if self._header_data.tob else "",
+            f"{self._tr('ui.place')}: {self._header_data.place}" if self._header_data.place else "",
         ]
         subtitle = "   |   ".join(part for part in subtitle_parts if part)
 
@@ -452,7 +470,7 @@ class NorthIndianChartWidget(QWidget):
         focus_rect.adjust(-4.0, -3.0, 4.0, 3.0)
 
         painter.save()
-        painter.setPen(QPen(self.HOVERED_HOUSE_BORDER_COLOR, 1.4))
+        painter.setPen(QPen(self.HOVERED_HOUSE_BORDER_COLOR, 2.0))
         painter.setBrush(self.HOVERED_HOUSE_FILL_COLOR)
         painter.drawRoundedRect(focus_rect, 8.0, 8.0)
         painter.restore()
@@ -464,9 +482,11 @@ class NorthIndianChartWidget(QWidget):
         painter.save()
         house_number = self._house_for_rect(content_rect)
         is_hovered = house_number is not None and house_number == self._hovered_house
+        
         border_color = self.HOVERED_HOUSE_BORDER_COLOR if is_hovered else self.OCCUPIED_HOUSE_BORDER_COLOR
         fill_color = self.HOVERED_HOUSE_FILL_COLOR if is_hovered else self.OCCUPIED_HOUSE_FILL_COLOR
-        painter.setPen(QPen(border_color, 1.4 if is_hovered else 1.0))
+        
+        painter.setPen(QPen(border_color, 2.0 if is_hovered else 1.0))
         painter.setBrush(fill_color)
         painter.drawRoundedRect(focus_rect, 8.0, 8.0)
         painter.restore()
@@ -476,6 +496,14 @@ class NorthIndianChartWidget(QWidget):
         badge_rect.adjust(1.5, 1.5, -1.5, -1.5)
 
         painter.save()
+        
+        # Draw micro-shadow for planet badges
+        shadow_rect = QRectF(badge_rect)
+        shadow_rect.translate(0, 1.5)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(0, 0, 0, 15))
+        painter.drawRoundedRect(shadow_rect, 6.0, 6.0)
+        
         is_hovered = self._hovered_planet == planet
         border_color = self.HOVERED_PLANET_BORDER_COLOR if is_hovered else self.HOUSE_SLOT_BORDER_COLOR
         border_width = 1.5 if is_hovered else 1.0
@@ -519,6 +547,7 @@ class NorthIndianChartWidget(QWidget):
                 }
             )
         elif hovered_house is not None:
+            QToolTip.showText(event.globalPosition().toPoint(), self._house_tooltip_text(hovered_house), self)
             self.house_hovered.emit(
                 {
                     "house": hovered_house,
@@ -585,17 +614,25 @@ class NorthIndianChartWidget(QWidget):
         return None
 
     def _planet_tooltip_text(self, planet: PlanetDisplay) -> str:
-        lines = [
-            planet.name or planet.code,
-            f"House: {planet.house}",
-        ]
+        text = f"<b><span style='font-size:14pt;'>{self._localized_planet_name(planet.name or planet.code)}</span></b><br/>"
+        text += f"{self._tr('chart.house')}: {planet.house}"
         if planet.sign:
-            lines.append(f"Sign: {planet.sign}")
+            text += f"<br/>{self._tr('chart.sign')}: {planet.sign}"
+        
         insight = self._insight_for_planet(planet)
         if insight:
-            lines.append("")
-            lines.append(insight)
-        return "\n".join(lines)
+            text += f"<hr/><i style='color: #475569;'>{insight}</i>"
+            
+        return f"<div style='padding: 4px;'>{text}</div>"
+
+    def _house_tooltip_text(self, house: int) -> str:
+        text = f"<b><span style='font-size:14pt;'>{self._tr('chart.house')} {house}</span></b>"
+        
+        insight = self._insight_for_house(house)
+        if insight:
+            text += f"<hr/><i style='color: #475569;'>{insight}</i>"
+            
+        return f"<div style='padding: 4px;'>{text}</div>"
 
     def _insight_for_planet(self, planet: PlanetDisplay) -> str:
         key = self._planet_insight_key(planet.name or planet.code, planet.house)
@@ -610,74 +647,54 @@ class NorthIndianChartWidget(QWidget):
 
     def _build_planet_layout(self, content_rect: QRectF, planet_count: int) -> List[QRectF]:
         """
-        Distributes planets inside a house cell without overlap.
-
-        Layout rules:
-        - 1 planet: centered
-        - 2 planets: two columns
-        - 3-4 planets: 2x2 grid
-        - 5+ planets: responsive grid capped at 3 columns
+        Distributes planets inside a house cell radially to prevent overlap 
+        and fit organically inside diamond/triangular chart houses.
         """
         if planet_count <= 0:
             return []
 
-        inner_rect = QRectF(content_rect)
-        horizontal_padding = max(2.0, content_rect.width() * 0.04)
-        vertical_padding = max(2.0, content_rect.height() * 0.08)
-        inner_rect.adjust(horizontal_padding, vertical_padding, -horizontal_padding, -vertical_padding)
-
         if planet_count == 1:
-            return [inner_rect]
+            return [content_rect]
 
-        if planet_count == 2:
-            return self._grid_rects(inner_rect, rows=1, columns=2, item_count=2)
+        # Calculate a safe radius for the badges to orbit the center
+        usable_width = content_rect.width() * 0.8
+        usable_height = content_rect.height() * 0.8
+        
+        # Max radius shrinks slightly as more planets are added to avoid edge clipping
+        radius_factor = 0.35 if planet_count < 5 else 0.42
+        rx = usable_width * radius_factor
+        ry = usable_height * radius_factor
 
-        if planet_count <= 4:
-            return self._grid_rects(inner_rect, rows=2, columns=2, item_count=planet_count)
+        cx = content_rect.center().x()
+        cy = content_rect.center().y()
 
-        columns = min(3, math.ceil(math.sqrt(planet_count)))
-        rows = math.ceil(planet_count / columns)
-        return self._grid_rects(inner_rect, rows=rows, columns=columns, item_count=planet_count)
-
-    def _grid_rects(
-        self,
-        rect: QRectF,
-        *,
-        rows: int,
-        columns: int,
-        item_count: int,
-    ) -> List[QRectF]:
-        if rows <= 0 or columns <= 0 or item_count <= 0:
-            return []
-
-        gap_x = max(2.0, rect.width() * 0.03)
-        gap_y = max(2.0, rect.height() * 0.06)
-        cell_width = max(1.0, (rect.width() - ((columns - 1) * gap_x)) / columns)
-        cell_height = max(1.0, (rect.height() - ((rows - 1) * gap_y)) / rows)
-
-        total_width = (cell_width * columns) + (gap_x * (columns - 1))
-        total_height = (cell_height * rows) + (gap_y * (rows - 1))
-        start_x = rect.center().x() - (total_width / 2)
-        start_y = rect.center().y() - (total_height / 2)
-
+        # Dynamic badge size based on planet count
+        badge_side = min(usable_width, usable_height) / (1.5 + (planet_count * 0.2))
+        
         layout_rects: List[QRectF] = []
-        for index in range(item_count):
-            row = index // columns
-            col = index % columns
-            x = start_x + (col * (cell_width + gap_x))
-            y = start_y + (row * (cell_height + gap_y))
-            layout_rects.append(QRectF(x, y, cell_width, cell_height))
+        
+        for i in range(planet_count):
+            # Calculate angle in radians. Start at -90 deg (top) and distribute evenly
+            angle = math.radians(-90 + (i * (360 / planet_count)))
+            
+            x = cx + (rx * math.cos(angle)) - (badge_side / 2)
+            y = cy + (ry * math.sin(angle)) - (badge_side / 2)
+            
+            layout_rects.append(QRectF(x, y, badge_side, badge_side))
+
         return layout_rects
 
     def _planet_font_for_count(self, planet_count: int, content_rect: QRectF) -> QFont:
+        # Adjusted scaling to match the new radial badge sizes dynamically
+        base_size = min(content_rect.width(), content_rect.height())
         if planet_count <= 1:
-            size = max(10, int(content_rect.height() * 0.22))
+            size = max(10, int(base_size * 0.22))
         elif planet_count == 2:
-            size = max(9, int(content_rect.height() * 0.19))
+            size = max(9, int(base_size * 0.18))
         elif planet_count <= 4:
-            size = max(8, int(content_rect.height() * 0.16))
+            size = max(8, int(base_size * 0.15))
         else:
-            size = max(7, int(content_rect.height() * 0.13))
+            size = max(7, int(base_size * 0.12))
 
         return QFont("Segoe UI", size, QFont.Weight.Bold)
 
@@ -715,6 +732,10 @@ class NorthIndianChartWidget(QWidget):
         if not normalized:
             return ""
         return self.PLANET_ABBREVIATIONS.get(normalized, normalized[:2].title())
+
+    def _localized_planet_name(self, planet_name: str) -> str:
+        normalized = re.sub(r"\s+", "_", str(planet_name or "").strip().lower())
+        return self._tr(f"planet.{normalized}")
 
 
 class ChartPreviewWindow(QWidget):

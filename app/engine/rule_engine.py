@@ -23,6 +23,7 @@ class RuleEngine:
                         {
                             "text": rule.result_text,
                             "result_text": rule.result_text,
+                            "result_key": rule.result_key,
                             "category": rule.category,
                             "effect": rule.effect,
                             "weight": rule.weight,

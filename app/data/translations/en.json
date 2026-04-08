@@ -1,0 +1,98 @@
+{
+  "meta": {
+    "code": "en",
+    "native_name": "English"
+  },
+  "language": {
+    "english": "English",
+    "hindi": "Hindi",
+    "odia": "Odia"
+  },
+  "ui": {
+    "app_title": "Offline Horoscope (Kundli) Engine",
+    "chart_generator": "Chart Generator",
+    "chart_information": "Chart Information",
+    "birth_chart": "Birth Chart",
+    "north_indian_kundli": "North Indian Kundli",
+    "user_management": "User Management",
+    "rule_editor": "Rule Editor",
+    "horoscope_chat": "Horoscope Chat",
+    "aspects": "Aspects",
+    "dasha": "Dasha",
+    "life_timeline": "Life Timeline",
+    "navamsha_d9": "Navamsha D9",
+    "plugins": "Plugins",
+    "settings": "Settings",
+    "name": "Name",
+    "date_of_birth": "Date of Birth",
+    "time_of_birth": "Time of Birth",
+    "place": "Place",
+    "state": "State",
+    "city": "City",
+    "select_state": "Select State",
+    "select_city": "Select City",
+    "auto_fill_location": "Auto-filled from city, or enter manually",
+    "language": "Language",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "generate_chart": "Generate Chart",
+    "save_user": "Save User",
+    "generate_report": "Generate Report",
+    "save_settings": "Save Settings",
+    "predictions": "Predictions",
+    "hover_chart_hint": "Hover over a planet or house to view a quick insight.",
+    "awaiting_generation": "Awaiting generation...",
+    "no_predictions_found": "No predictions found for this chart.",
+    "validation_error": "Validation Error",
+    "name_required": "Name is required!",
+    "ai_optional_info": "AI enhancement is optional. Leave it off to use the local horoscope chat only.",
+    "enable_openai_refinement": "Enable OpenAI refinement",
+    "optional_openai_api_key": "Optional: paste your OpenAI API key",
+    "model_placeholder": "e.g. gpt-5-mini",
+    "ai_mode": "AI Mode",
+    "openai_api_key": "OpenAI API Key",
+    "model": "Model",
+    "api_key_optional_title": "API Key Optional",
+    "api_key_optional_message": "AI mode is enabled, but no API key is saved here. The app will fall back to the OPENAI_API_KEY environment variable if available.",
+    "settings_saved_title": "Settings Saved",
+    "settings_saved_message": "Settings saved successfully.\nMode: {mode}",
+    "mode_openai": "OpenAI enhancement enabled",
+    "mode_local": "Local chat only"
+  },
+  "chart": {
+    "house": "House",
+    "sign": "Sign",
+    "planet": "Planet",
+    "in_house": "in House",
+    "insight_fallback": "Hover or click to inspect chart placements.",
+    "planet_insight_fallback": "No specific insight available for this placement yet.",
+    "house_insight_fallback": "No specific insight available for this house yet."
+  },
+  "planet": {
+    "sun": "Sun",
+    "moon": "Moon",
+    "mars": "Mars",
+    "mercury": "Mercury",
+    "jupiter": "Jupiter",
+    "venus": "Venus",
+    "saturn": "Saturn",
+    "rahu": "Rahu",
+    "ketu": "Ketu",
+    "ascendant": "Ascendant",
+    "lagna": "Lagna"
+  },
+  "prediction": {
+    "connector": {
+      "however": "However,",
+      "still": "Still,",
+      "at_same_time": "At the same time,"
+    },
+    "message": {
+      "chart_generated_no_rules": "Chart generated successfully. No matching rules found.",
+      "sun_first_house_vitality": "Sun in the 1st House provides strong vitality, leadership skills, and radiant energy.",
+      "moon_cancer_intuition": "Moon in Cancer (Own Sign) gives deep emotional intelligence and strong intuition.",
+      "budhaditya_yoga_first_house": "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.",
+      "jupiter_first_house_wisdom": "Jupiter in the 1st House grants wisdom, optimism, and a protective aura."
+    }
+  }
+}

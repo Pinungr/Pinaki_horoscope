@@ -58,18 +58,33 @@ def _normalize_prediction(prediction: Any) -> Dict[str, Any]:
             weight = abs(float(prediction.get("weight", 1.0) or 1.0))
         except (TypeError, ValueError):
             weight = 1.0
+        result_key = str(prediction.get("result_key") or prediction.get("text_key") or "").strip() or None
     else:
         text = str(prediction).strip()
         category = "general"
         effect = "positive"
         weight = 1.0
+        result_key = None
 
     return {
         "text": text,
         "category": category or "general",
         "effect": effect,
         "weight": weight,
+        "result_key": result_key,
     }
+
+
+def _deduplicate_values(values: Iterable[str]) -> List[str]:
+    seen = set()
+    ordered: List[str] = []
+    for value in values:
+        normalized = str(value or "").strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        ordered.append(normalized)
+    return ordered
 
 
 def _split_sentences(text: str) -> List[str]:
@@ -224,15 +239,21 @@ def score_predictions(predictions: list) -> dict:
                 "negative_score": 0.0,
                 "positive_texts": [],
                 "negative_texts": [],
+                "positive_keys": [],
+                "negative_keys": [],
             },
         )
 
         if normalized["effect"] == "negative":
             bucket["negative_score"] += normalized["weight"]
             bucket["negative_texts"].append(normalized["text"])
+            if normalized["result_key"]:
+                bucket["negative_keys"].append(normalized["result_key"])
         else:
             bucket["positive_score"] += normalized["weight"]
             bucket["positive_texts"].append(normalized["text"])
+            if normalized["result_key"]:
+                bucket["positive_keys"].append(normalized["result_key"])
 
     scored_output: Dict[str, Dict[str, Any]] = {}
     for category, bucket in grouped.items():
@@ -251,6 +272,8 @@ def score_predictions(predictions: list) -> dict:
                 bucket["negative_texts"],
                 score,
             ),
+            "positive_summary_keys": _deduplicate_values(bucket["positive_keys"]),
+            "negative_summary_keys": _deduplicate_values(bucket["negative_keys"]),
         }
 
     return scored_output

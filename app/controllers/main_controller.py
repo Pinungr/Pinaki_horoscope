@@ -7,6 +7,7 @@ from app.ui.main_window import MainWindow
 from app.services.horoscope_service import HoroscopeService
 from app.services.horoscope_chat_service import HoroscopeChatService
 from app.services.app_settings_service import AppSettingsService
+from app.services.language_manager import LanguageManager
 from app.services.openai_refiner_service import OpenAIRefinerService
 from app.services.report_service import ReportService
 from app.repositories.database_manager import DatabaseManager
@@ -22,6 +23,8 @@ class MainController:
         self.service = HoroscopeService(db_manager)
         self.report_service = ReportService(db_manager)
         self.settings_service = AppSettingsService()
+        initial_settings = self.settings_service.load()
+        self.language_manager = LanguageManager(str(initial_settings.get("language_code", "en")))
         self.ai_refiner_service = OpenAIRefinerService(self.settings_service)
         self.chat_service = HoroscopeChatService(
             horoscope_service=self.service,
@@ -30,9 +33,8 @@ class MainController:
         self.active_user_id = None
         
         # Instantiate UI
-        self.view = MainWindow()
+        self.view = MainWindow(language_manager=self.language_manager)
         self.view.chat_screen.configure_chat_service(self.chat_service)
-        initial_settings = self.settings_service.load()
         self.view.settings_screen.load_settings(initial_settings)
         self.view.chat_screen.set_mode_badge("openai" if initial_settings.get("ai_enabled") else "local")
         
@@ -48,6 +50,7 @@ class MainController:
         self.view.rule_editor_screen.save_rule_requested.connect(self.handle_save_rule)
         self.view.chart_display.generate_report_requested.connect(self.handle_generate_report)
         self.view.timeline_view.period_selected.connect(self.handle_timeline_period_selected)
+        self.view.settings_screen.language_changed.connect(self.handle_language_changed)
         self.view.settings_screen.save_requested.connect(self.handle_save_settings)
         
         # Populate initial user list
@@ -233,13 +236,15 @@ class MainController:
         try:
             log_user_action("controller_save_settings", ai_enabled=settings_data.get("ai_enabled"))
             saved_settings = self.settings_service.save(settings_data)
+            self.language_manager.set_language(str(saved_settings.get("language_code", "en")))
+            self.view.apply_translations()
             self.view.settings_screen.load_settings(saved_settings)
 
-            mode_text = "OpenAI enhancement enabled" if saved_settings.get("ai_enabled") else "Local chat only"
+            mode_text = self.language_manager.get_text("ui.mode_openai") if saved_settings.get("ai_enabled") else self.language_manager.get_text("ui.mode_local")
             QMessageBox.information(
                 self.view,
-                "Settings Saved",
-                f"Settings saved successfully.\nMode: {mode_text}",
+                self.language_manager.get_text("ui.settings_saved_title"),
+                self.language_manager.get_text("ui.settings_saved_message").format(mode=mode_text),
             )
             self.view.chat_screen.set_mode_badge("openai" if saved_settings.get("ai_enabled") else "local")
             self.view.chat_screen.append_system_message(
@@ -248,6 +253,11 @@ class MainController:
         except Exception as exc:
             logger.exception("Failed to save settings: %s", exc)
             QMessageBox.critical(self.view, "Settings Error", self._friendly_error(exc, "Failed to save settings."))
+
+    def handle_language_changed(self, language_code: str):
+        """Applies a newly selected language immediately without restart."""
+        self.language_manager.set_language(language_code)
+        self.view.apply_translations()
 
     def _build_report_filename(self, user_name: str) -> str:
         """Builds a filesystem-safe default report filename from the active user name."""

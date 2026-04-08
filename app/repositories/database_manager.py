@@ -37,9 +37,27 @@ class DatabaseManager:
             alter_statements.append("ALTER TABLE rules ADD COLUMN weight REAL DEFAULT 1.0")
         if "confidence" not in existing_columns:
             alter_statements.append("ALTER TABLE rules ADD COLUMN confidence TEXT DEFAULT 'medium'")
+        if "result_key" not in existing_columns:
+            alter_statements.append("ALTER TABLE rules ADD COLUMN result_key TEXT")
 
         for statement in alter_statements:
             cursor.execute(statement)
+
+        key_backfills = {
+            "Sun in the 1st House provides strong vitality, leadership skills, and radiant energy.": "sun_first_house_vitality",
+            "Moon in Cancer (Own Sign) gives deep emotional intelligence and strong intuition.": "moon_cancer_intuition",
+            "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.": "budhaditya_yoga_first_house",
+            "Jupiter in the 1st House grants wisdom, optimism, and a protective aura.": "jupiter_first_house_wisdom",
+        }
+        for result_text, result_key in key_backfills.items():
+            cursor.execute(
+                """
+                UPDATE rules
+                SET result_key = ?
+                WHERE result_text = ? AND (result_key IS NULL OR TRIM(result_key) = '')
+                """,
+                (result_key, result_text),
+            )
 
         if alter_statements:
             logger.info("Applied rules table migration for scoring/effect columns.")
@@ -161,6 +179,7 @@ class DatabaseManager:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             condition_json TEXT NOT NULL,
             result_text TEXT NOT NULL,
+            result_key TEXT,
             priority INTEGER DEFAULT 0,
             category TEXT,
             effect TEXT DEFAULT 'positive',
@@ -199,12 +218,12 @@ class DatabaseManager:
                 cursor.execute('SELECT COUNT(*) FROM rules')
                 if cursor.fetchone()[0] == 0:
                     default_rules = [
-                        ('{"planet": "Sun", "house": 1}', "Sun in the 1st House provides strong vitality, leadership skills, and radiant energy.", 10, "General"),
-                        ('{"planet": "Moon", "sign": "Cancer"}', "Moon in Cancer (Own Sign) gives deep emotional intelligence and strong intuition.", 15, "Strength"),
-                        ('{"AND": [{"planet": "Sun", "house": 1}, {"planet": "Mercury", "house": 1}]}', "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.", 50, "Yoga"),
-                        ('{"planet": "Jupiter", "house": 1}', "Jupiter in the 1st House grants wisdom, optimism, and a protective aura.", 10, "General")
+                        ('{"planet": "Sun", "house": 1}', "Sun in the 1st House provides strong vitality, leadership skills, and radiant energy.", "sun_first_house_vitality", 10, "General"),
+                        ('{"planet": "Moon", "sign": "Cancer"}', "Moon in Cancer (Own Sign) gives deep emotional intelligence and strong intuition.", "moon_cancer_intuition", 15, "Strength"),
+                        ('{"AND": [{"planet": "Sun", "house": 1}, {"planet": "Mercury", "house": 1}]}', "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.", "budhaditya_yoga_first_house", 50, "Yoga"),
+                        ('{"planet": "Jupiter", "house": 1}', "Jupiter in the 1st House grants wisdom, optimism, and a protective aura.", "jupiter_first_house_wisdom", 10, "General")
                     ]
-                    cursor.executemany('INSERT INTO rules (condition_json, result_text, priority, category) VALUES (?, ?, ?, ?)', default_rules)
+                    cursor.executemany('INSERT INTO rules (condition_json, result_text, result_key, priority, category) VALUES (?, ?, ?, ?, ?)', default_rules)
 
                 conn.commit()
                 logger.debug("Database schema initialized successfully.")

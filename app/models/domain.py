@@ -31,6 +31,7 @@ class ChartData:
 class Rule:
     condition_json: str
     result_text: str
+    result_key: Optional[str] = None
     priority: int = 0
     category: Optional[str] = None
     effect: str = "positive"
@@ -40,6 +41,7 @@ class Rule:
 
     def __post_init__(self) -> None:
         """Normalizes optional scoring fields while remaining backward compatible."""
+        self.result_key = str(self.result_key or "").strip() or None
         self.category = self.category or "general"
         self.effect = (self.effect or "positive").strip().lower()
         if self.effect not in {"positive", "negative"}:

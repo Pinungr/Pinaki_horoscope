@@ -65,6 +65,8 @@ class HoroscopeService:
                 "score": 0.0,
                 "confidence": "low",
                 "summary": summary,
+                "positive_summary_keys": ["chart_generated_no_rules"],
+                "negative_summary_keys": [],
             }
         }
 
@@ -232,6 +234,11 @@ class HoroscopeService:
                         if isinstance(raw_prediction, dict) and raw_prediction.get("weight") is not None
                         else matched_rule.weight if matched_rule else 1.0
                     ),
+                    "result_key": (
+                        raw_prediction.get("result_key")
+                        if isinstance(raw_prediction, dict) and raw_prediction.get("result_key")
+                        else matched_rule.result_key if matched_rule else None
+                    ),
                     "rule_confidence": (
                         raw_prediction.get("rule_confidence")
                         if isinstance(raw_prediction, dict) and raw_prediction.get("rule_confidence")
@@ -368,6 +375,7 @@ class HoroscopeService:
         r = Rule(
             condition_json=rule_data["condition_json"],
             result_text=rule_data["result_text"],
+            result_key=rule_data.get("result_key"),
             priority=rule_data.get("priority", 0),
             category=rule_data.get("category", "general"),
             effect=rule_data.get("effect", "positive"),

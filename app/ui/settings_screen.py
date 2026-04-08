@@ -5,6 +5,7 @@ from typing import Dict
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QFormLayout,
     QLabel,
     QLineEdit,
@@ -13,54 +14,68 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from app.services.language_manager import LanguageManager
 
 
 class SettingsScreen(QWidget):
     """Simple settings panel for optional AI enhancement."""
 
     save_requested = pyqtSignal(dict)
+    language_changed = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, language_manager: LanguageManager | None = None):
         super().__init__()
+        self.language_manager = language_manager or LanguageManager()
         self.init_ui()
 
     def init_ui(self) -> None:
         layout = QVBoxLayout()
-        form_layout = QFormLayout()
+        self.form_layout = QFormLayout()
 
-        self.info_label = QLabel(
-            "AI enhancement is optional. Leave it off to use the local horoscope chat only."
-        )
+        self.info_label = QLabel()
         self.info_label.setWordWrap(True)
         self.info_label.setStyleSheet("color: #556070; margin-bottom: 8px;")
 
-        self.ai_enabled_checkbox = QCheckBox("Enable OpenAI refinement")
+        self.language_combo = QComboBox()
+        self.language_combo.currentIndexChanged.connect(self._handle_language_changed)
+
+        self.ai_enabled_checkbox = QCheckBox()
 
         self.api_key_input = QLineEdit()
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.api_key_input.setPlaceholderText("Optional: paste your OpenAI API key")
 
         self.model_input = QLineEdit()
-        self.model_input.setPlaceholderText("e.g. gpt-5-mini")
 
-        form_layout.addRow("AI Mode:", self.ai_enabled_checkbox)
-        form_layout.addRow("OpenAI API Key:", self.api_key_input)
-        form_layout.addRow("Model:", self.model_input)
+        self.language_caption = QLabel()
+        self.ai_mode_caption = QLabel()
+        self.api_key_caption = QLabel()
+        self.model_caption = QLabel()
 
-        self.save_button = QPushButton("Save Settings")
+        self.form_layout.addRow(self.language_caption, self.language_combo)
+        self.form_layout.addRow(self.ai_mode_caption, self.ai_enabled_checkbox)
+        self.form_layout.addRow(self.api_key_caption, self.api_key_input)
+        self.form_layout.addRow(self.model_caption, self.model_input)
+
+        self.save_button = QPushButton()
         self.save_button.clicked.connect(self.handle_save)
 
         layout.addWidget(self.info_label)
-        layout.addLayout(form_layout)
+        layout.addLayout(self.form_layout)
         layout.addWidget(self.save_button)
         layout.addStretch()
         self.setLayout(layout)
+        self.apply_translations()
 
     def load_settings(self, settings: Dict[str, object]) -> None:
         """Populates the form from persisted settings."""
         self.ai_enabled_checkbox.setChecked(bool(settings.get("ai_enabled", False)))
         self.api_key_input.setText(str(settings.get("openai_api_key", "")))
         self.model_input.setText(str(settings.get("openai_model", "gpt-5-mini")))
+        language_code = str(settings.get("language_code", "en") or "en").strip().lower()
+        self.language_combo.blockSignals(True)
+        index = self.language_combo.findData(language_code)
+        self.language_combo.setCurrentIndex(index if index >= 0 else 0)
+        self.language_combo.blockSignals(False)
 
     def handle_save(self) -> None:
         """Validates and emits the current settings payload."""
@@ -69,14 +84,46 @@ class SettingsScreen(QWidget):
             "ai_enabled": self.ai_enabled_checkbox.isChecked(),
             "openai_api_key": self.api_key_input.text().strip(),
             "openai_model": model,
+            "language_code": self.current_language_code(),
         }
 
         if payload["ai_enabled"] and not payload["openai_api_key"]:
             QMessageBox.information(
                 self,
-                "API Key Optional",
-                "AI mode is enabled, but no API key is saved here. "
-                "The app will fall back to the OPENAI_API_KEY environment variable if available.",
+                self._tr("ui.api_key_optional_title"),
+                self._tr("ui.api_key_optional_message"),
             )
 
         self.save_requested.emit(payload)
+
+    def current_language_code(self) -> str:
+        return str(self.language_combo.currentData() or "en").strip().lower()
+
+    def apply_translations(self) -> None:
+        self.info_label.setText(self._tr("ui.ai_optional_info"))
+        self.language_caption.setText(f"{self._tr('ui.language')}:")
+        self.ai_mode_caption.setText(f"{self._tr('ui.ai_mode')}:")
+        self.api_key_caption.setText(f"{self._tr('ui.openai_api_key')}:")
+        self.model_caption.setText(f"{self._tr('ui.model')}:")
+        self.ai_enabled_checkbox.setText(self._tr("ui.enable_openai_refinement"))
+        self.api_key_input.setPlaceholderText(self._tr("ui.optional_openai_api_key"))
+        self.model_input.setPlaceholderText(self._tr("ui.model_placeholder"))
+        self.save_button.setText(self._tr("ui.save_settings"))
+        self._populate_language_options()
+
+    def _populate_language_options(self) -> None:
+        current_code = self.current_language_code() if self.language_combo.count() else "en"
+        self.language_combo.blockSignals(True)
+        self.language_combo.clear()
+        self.language_combo.addItem(self._tr("language.english"), "en")
+        self.language_combo.addItem(self._tr("language.hindi"), "hi")
+        self.language_combo.addItem(self._tr("language.odia"), "or")
+        index = self.language_combo.findData(current_code)
+        self.language_combo.setCurrentIndex(index if index >= 0 else 0)
+        self.language_combo.blockSignals(False)
+
+    def _handle_language_changed(self) -> None:
+        self.language_changed.emit(self.current_language_code())
+
+    def _tr(self, key: str) -> str:
+        return self.language_manager.get_text(key)

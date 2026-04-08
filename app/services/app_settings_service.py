@@ -14,6 +14,7 @@ class AppSettingsService:
         "ai_enabled": False,
         "openai_api_key": "",
         "openai_model": "gpt-5-mini",
+        "language_code": "en",
     }
 
     def __init__(self, settings_path: Path | None = None):

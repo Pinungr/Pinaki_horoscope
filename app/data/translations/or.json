@@ -1,0 +1,98 @@
+{
+  "meta": {
+    "code": "or",
+    "native_name": "ଓଡ଼ିଆ"
+  },
+  "language": {
+    "english": "ଇଂରାଜୀ",
+    "hindi": "ହିନ୍ଦୀ",
+    "odia": "ଓଡ଼ିଆ"
+  },
+  "ui": {
+    "app_title": "ଅଫଲାଇନ କୁଣ୍ଡଳୀ ଇଞ୍ଜିନ",
+    "chart_generator": "ଚାର୍ଟ ଜେନେରେଟର",
+    "chart_information": "ଚାର୍ଟ ସୂଚନା",
+    "birth_chart": "ଜନ୍ମ କୁଣ୍ଡଳୀ",
+    "north_indian_kundli": "ଉତ୍ତର ଭାରତୀୟ କୁଣ୍ଡଳୀ",
+    "user_management": "ଉପଯୋଗକର୍ତ୍ତା ପରିଚାଳନା",
+    "rule_editor": "ନିୟମ ସମ୍ପାଦକ",
+    "horoscope_chat": "କୁଣ୍ଡଳୀ ଚାଟ",
+    "aspects": "ଦୃଷ୍ଟି",
+    "dasha": "ଦଶା",
+    "life_timeline": "ଜୀବନ ସମୟରେଖା",
+    "navamsha_d9": "ନବାଂଶ D9",
+    "plugins": "ପ୍ଲଗଇନ୍ସ",
+    "settings": "ସେଟିଙ୍ଗସ୍",
+    "name": "ନାମ",
+    "date_of_birth": "ଜନ୍ମ ତାରିଖ",
+    "time_of_birth": "ଜନ୍ମ ସମୟ",
+    "place": "ସ୍ଥାନ",
+    "state": "ରାଜ୍ୟ",
+    "city": "ସହର",
+    "select_state": "ରାଜ୍ୟ ଚୟନ କରନ୍ତୁ",
+    "select_city": "ସହର ଚୟନ କରନ୍ତୁ",
+    "auto_fill_location": "ସହରରୁ ସ୍ୱୟଂଚାଳିତ ଭାବେ ଭରାଯିବ, କିମ୍ବା ନିଜେ ଲେଖନ୍ତୁ",
+    "language": "ଭାଷା",
+    "latitude": "ଅକ୍ଷାଂଶ",
+    "longitude": "ଦ୍ରାଘିମାଂଶ",
+    "generate_chart": "ଚାର୍ଟ ସୃଷ୍ଟି କରନ୍ତୁ",
+    "save_user": "ଉପଯୋଗକର୍ତ୍ତା ସଞ୍ଚୟ କରନ୍ତୁ",
+    "generate_report": "ରିପୋର୍ଟ ସୃଷ୍ଟି କରନ୍ତୁ",
+    "save_settings": "ସେଟିଙ୍ଗସ୍ ସଞ୍ଚୟ କରନ୍ତୁ",
+    "predictions": "ଭବିଷ୍ୟବାଣୀ",
+    "hover_chart_hint": "ତୁରନ୍ତ ତଥ୍ୟ ଦେଖିବା ପାଇଁ ଗ୍ରହ କିମ୍ବା ଭାବ ଉପରେ ମାଉସ ନେଇଯାଆନ୍ତୁ।",
+    "awaiting_generation": "ସୃଷ୍ଟି ଅପେକ୍ଷାରେ...",
+    "no_predictions_found": "ଏହି ଚାର୍ଟ ପାଇଁ କୌଣସି ଭବିଷ୍ୟବାଣୀ ମିଳିଲା ନାହିଁ।",
+    "validation_error": "ଯାଞ୍ଚ ତ୍ରୁଟି",
+    "name_required": "ନାମ ଆବଶ୍ୟକ!",
+    "ai_optional_info": "AI enhancement ବୈକଳ୍ପିକ। ଏହାକୁ ବନ୍ଦ ରଖିଲେ କେବଳ ସ୍ଥାନୀୟ କୁଣ୍ଡଳୀ ଚାଟ ବ୍ୟବହାର ହେବ।",
+    "enable_openai_refinement": "OpenAI refinement ସକ୍ରିୟ କରନ୍ତୁ",
+    "optional_openai_api_key": "ଇଚ୍ଛାନୁସାରେ: ଆପଣଙ୍କ OpenAI API key ଏଠାରେ ପେଷ୍ଟ କରନ୍ତୁ",
+    "model_placeholder": "ଉଦାହରଣ: gpt-5-mini",
+    "ai_mode": "AI ମୋଡ୍",
+    "openai_api_key": "OpenAI API Key",
+    "model": "ମଡେଲ୍",
+    "api_key_optional_title": "API Key ଇଚ୍ଛାନୁସାରେ",
+    "api_key_optional_message": "AI mode ସକ୍ରିୟ ଅଛି, କିନ୍ତୁ ଏଠାରେ କୌଣସି API key ସଞ୍ଚୟ ହୋଇନାହିଁ। ଉପଲବ୍ଧ ଥିଲେ ଆପ୍ OPENAI_API_KEY environment variable ବ୍ୟବହାର କରିବ।",
+    "settings_saved_title": "ସେଟିଙ୍ଗସ୍ ସଞ୍ଚୟ ହେଲା",
+    "settings_saved_message": "ସେଟିଙ୍ଗସ୍ ସଫଳତାର ସହ ସଞ୍ଚୟ ହେଲା।\nମୋଡ୍: {mode}",
+    "mode_openai": "OpenAI enhancement ସକ୍ରିୟ",
+    "mode_local": "କେବଳ ସ୍ଥାନୀୟ ଚାଟ"
+  },
+  "chart": {
+    "house": "ଭାବ",
+    "sign": "ରାଶି",
+    "planet": "ଗ୍ରହ",
+    "in_house": "ଭାବରେ",
+    "insight_fallback": "ଚାର୍ଟର ସ୍ଥିତି ଦେଖିବା ପାଇଁ ମାଉସ ନେଇଯାଆନ୍ତୁ କିମ୍ବା କ୍ଲିକ କରନ୍ତୁ।",
+    "planet_insight_fallback": "ଏହି ଗ୍ରହ ସ୍ଥିତି ପାଇଁ ଏପର୍ଯ୍ୟନ୍ତ ବିଶେଷ ତଥ୍ୟ ଉପଲବ୍ଧ ନାହିଁ।",
+    "house_insight_fallback": "ଏହି ଭାବ ପାଇଁ ଏପର୍ଯ୍ୟନ୍ତ ବିଶେଷ ତଥ୍ୟ ଉପଲବ୍ଧ ନାହିଁ।"
+  },
+  "planet": {
+    "sun": "ସୂର୍ଯ୍ୟ",
+    "moon": "ଚନ୍ଦ୍ର",
+    "mars": "ମଙ୍ଗଳ",
+    "mercury": "ବୁଧ",
+    "jupiter": "ଗୁରୁ",
+    "venus": "ଶୁକ୍ର",
+    "saturn": "ଶନି",
+    "rahu": "ରାହୁ",
+    "ketu": "କେତୁ",
+    "ascendant": "ଲଗ୍ନ",
+    "lagna": "ଲଗ୍ନ"
+  },
+  "prediction": {
+    "connector": {
+      "however": "ତଥାପି,",
+      "still": "ତଥାସତ୍ତ୍ୱେ,",
+      "at_same_time": "ସେହି ସମୟରେ,"
+    },
+    "message": {
+      "chart_generated_no_rules": "ଚାର୍ଟ ସଫଳତାର ସହ ତିଆରି ହୋଇଛି। କୌଣସି ମେଳ ଥିବା ନିୟମ ମିଳିଲା ନାହିଁ।",
+      "sun_first_house_vitality": "ପ୍ରଥମ ଭାବରେ ସୂର୍ଯ୍ୟ ଶକ୍ତିଶାଳୀ ଜୀବନଶକ୍ତି, ନେତୃତ୍ୱ କ୍ଷମତା ଏବଂ ଦ୍ରୁତିମୟ ଉର୍ଜା ଦେଇଥାଏ।",
+      "moon_cancer_intuition": "କର୍କଟ ରାଶିରେ ଚନ୍ଦ୍ର ଗଭୀର ଭାବନାତ୍ମକ ବୁଦ୍ଧି ଏବଂ ଶକ୍ତିଶାଳୀ ଅନ୍ତର୍ଜ୍ଞାନ ଦେଇଥାଏ।",
+      "budhaditya_yoga_first_house": "ପ୍ରଥମ ଭାବରେ ବୁଧାଦିତ୍ୟ ଯୋଗ ଉଚ୍ଚ ବୁଦ୍ଧିମତା, ଆକର୍ଷଣୀୟ କଥନଶୈଳୀ ଏବଂ ଦୃଢ ଚରିତ୍ର ଦେଇଥାଏ।",
+      "jupiter_first_house_wisdom": "ପ୍ରଥମ ଭାବରେ ବୃହସ୍ପତି ଜ୍ଞାନ, ଆଶାବାଦ ଏବଂ ସୁରକ୍ଷାଦାୟକ ଆଭା ପ୍ରଦାନ କରେ।"
+    }
+  }
+}

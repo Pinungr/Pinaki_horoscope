@@ -15,8 +15,8 @@ class RuleRepository:
     def save(self, rule: Rule) -> int:
         """Saves a new astrology rule to the database."""
         sql = '''
-        INSERT INTO rules (condition_json, result_text, priority, category, effect, weight, confidence)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO rules (condition_json, result_text, result_key, priority, category, effect, weight, confidence)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         '''
         try:
             with self.db.get_connection() as conn:
@@ -24,6 +24,7 @@ class RuleRepository:
                 cursor.execute(sql, (
                     rule.condition_json,
                     rule.result_text,
+                    rule.result_key,
                     rule.priority,
                     rule.category,
                     rule.effect,
@@ -49,6 +50,7 @@ class RuleRepository:
                         id=row['id'],
                         condition_json=row['condition_json'],
                         result_text=row['result_text'],
+                        result_key=row["result_key"] if "result_key" in row.keys() else None,
                         priority=row['priority'],
                         category=row['category'],
                         effect=row["effect"] if "effect" in row.keys() else "positive",

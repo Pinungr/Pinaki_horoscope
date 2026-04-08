@@ -20,6 +20,7 @@ class RuleEngineTests(unittest.TestCase):
                 id=101,
                 condition_json='{"planet": "Moon", "house": 10}',
                 result_text="Career growth is strongly indicated.",
+                result_key="career_growth_strong",
                 category="career",
                 priority=1,
                 weight=1.4,
@@ -43,6 +44,7 @@ class RuleEngineTests(unittest.TestCase):
         self.assertEqual("Promotion timing may feel delayed.", predictions[0]["text"])
         self.assertEqual("negative", predictions[0]["effect"])
         self.assertEqual(0.6, predictions[0]["weight"])
+        self.assertEqual("career_growth_strong", predictions[1]["result_key"])
         self.assertEqual("high", predictions[1]["rule_confidence"])
 
     def test_evaluate_supports_nested_and_or_conditions(self) -> None:

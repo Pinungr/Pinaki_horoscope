@@ -93,6 +93,9 @@ class RuleEditorScreen(QWidget):
         self.result_input = QLineEdit()
         self.result_input.setPlaceholderText("e.g. This gives strong leadership...")
         self.result_input.setMinimumHeight(40)
+
+        self.result_key_input = QLineEdit()
+        self.result_key_input.setPlaceholderText("Optional: prediction.message.sun_first_house_vitality")
         
         self.category_input = QLineEdit()
         self.category_input.setPlaceholderText("e.g. Yoga, General")
@@ -110,6 +113,7 @@ class RuleEditorScreen(QWidget):
         self.priority_input.setValue(10)
         
         form_layout.addRow("Result Text:", self.result_input)
+        form_layout.addRow("Result Key:", self.result_key_input)
         form_layout.addRow("Category:", self.category_input)
         form_layout.addRow("Effect:", self.effect_input)
         form_layout.addRow("Weight:", self.weight_input)
@@ -168,6 +172,7 @@ class RuleEditorScreen(QWidget):
         self.save_rule_requested.emit({
             "condition_json": json.dumps(json_cond),
             "result_text": result_text,
+            "result_key": self.result_key_input.text().strip().replace("prediction.message.", ""),
             "category": self.category_input.text().strip(),
             "effect": self.effect_input.currentText().strip().lower(),
             "weight": self.weight_input.value(),
@@ -176,6 +181,7 @@ class RuleEditorScreen(QWidget):
         
     def clear_form(self):
         self.result_input.clear()
+        self.result_key_input.clear()
         self.category_input.clear()
         self.effect_input.setCurrentIndex(0)
         self.weight_input.setValue(1.0)
