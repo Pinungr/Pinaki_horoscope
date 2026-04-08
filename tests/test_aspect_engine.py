@@ -7,6 +7,9 @@ from core.engines.aspect_engine import calculate_aspects
 
 
 class AspectEngineTests(unittest.TestCase):
+    def test_calculate_aspects_returns_empty_list_for_none_input(self) -> None:
+        self.assertEqual([], calculate_aspects(None))
+
     def test_calculate_aspects_returns_parashara_drishti_records(self) -> None:
         chart_data = [
             ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
@@ -25,6 +28,23 @@ class AspectEngineTests(unittest.TestCase):
                 {"from_planet": "Jupiter", "to_planet": "Saturn", "from_house": 9, "to_house": 3, "aspect_type": "drishti"},
                 {"from_planet": "Jupiter", "to_planet": "Moon", "from_house": 9, "to_house": 5, "aspect_type": "drishti"},
                 {"from_planet": "Mars", "to_planet": "Saturn", "from_house": 12, "to_house": 3, "aspect_type": "drishti"},
+            ],
+            aspects,
+        )
+
+    def test_calculate_aspects_supports_multiple_planets_in_same_target_house(self) -> None:
+        chart_data = [
+            ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
+            ChartData(user_id=1, planet_name="Moon", sign="Leo", house=5, degree=12.0),
+            ChartData(user_id=1, planet_name="Venus", sign="Leo", house=5, degree=18.0),
+        ]
+
+        aspects = calculate_aspects(chart_data)
+
+        self.assertEqual(
+            [
+                {"from_planet": "Saturn", "to_planet": "Moon", "from_house": 3, "to_house": 5, "aspect_type": "drishti"},
+                {"from_planet": "Saturn", "to_planet": "Venus", "from_house": 3, "to_house": 5, "aspect_type": "drishti"},
             ],
             aspects,
         )

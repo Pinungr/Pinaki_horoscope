@@ -36,8 +36,12 @@ def calculate_aspects(chart_data: Iterable[object]) -> list[dict[str, object]]:
         "aspect_type": "drishti"
     }
     """
+    if chart_data is None:
+        return []
+
     planets = _normalize_chart_data(chart_data)
     aspects: list[dict[str, object]] = []
+    planets_by_house = _group_planets_by_house(planets)
 
     for source in planets:
         from_planet = source["planet_name"]
@@ -45,8 +49,11 @@ def calculate_aspects(chart_data: Iterable[object]) -> list[dict[str, object]]:
 
         for aspect_offset in _get_aspect_offsets(from_planet):
             to_house = _get_target_house(from_house, aspect_offset)
+            target_planets = planets_by_house.get(to_house, [])
+            if not target_planets:
+                continue
 
-            for target in planets:
+            for target in target_planets:
                 to_planet = target["planet_name"]
                 if to_planet == from_planet or target["house"] != to_house:
                     continue
@@ -69,7 +76,21 @@ def _get_aspect_offsets(planet_name: str) -> tuple[int, ...]:
 
 
 def _get_target_house(from_house: int, aspect_offset: int) -> int:
+    # Parashara aspect offsets are counted inclusively from the source house.
+    # Example: 3rd aspect from house 1 lands on house 3, not house 4.
     return (from_house + aspect_offset - 2) % 12 + 1
+
+
+def _group_planets_by_house(
+    planets: list[dict[str, int | str]],
+) -> dict[int, list[dict[str, int | str]]]:
+    planets_by_house: dict[int, list[dict[str, int | str]]] = {}
+
+    for planet in planets:
+        house = int(planet["house"])
+        planets_by_house.setdefault(house, []).append(planet)
+
+    return planets_by_house
 
 
 def _normalize_chart_data(chart_data: Iterable[object]) -> list[dict[str, int | str]]:
