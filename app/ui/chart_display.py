@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from typing import List, Dict, Any, Optional
 import re
 from app.services.language_manager import LanguageManager
+from core.predictions.prediction_service import get_prediction
 
 class ChartDisplay(QWidget):
     generate_report_requested = pyqtSignal()
@@ -285,6 +286,10 @@ class ChartDisplay(QWidget):
         normalized = str(key or "").strip()
         if not normalized:
             return ""
+
+        mapped_prediction = get_prediction(normalized, self.language_manager.current_language)
+        if mapped_prediction:
+            return mapped_prediction
 
         path = normalized if normalized.startswith("prediction.message.") else f"prediction.message.{normalized}"
         translated = self._tr(path)
