@@ -1,9 +1,18 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QLineEdit,
-    QPushButton, QDateEdit, QTimeEdit, QMessageBox, QComboBox
+    QPushButton, QDateEdit, QTimeEdit, QMessageBox, QComboBox, QLabel, QHBoxLayout
 )
 from PyQt6.QtCore import pyqtSignal, QDate, QTime
 from app.services.language_manager import LanguageManager
+from app.ui.theme import (
+    SPACE_8,
+    SPACE_12,
+    SPACE_16,
+    SPACE_24,
+    fade_in_widget,
+    set_button_icon,
+    set_button_variant,
+)
 
 class InputForm(QWidget):
     # Signals to communicate with the Main Window / Controller
@@ -15,14 +24,26 @@ class InputForm(QWidget):
     def __init__(self, language_manager: LanguageManager | None = None):
         super().__init__()
         self.language_manager = language_manager or LanguageManager()
+        self._busy = False
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout()
+        layout.setContentsMargins(SPACE_24, SPACE_24, SPACE_24, SPACE_24)
+        layout.setSpacing(SPACE_16)
         self.form_layout = QFormLayout()
+        self.form_layout.setHorizontalSpacing(SPACE_12)
+        self.form_layout.setVerticalSpacing(SPACE_12)
+
+        self.title_label = QLabel()
+        self.title_label.setProperty("role", "title")
+        self.subtitle_label = QLabel()
+        self.subtitle_label.setProperty("role", "subtitle")
+        self.subtitle_label.setWordWrap(True)
 
         # Input Fields
         self.name_input = QLineEdit()
+        self.name_input.setClearButtonEnabled(True)
         self.dob_input = QDateEdit()
         self.dob_input.setCalendarPopup(True)
         self.dob_input.setDate(QDate(1990, 1, 1))
@@ -40,16 +61,17 @@ class InputForm(QWidget):
         self.place_input = QLineEdit()
         self.lat_input = QLineEdit()
         self.lon_input = QLineEdit()
+        self.lat_input.setClearButtonEnabled(True)
+        self.lon_input.setClearButtonEnabled(True)
         
-        self.name_label = self.form_layout.addRow
-        self.name_caption = self._new_form_label()
-        self.dob_caption = self._new_form_label()
-        self.tob_caption = self._new_form_label()
-        self.state_caption = self._new_form_label()
-        self.city_caption = self._new_form_label()
-        self.place_caption = self._new_form_label()
-        self.lat_caption = self._new_form_label()
-        self.lon_caption = self._new_form_label()
+        self.name_caption = QLabel()
+        self.dob_caption = QLabel()
+        self.tob_caption = QLabel()
+        self.state_caption = QLabel()
+        self.city_caption = QLabel()
+        self.place_caption = QLabel()
+        self.lat_caption = QLabel()
+        self.lon_caption = QLabel()
 
         self.form_layout.addRow(self.name_caption, self.name_input)
         self.form_layout.addRow(self.dob_caption, self.dob_input)
@@ -60,32 +82,54 @@ class InputForm(QWidget):
         self.form_layout.addRow(self.lat_caption, self.lat_input)
         self.form_layout.addRow(self.lon_caption, self.lon_input)
 
-        layout.addLayout(self.form_layout)
+        self.error_label = QLabel("")
+        self.error_label.setWordWrap(True)
+        self.error_label.setVisible(False)
+        self.error_label.setStyleSheet("color: #b91c1c; font-size: 12px; font-weight: 600;")
+        self.status_label = QLabel("")
+        self.status_label.setWordWrap(True)
+        self.status_label.setVisible(False)
+        self.status_label.setStyleSheet(
+            "font-size: 11px; color: #1e3a8a; background: #eff6ff; "
+            "border: 1px solid #bfdbfe; border-radius: 10px; padding: 4px 10px;"
+        )
 
         # Buttons
         self.btn_generate = QPushButton()
         self.btn_save = QPushButton()
+        self.btn_save.setProperty("variant", "ghost")
+        set_button_variant(self.btn_generate, "primary")
+        set_button_variant(self.btn_save, "ghost")
+        set_button_icon(self.btn_generate, "generate")
+        set_button_icon(self.btn_save, "save")
 
         self.btn_generate.clicked.connect(self.on_generate_clicked)
         self.btn_save.clicked.connect(self.on_save_clicked)
         self.state_input.currentIndexChanged.connect(self.on_state_changed)
         self.city_input.currentIndexChanged.connect(self.on_city_changed)
 
-        layout.addWidget(self.btn_generate)
-        layout.addWidget(self.btn_save)
+        action_row = QHBoxLayout()
+        action_row.setSpacing(SPACE_8)
+        action_row.addWidget(self.btn_generate)
+        action_row.addWidget(self.btn_save)
+
+        layout.addWidget(self.title_label)
+        layout.addWidget(self.subtitle_label)
+        layout.addLayout(self.form_layout)
+        layout.addWidget(self.status_label)
+        layout.addWidget(self.error_label)
+        layout.addLayout(action_row)
         
         layout.addStretch()
         self.setLayout(layout)
         self.apply_translations()
 
-    def _new_form_label(self):
-        from PyQt6.QtWidgets import QLabel
-        return QLabel()
-
     def _tr(self, key: str) -> str:
         return self.language_manager.get_text(key)
 
     def apply_translations(self) -> None:
+        self.title_label.setText(self._tr("ui.chart_generator"))
+        self.subtitle_label.setText("Enter accurate birth details to generate precise predictions.")
         self.name_caption.setText(f"{self._tr('ui.name')}:")
         self.dob_caption.setText(f"{self._tr('ui.date_of_birth')}:")
         self.tob_caption.setText(f"{self._tr('ui.time_of_birth')}:")
@@ -96,6 +140,7 @@ class InputForm(QWidget):
         self.lon_caption.setText(f"{self._tr('ui.longitude')}:")
 
         placeholder = self._tr("ui.auto_fill_location")
+        self.name_input.setPlaceholderText("e.g. Priya Sharma")
         self.place_input.setPlaceholderText(placeholder)
         self.lat_input.setPlaceholderText(placeholder)
         self.lon_input.setPlaceholderText(placeholder)
@@ -189,15 +234,72 @@ class InputForm(QWidget):
             self.city_changed.emit(state, city)
 
     def on_generate_clicked(self):
+        self._clear_error()
         data = self.get_form_data()
         if not data["name"]:
-            QMessageBox.warning(self, self._tr("ui.validation_error"), self._tr("ui.name_required"))
+            self._show_error(self._tr("ui.name_required"))
             return
         self.generate_requested.emit(data)
 
     def on_save_clicked(self):
+        self._clear_error()
         data = self.get_form_data()
         if not data["name"]:
-            QMessageBox.warning(self, self._tr("ui.validation_error"), self._tr("ui.name_required"))
+            self._show_error(self._tr("ui.name_required"))
             return
         self.save_requested.emit(data)
+
+    def _show_error(self, message: str) -> None:
+        text = str(message or "").strip()
+        if not text:
+            self._clear_error()
+            return
+        self.set_status("")
+        self.error_label.setText(text)
+        self.error_label.setVisible(True)
+        fade_in_widget(self.error_label)
+        QMessageBox.warning(self, self._tr("ui.validation_error"), text)
+
+    def _clear_error(self) -> None:
+        self.error_label.setText("")
+        self.error_label.setVisible(False)
+
+    def set_status(self, message: str, level: str = "info") -> None:
+        """Shows a compact status line above actions for progress feedback."""
+        text = str(message or "").strip()
+        if not text:
+            self.status_label.setText("")
+            self.status_label.setVisible(False)
+            return
+
+        normalized = str(level or "info").strip().lower()
+        palettes = {
+            "info": ("#1e3a8a", "#eff6ff", "#bfdbfe"),
+            "success": ("#166534", "#f0fdf4", "#86efac"),
+            "warning": ("#92400e", "#fffbeb", "#fcd34d"),
+            "error": ("#991b1b", "#fef2f2", "#fca5a5"),
+        }
+        color, background, border = palettes.get(normalized, palettes["info"])
+        self.status_label.setStyleSheet(
+            f"font-size: 11px; color: {color}; background: {background}; "
+            f"border: 1px solid {border}; border-radius: 10px; padding: 4px 10px;"
+        )
+        self.status_label.setText(text)
+        self.status_label.setVisible(True)
+        fade_in_widget(self.status_label)
+
+    def set_busy(self, busy: bool, mode: str = "generate") -> None:
+        """Disables actions and shows intent-specific button labels while processing."""
+        self._busy = bool(busy)
+        self.btn_generate.setEnabled(not self._busy)
+        self.btn_save.setEnabled(not self._busy)
+
+        if self._busy:
+            if str(mode or "").strip().lower() == "save":
+                self.btn_save.setText("Saving...")
+            else:
+                self.btn_generate.setText("Generating...")
+            return
+
+        self.btn_generate.setText(self._tr("ui.generate_chart"))
+        self.btn_save.setText(self._tr("ui.save_user"))

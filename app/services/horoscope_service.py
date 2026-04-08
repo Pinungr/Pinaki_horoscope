@@ -148,7 +148,16 @@ class HoroscopeService:
         """Removes all cached runtime data for one user."""
         self.cache.invalidate_user(
             user_id,
-            namespaces=("chart_display", "predictions", "advanced_data", "timeline"),
+            namespaces=(
+                "chart_display",
+                "predictions",
+                "advanced_data",
+                "timeline",
+                "ui_advanced_data",
+                "ui_timeline_forecast",
+                "chat_advanced_data",
+                "chat_timeline_forecast",
+            ),
         )
 
     def _normalize_timeline_event_type(self, raw_event: str) -> str:
@@ -419,7 +428,17 @@ class HoroscopeService:
             confidence=rule_data.get("confidence", "medium")
         )
         self.rule_repo.save(r)
-        self.cache.clear(namespaces=("predictions", "timeline"))
+        self.cache.clear(
+            namespaces=(
+                "predictions",
+                "timeline",
+                "advanced_data",
+                "ui_advanced_data",
+                "ui_timeline_forecast",
+                "chat_advanced_data",
+                "chat_timeline_forecast",
+            )
+        )
 
     def get_timeline_data(self, user_id: int) -> Dict[str, Any]:
         """

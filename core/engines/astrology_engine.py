@@ -87,6 +87,7 @@ class UnifiedAstrologyEngine:
         self,
         chart_data: Iterable[Any],
         *,
+        dob: str | None = None,
         language: str = "en",
         include_trace: bool = False,
         tone: str = "professional",
@@ -98,32 +99,54 @@ class UnifiedAstrologyEngine:
             language=normalized_language,
             include_trace=include_trace,
         )
+        dasha_payload = self._get_dasha_information(chart_snapshot, dob)
 
         enriched_predictions: list[dict[str, Any]] = []
         for yoga in yoga_results:
-            strength = {
+            base_strength = {
                 "level": yoga.strength_level,
                 "score": yoga.strength_score,
             }
-            context_prediction = self.prediction_service.generate_contextual(
-                chart=chart_snapshot,
-                yoga={
+            yoga_payload = {
+                "id": yoga.id,
+                "key_planets": list(yoga.key_planets),
+                "strength_level": yoga.strength_level,
+                "strength_score": yoga.strength_score,
+            }
+            timing = self.prediction_service.evaluate_dasha_relevance(
+                {
                     "id": yoga.id,
                     "key_planets": list(yoga.key_planets),
-                    "strength_level": yoga.strength_level,
-                    "strength_score": yoga.strength_score,
                 },
-                strength=strength,
+                dasha_payload,
+            )
+            boosted_score = self._apply_timing_multiplier(
+                yoga.strength_score,
+                timing.get("score_multiplier"),
+            )
+            context_prediction = self.prediction_service.generate_contextual(
+                chart=chart_snapshot,
+                yoga=yoga_payload,
+                strength={**base_strength, "score": boosted_score},
                 language=normalized_language,
             )
+            timing_text = self.prediction_service.build_timing_text(timing)
+            base_text = str(context_prediction.get("text", "")).strip()
+            text = " ".join(part for part in [base_text, timing_text] if part).strip()
 
             enriched_predictions.append(
                 {
                     "yoga": _humanize_yoga_name(yoga.id),
                     "area": context_prediction.get("area", "general"),
                     "strength": yoga.strength_level,
-                    "score": yoga.strength_score,
-                    "text": context_prediction.get("text", ""),
+                    "score": boosted_score,
+                    "text": text,
+                    "timing": {
+                        "mahadasha": timing.get("mahadasha"),
+                        "antardasha": timing.get("antardasha"),
+                        "relevance": timing.get("relevance", "low"),
+                        "matched_planets": timing.get("matched_planets", []),
+                    },
                 }
             )
 
@@ -237,6 +260,21 @@ class UnifiedAstrologyEngine:
             row["refined_text"] = str(row.get("text", "")).strip()
             fallback_rows.append(row)
         return fallback_rows
+
+    @staticmethod
+    def _apply_timing_multiplier(base_score: Any, multiplier: Any) -> int:
+        try:
+            score = float(base_score)
+        except (TypeError, ValueError):
+            score = 0.0
+
+        try:
+            factor = float(multiplier)
+        except (TypeError, ValueError):
+            factor = 1.0
+
+        boosted = score * factor
+        return int(round(max(0.0, min(100.0, boosted))))
 
 
 def create_default_unified_engine(*, ai_refiner: Any | None = None) -> UnifiedAstrologyEngine:

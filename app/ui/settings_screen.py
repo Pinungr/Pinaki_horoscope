@@ -7,14 +7,17 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 from app.services.language_manager import LanguageManager
+from app.ui.theme import SPACE_8, SPACE_12, SPACE_16, SPACE_24, set_button_icon, set_button_variant
 
 
 class SettingsScreen(QWidget):
@@ -30,11 +33,21 @@ class SettingsScreen(QWidget):
 
     def init_ui(self) -> None:
         layout = QVBoxLayout()
+        layout.setContentsMargins(SPACE_24, SPACE_24, SPACE_24, SPACE_24)
+        layout.setSpacing(SPACE_16)
         self.form_layout = QFormLayout()
+        self.form_layout.setHorizontalSpacing(SPACE_12)
+        self.form_layout.setVerticalSpacing(SPACE_12)
+
+        self.title_label = QLabel("Settings")
+        self.title_label.setProperty("role", "title")
+        self.subtitle_label = QLabel("Configure language and AI refinement behavior.")
+        self.subtitle_label.setProperty("role", "subtitle")
+        self.subtitle_label.setWordWrap(True)
 
         self.info_label = QLabel()
         self.info_label.setWordWrap(True)
-        self.info_label.setStyleSheet("color: #556070; margin-bottom: 8px;")
+        self.info_label.setProperty("role", "subtitle")
 
         self.language_combo = QComboBox()
         self.language_combo.currentIndexChanged.connect(self._handle_language_changed)
@@ -43,6 +56,16 @@ class SettingsScreen(QWidget):
 
         self.api_key_input = QLineEdit()
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.show_key_button = QToolButton()
+        self.show_key_button.setText("Show")
+        self.show_key_button.clicked.connect(self._toggle_api_key_visibility)
+        self.api_key_row = QWidget()
+        api_key_row_layout = QHBoxLayout()
+        api_key_row_layout.setContentsMargins(0, 0, 0, 0)
+        api_key_row_layout.setSpacing(SPACE_8)
+        api_key_row_layout.addWidget(self.api_key_input, 1)
+        api_key_row_layout.addWidget(self.show_key_button)
+        self.api_key_row.setLayout(api_key_row_layout)
 
         self.model_input = QLineEdit()
 
@@ -53,12 +76,16 @@ class SettingsScreen(QWidget):
 
         self.form_layout.addRow(self.language_caption, self.language_combo)
         self.form_layout.addRow(self.ai_mode_caption, self.ai_enabled_checkbox)
-        self.form_layout.addRow(self.api_key_caption, self.api_key_input)
+        self.form_layout.addRow(self.api_key_caption, self.api_key_row)
         self.form_layout.addRow(self.model_caption, self.model_input)
 
         self.save_button = QPushButton()
         self.save_button.clicked.connect(self.handle_save)
+        set_button_variant(self.save_button, "primary")
+        set_button_icon(self.save_button, "save")
 
+        layout.addWidget(self.title_label)
+        layout.addWidget(self.subtitle_label)
         layout.addWidget(self.info_label)
         layout.addLayout(self.form_layout)
         layout.addWidget(self.save_button)
@@ -71,6 +98,8 @@ class SettingsScreen(QWidget):
         self.ai_enabled_checkbox.setChecked(bool(settings.get("ai_enabled", False)))
         self.api_key_input.setText(str(settings.get("openai_api_key", "")))
         self.model_input.setText(str(settings.get("openai_model", "gpt-5-mini")))
+        self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.show_key_button.setText("Show")
         language_code = str(settings.get("language_code", "en") or "en").strip().lower()
         self.language_combo.blockSignals(True)
         index = self.language_combo.findData(language_code)
@@ -127,3 +156,11 @@ class SettingsScreen(QWidget):
 
     def _tr(self, key: str) -> str:
         return self.language_manager.get_text(key)
+
+    def _toggle_api_key_visibility(self) -> None:
+        if self.api_key_input.echoMode() == QLineEdit.EchoMode.Password:
+            self.api_key_input.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.show_key_button.setText("Hide")
+        else:
+            self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self.show_key_button.setText("Show")

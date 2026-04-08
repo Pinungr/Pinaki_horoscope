@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict
 from core.utils.chart_utils import get_planet_house, normalize_planet_name
@@ -25,6 +26,17 @@ class PredictionService:
         10: "career",
         11: "gains",
         12: "loss/spiritual",
+    }
+    KNOWN_PLANETS = {
+        "sun",
+        "moon",
+        "mars",
+        "mercury",
+        "jupiter",
+        "venus",
+        "saturn",
+        "rahu",
+        "ketu",
     }
 
     def __init__(self, meanings_path: Path | None = None) -> None:
@@ -66,6 +78,153 @@ class PredictionService:
             return float(raw_weight or 0.0)
         except (TypeError, ValueError):
             return 0.0
+
+    def map_yoga_to_planets(self, yoga: Any) -> list[str]:
+        """
+        Extracts involved planets for one yoga definition/result in normalized form.
+
+        Returns lowercase planet ids (e.g. ["moon", "jupiter"]).
+        """
+        extracted: list[str] = []
+        seen: set[str] = set()
+
+        def _add(raw_planet: Any) -> None:
+            normalized = normalize_planet_name(raw_planet)
+            if normalized and normalized in self.KNOWN_PLANETS and normalized not in seen:
+                seen.add(normalized)
+                extracted.append(normalized)
+
+        for key in ("key_planets", "planets"):
+            raw_values = self._read_value(yoga, key, [])
+            if isinstance(raw_values, (list, tuple, set)):
+                for item in raw_values:
+                    _add(item)
+
+        for key in ("planet", "from", "to", "from_planet", "to_planet"):
+            _add(self._read_value(yoga, key))
+
+        if not extracted:
+            yoga_id = str(self._read_value(yoga, "id", self._read_value(yoga, "yoga", "")) or "").lower()
+            for planet in self.KNOWN_PLANETS:
+                if planet in yoga_id and planet not in seen:
+                    seen.add(planet)
+                    extracted.append(planet)
+
+        return extracted
+
+    def evaluate_dasha_relevance(
+        self,
+        yoga: Any,
+        dasha_data: Any,
+        *,
+        reference_date: date | None = None,
+    ) -> Dict[str, Any]:
+        """
+        Computes dasha relevance for one yoga.
+
+        Output shape:
+        {
+            "mahadasha": "Jupiter",
+            "antardasha": "Venus",
+            "relevance": "high" | "medium" | "low",
+            "matched_planets": [...],
+            "score_multiplier": float
+        }
+        """
+        yoga_planets = self.map_yoga_to_planets(yoga)
+        dasha_context = self.get_current_dasha_context(dasha_data, reference_date=reference_date)
+
+        mahadasha_lord = normalize_planet_name(dasha_context.get("mahadasha"))
+        antardasha_lord = normalize_planet_name(dasha_context.get("antardasha"))
+        matched_planets: list[str] = []
+
+        maha_match = mahadasha_lord in yoga_planets if mahadasha_lord else False
+        antar_match = antardasha_lord in yoga_planets if antardasha_lord else False
+        if maha_match and mahadasha_lord:
+            matched_planets.append(mahadasha_lord)
+        if antar_match and antardasha_lord and antardasha_lord not in matched_planets:
+            matched_planets.append(antardasha_lord)
+
+        if maha_match and antar_match:
+            relevance = "high"
+            multiplier = 1.25
+        elif maha_match:
+            relevance = "high"
+            multiplier = 1.15
+        elif antar_match:
+            relevance = "medium"
+            multiplier = 1.08
+        else:
+            relevance = "low"
+            multiplier = 1.0
+
+        return {
+            "mahadasha": dasha_context.get("mahadasha"),
+            "antardasha": dasha_context.get("antardasha"),
+            "relevance": relevance,
+            "matched_planets": matched_planets,
+            "score_multiplier": multiplier,
+        }
+
+    def build_timing_text(self, timing: Any) -> str:
+        if not isinstance(timing, dict):
+            return ""
+
+        mahadasha = str(timing.get("mahadasha") or "").strip()
+        antardasha = str(timing.get("antardasha") or "").strip()
+        relevance = str(timing.get("relevance") or "low").strip().lower() or "low"
+
+        if not mahadasha and not antardasha:
+            return ""
+
+        if relevance == "high":
+            if mahadasha and antardasha:
+                return (
+                    f"This effect is strongest during {mahadasha} Mahadasha, "
+                    f"especially in {antardasha} Antardasha."
+                )
+            if mahadasha:
+                return f"This effect is stronger during {mahadasha} Mahadasha."
+            return f"This effect is especially active during {antardasha} Antardasha."
+
+        if relevance == "medium":
+            if antardasha:
+                return f"This effect may rise during {antardasha} Antardasha."
+            if mahadasha:
+                return f"This effect may rise during {mahadasha} Mahadasha."
+            return ""
+
+        if mahadasha:
+            return f"Timing support is presently limited, with a milder influence in {mahadasha} Mahadasha."
+        return f"Timing support is presently limited, with a milder influence in {antardasha} Antardasha."
+
+    def get_current_dasha_context(
+        self,
+        dasha_data: Any,
+        *,
+        reference_date: date | None = None,
+    ) -> Dict[str, Any]:
+        """
+        Resolves current Mahadasha and Antardasha from available dasha payload.
+        """
+        today = reference_date or date.today()
+        timeline = self._extract_timeline_rows(dasha_data)
+        current = self._find_current_dasha_period(timeline, today)
+        if not current:
+            return {"mahadasha": None, "antardasha": None}
+
+        antardasha = current.get("antardasha")
+        if not antardasha:
+            sub_periods = current.get("sub_periods")
+            if isinstance(sub_periods, (list, tuple)):
+                active_sub = self._find_current_dasha_period(sub_periods, today)
+                if active_sub:
+                    antardasha = active_sub.get("planet")
+
+        return {
+            "mahadasha": current.get("planet"),
+            "antardasha": antardasha,
+        }
 
     def get_house_area(self, house: Any) -> str:
         try:
@@ -211,6 +370,41 @@ class PredictionService:
         if normalized not in {"strong", "medium", "weak"}:
             return "medium"
         return normalized
+
+    @staticmethod
+    def _extract_timeline_rows(dasha_data: Any) -> list[Dict[str, Any]]:
+        if isinstance(dasha_data, dict):
+            rows = dasha_data.get("timeline", [])
+            return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+        if isinstance(dasha_data, list):
+            return [row for row in dasha_data if isinstance(row, dict)]
+        return []
+
+    @staticmethod
+    def _parse_iso_date(raw_date: Any) -> date | None:
+        if not raw_date:
+            return None
+        try:
+            return datetime.strptime(str(raw_date).strip(), "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            return None
+
+    def _find_current_dasha_period(self, periods: Any, target_date: date) -> Dict[str, Any] | None:
+        if not isinstance(periods, (list, tuple)):
+            return None
+
+        sorted_periods = sorted(
+            [row for row in periods if isinstance(row, dict)],
+            key=lambda row: self._parse_iso_date(row.get("start")) or date.max,
+        )
+        for period in sorted_periods:
+            start = self._parse_iso_date(period.get("start"))
+            end = self._parse_iso_date(period.get("end"))
+            if not start or not end:
+                continue
+            if start <= target_date <= end:
+                return period
+        return sorted_periods[-1] if sorted_periods else None
 
     @staticmethod
     def _build_area_text(area: str) -> str:

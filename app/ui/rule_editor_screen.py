@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
+    QFrame,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -15,6 +16,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from app.ui.theme import SPACE_8, SPACE_12, SPACE_16, SPACE_24, set_button_icon, set_button_variant
 
 
 PLANETS = ["Any", "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu", "Ascendant"]
@@ -30,7 +32,8 @@ class ConditionWidget(QWidget):
         super().__init__()
 
         layout = QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(SPACE_8, SPACE_8, SPACE_8, SPACE_8)
+        layout.setSpacing(SPACE_8)
 
         self.condition_type_cb = QComboBox()
         self.condition_type_cb.addItems(["Placement", "Aspect"])
@@ -57,6 +60,8 @@ class ConditionWidget(QWidget):
 
         self.btn_remove = QPushButton("X")
         self.btn_remove.setFixedWidth(30)
+        set_button_variant(self.btn_remove, "danger")
+        set_button_icon(self.btn_remove, "delete")
 
         layout.addWidget(QLabel("Type:"))
         layout.addWidget(self.condition_type_cb)
@@ -174,8 +179,19 @@ class RuleEditorScreen(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(SPACE_24, SPACE_24, SPACE_24, SPACE_24)
+        main_layout.setSpacing(SPACE_16)
+
+        self.title_label = QLabel("Rule Editor")
+        self.title_label.setProperty("role", "title")
+        self.subtitle_label = QLabel("Create reusable prediction rules with clear condition logic.")
+        self.subtitle_label.setProperty("role", "subtitle")
+        self.subtitle_label.setWordWrap(True)
+        main_layout.addWidget(self.title_label)
+        main_layout.addWidget(self.subtitle_label)
 
         group_layout = QHBoxLayout()
+        group_layout.setSpacing(SPACE_8)
         group_layout.addWidget(QLabel("Rule Match Logic:"))
         self.logic_cb = QComboBox()
         self.logic_cb.addItems(["AND (All must match)", "OR (Any can match)"])
@@ -185,6 +201,7 @@ class RuleEditorScreen(QWidget):
 
         self.conditions_container = QWidget()
         self.conditions_layout = QVBoxLayout()
+        self.conditions_layout.setSpacing(SPACE_12)
         self.conditions_layout.setAlignment(Qt.AlignmentFlag.AlignTop) if hasattr(Qt, "AlignmentFlag") else self.conditions_layout.setAlignment(0x0020)
         self.conditions_container.setLayout(self.conditions_layout)
 
@@ -197,6 +214,8 @@ class RuleEditorScreen(QWidget):
 
         self.btn_add_condition = QPushButton("+ Add Condition")
         self.btn_add_condition.clicked.connect(self.add_condition_row)
+        set_button_variant(self.btn_add_condition, "ghost")
+        set_button_icon(self.btn_add_condition, "add")
         main_layout.addWidget(self.btn_add_condition)
 
         self.add_condition_row()
@@ -237,6 +256,8 @@ class RuleEditorScreen(QWidget):
         self.btn_save = QPushButton("Save Astrology Rule")
         self.btn_save.setMinimumHeight(40)
         self.btn_save.clicked.connect(self.handle_save)
+        set_button_variant(self.btn_save, "primary")
+        set_button_icon(self.btn_save, "save")
         main_layout.addWidget(self.btn_save)
 
         self.setLayout(main_layout)

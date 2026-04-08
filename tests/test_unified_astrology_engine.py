@@ -103,9 +103,53 @@ class UnifiedAstrologyEngineTests(unittest.TestCase):
         self.assertEqual(1, result["meta"]["total_yogas"])
         self.assertEqual(1, len(result["predictions"]))
         self.assertEqual("gajakesari yoga", result["predictions"][0]["yoga"].lower())
+        self.assertIn("timing", result["predictions"][0])
+        self.assertIn("relevance", result["predictions"][0]["timing"])
+        self.assertIn("matched_planets", result["predictions"][0]["timing"])
+        self.assertIn("time_focus", result["summary"])
         self.assertIn("refined_text", result["predictions"][0])
         self.assertEqual(result["predictions"][0]["text"], result["predictions"][0]["refined_text"])
         self.assertTrue(result["meta"]["generated_at"])
+
+    def test_generate_full_analysis_adds_dasha_timing_and_boosts_score(self) -> None:
+        class _StubDashaEngine:
+            @staticmethod
+            def calculate_dasha(_moon_longitude, _dob):
+                return [
+                    {
+                        "planet": "Jupiter",
+                        "antardasha": "Moon",
+                        "start": "2020-01-01",
+                        "end": "2036-01-01",
+                    }
+                ]
+
+        gajakesari = YogaDefinition.from_dict(
+            {
+                "id": "gajakesari_yoga",
+                "conditions": [{"type": "conjunction", "planets": ["moon", "jupiter"]}],
+                "prediction": {"en": "placeholder"},
+            }
+        )
+        yoga_engine = YogaEngine(config_dir=Path("/nonexistent"), extra_definitions=[gajakesari])
+        engine = UnifiedAstrologyEngine(yoga_engine=yoga_engine, dasha_engine=_StubDashaEngine())
+
+        chart_data = [
+            {"planet_name": "Moon", "sign": "Cancer", "house": 4, "degree": 10.0},
+            {"planet_name": "Jupiter", "sign": "Cancer", "house": 4, "degree": 12.0},
+        ]
+
+        baseline = engine.generate_full_analysis(chart_data, language="en")
+        timed = engine.generate_full_analysis(chart_data, language="en", dob="1990-01-01")
+
+        self.assertEqual(1, len(timed["predictions"]))
+        self.assertEqual("high", timed["predictions"][0]["timing"]["relevance"])
+        self.assertEqual("Jupiter", timed["predictions"][0]["timing"]["mahadasha"])
+        self.assertIn("jupiter", timed["predictions"][0]["timing"]["matched_planets"])
+        self.assertEqual(["home"], timed["summary"]["time_focus"])
+        self.assertGreaterEqual(timed["predictions"][0]["score"], baseline["predictions"][0]["score"])
+        self.assertIn("mahadasha", timed["predictions"][0]["text"].lower())
+        self.assertIn("mahadasha", timed["predictions"][0]["refined_text"].lower())
 
     def test_generate_full_analysis_uses_ai_refiner_when_available(self) -> None:
         class _StubRefiner:

@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QWidget,
 )
+from app.ui.theme import set_button_icon
 
 
 class TimelineBarItem(QGraphicsRectItem):
@@ -91,6 +92,7 @@ class TimelineWidget(QGraphicsView):
         "career": QColor("#3b82f6"),
         "marriage": QColor("#ec4899"),
         "finance": QColor("#22c55e"),
+        "health": QColor("#f59e0b"),
         "general": QColor("#94a3b8"),
     }
     CONFIDENCE_ORDER = {
@@ -105,6 +107,7 @@ class TimelineWidget(QGraphicsView):
         self._scene = QGraphicsScene(self)
         self._all_timeline_rows: List[Dict[str, Any]] = []
         self._timeline_rows: List[Dict[str, Any]] = []
+        self._timeline_mode = "dasha"
         self._active_filter = "all"
         self._zoom_percent = 100
         self._selected_bar_item: TimelineBarItem | None = None
@@ -129,6 +132,7 @@ class TimelineWidget(QGraphicsView):
         """Loads timeline JSON data and redraws the scene."""
         timeline = data.get("timeline", []) if isinstance(data, dict) else []
         self._all_timeline_rows = [row for row in timeline if isinstance(row, dict)]
+        self._timeline_mode = self._detect_timeline_mode(data, self._all_timeline_rows)
         self._apply_filter()
 
     def clear_timeline(self) -> None:
@@ -138,7 +142,7 @@ class TimelineWidget(QGraphicsView):
     def set_event_filter(self, filter_name: str) -> None:
         """Applies a category filter such as all, career, marriage, or finance."""
         normalized = str(filter_name or "all").strip().lower() or "all"
-        if normalized not in {"all", "career", "marriage", "finance"}:
+        if normalized not in {"all", "career", "marriage", "finance", "health"}:
             normalized = "all"
         self._active_filter = normalized
         self._apply_filter()
@@ -174,6 +178,10 @@ class TimelineWidget(QGraphicsView):
         self._scene.clear()
         self._selected_bar_item = None
         self._position_controls()
+
+        if self._timeline_mode == "forecast":
+            self._redraw_forecast_scene()
+            return
 
         if not self._timeline_rows:
             empty_text = self._scene.addText(self._empty_state_text())
@@ -237,6 +245,108 @@ class TimelineWidget(QGraphicsView):
         scene_width = self.LEFT_MARGIN + timeline_width + self.RIGHT_MARGIN
         self._scene.setSceneRect(QRectF(0, 0, scene_width, scene_height))
         self._refresh_control_states()
+
+    def _redraw_forecast_scene(self) -> None:
+        """Renders forecast rows as year-wise cards."""
+        rows = [row for row in self._timeline_rows if isinstance(row, dict)]
+        if not rows:
+            empty_text = self._scene.addText(self._empty_state_text())
+            empty_text.setDefaultTextColor(QColor("#6b7280"))
+            empty_text.setPos(self.LEFT_MARGIN, self._content_top + 8)
+            self._scene.setSceneRect(QRectF(0, 0, 760, self._content_top + 120))
+            self._refresh_control_states()
+            return
+
+        rows.sort(
+            key=lambda row: (
+                self._parse_date(row.get("start")) or date.max,
+                -self._safe_int(row.get("confidence")),
+            )
+        )
+
+        title_item = self._scene.addText("Timeline Forecast")
+        title_item.setDefaultTextColor(QColor("#111827"))
+        title_item.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        title_item.setPos(self.LEFT_MARGIN, self._content_top)
+
+        row_top = self._content_top + 38
+        card_width = max(self.viewport().width() - (self.LEFT_MARGIN + self.RIGHT_MARGIN + 12), 520)
+        card_height = 84
+        gap = 12
+
+        for index, row in enumerate(rows):
+            y = row_top + (index * (card_height + gap))
+            self._draw_forecast_card(row, y, card_width, card_height)
+
+        scene_height = row_top + (len(rows) * (card_height + gap)) + self.BOTTOM_MARGIN
+        scene_width = self.LEFT_MARGIN + card_width + self.RIGHT_MARGIN
+        self._scene.setSceneRect(QRectF(0, 0, scene_width, scene_height))
+        self._refresh_control_states()
+
+    def _draw_forecast_card(self, row: Dict[str, Any], y: float, width: float, height: float) -> None:
+        area = self._normalize_event_type(row.get("area", "general"))
+        color = self._color_for_event(area)
+        period = str(row.get("period", "")).strip() or self._period_from_dates(row.get("start"), row.get("end"))
+        event = str(row.get("event", "")).strip() or "Notable life developments"
+        yoga = str(row.get("yoga", "")).strip()
+        reasoning_link = str(row.get("reasoning_link", "")).strip()
+        confidence_score = self._safe_int(row.get("confidence"))
+
+        card_rect = QRectF(self.LEFT_MARGIN, y, width, height)
+        border_pen = QPen(color.darker(125))
+        border_pen.setWidth(2)
+        self._scene.addRect(card_rect, border_pen, QBrush(QColor("#ffffff")))
+
+        badge_rect = QRectF(self.LEFT_MARGIN + 10, y + 10, 114, 24)
+        badge_fill = QColor(color)
+        badge_fill.setAlpha(220)
+        self._scene.addRect(badge_rect, QPen(Qt.PenStyle.NoPen), QBrush(badge_fill))
+
+        badge_text = QGraphicsSimpleTextItem(period)
+        badge_text.setBrush(QBrush(QColor("#ffffff")))
+        badge_text.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+        badge_bounds = badge_text.boundingRect()
+        badge_text.setPos(
+            badge_rect.x() + ((badge_rect.width() - badge_bounds.width()) / 2),
+            badge_rect.y() + ((badge_rect.height() - badge_bounds.height()) / 2) - 1,
+        )
+        self._scene.addItem(badge_text)
+
+        headline = QGraphicsSimpleTextItem(f"{area.title()} | Confidence {confidence_score}")
+        headline.setBrush(QBrush(QColor("#0f172a")))
+        headline.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        headline.setPos(self.LEFT_MARGIN + 132, y + 12)
+        self._scene.addItem(headline)
+
+        detail_parts = [event]
+        if yoga:
+            detail_parts.append(f"Yoga: {yoga}")
+        if reasoning_link:
+            detail_parts.append(reasoning_link)
+        detail_text = " | ".join(part for part in detail_parts if part)
+        detail_item = QGraphicsSimpleTextItem(detail_text[:180] + ("..." if len(detail_text) > 180 else ""))
+        detail_item.setBrush(QBrush(QColor("#334155")))
+        detail_item.setFont(QFont("Segoe UI", 8))
+        detail_item.setPos(self.LEFT_MARGIN + 14, y + 44)
+        self._scene.addItem(detail_item)
+
+        payload = {
+            "planet": area.title(),
+            "start": str(row.get("start", "")),
+            "end": str(row.get("end", "")),
+            "events": [
+                {
+                    "type": area,
+                    "confidence": "high" if confidence_score >= 80 else "medium",
+                    "summary": event,
+                }
+            ],
+        }
+        click_layer = TimelineBarItem(card_rect, payload, self._handle_period_click)
+        click_layer.setPen(QPen(Qt.PenStyle.NoPen))
+        click_layer.setBrush(QBrush(QColor(0, 0, 0, 0)))
+        click_layer.setToolTip(self._build_dasha_tooltip(payload))
+        self._scene.addItem(click_layer)
 
     def _draw_timeline_row(
         self,
@@ -364,6 +474,7 @@ class TimelineWidget(QGraphicsView):
             ("career", "Career"),
             ("marriage", "Marriage"),
             ("finance", "Finance"),
+            ("health", "Health"),
         ):
             button = QPushButton(label)
             button.setCheckable(True)
@@ -373,14 +484,17 @@ class TimelineWidget(QGraphicsView):
 
         zoom_out_button = QPushButton("Zoom -")
         zoom_out_button.clicked.connect(lambda: self.set_zoom_percent(self._zoom_percent - self.ZOOM_STEP))
+        set_button_icon(zoom_out_button, "zoom_out")
         layout.addWidget(zoom_out_button)
 
         zoom_reset_button = QPushButton("Reset")
         zoom_reset_button.clicked.connect(self.reset_zoom)
+        set_button_icon(zoom_reset_button, "reset")
         layout.addWidget(zoom_reset_button)
 
         zoom_in_button = QPushButton("Zoom +")
         zoom_in_button.clicked.connect(lambda: self.set_zoom_percent(self._zoom_percent + self.ZOOM_STEP))
+        set_button_icon(zoom_in_button, "zoom_in")
         layout.addWidget(zoom_in_button)
 
         self._zoom_label = QLabel()
@@ -407,6 +521,7 @@ class TimelineWidget(QGraphicsView):
             ("Career", self.EVENT_COLORS["career"]),
             ("Marriage", self.EVENT_COLORS["marriage"]),
             ("Finance", self.EVENT_COLORS["finance"]),
+            ("Health", self.EVENT_COLORS["health"]),
         ]
 
         cursor_x = x
@@ -548,6 +663,9 @@ class TimelineWidget(QGraphicsView):
 
     def _row_matches_filter(self, row: Dict[str, Any], filter_name: str) -> bool:
         """Checks whether a dasha period contains the requested event category."""
+        if self._timeline_mode == "forecast":
+            return self._normalize_event_type(row.get("area", "general")) == filter_name
+
         for event in self._normalize_events(row.get("events", [])):
             if self._normalize_event_type(event.get("type")) == filter_name:
                 return True
@@ -564,8 +682,8 @@ class TimelineWidget(QGraphicsView):
     def _empty_state_text(self) -> str:
         """Returns a filter-aware empty message."""
         if self._active_filter == "all":
-            return "No timeline data available."
-        return f"No timeline periods match the {self._active_filter.title()} filter."
+            return "No timeline data yet. Generate a chart to populate this view."
+        return f"No timeline periods match {self._active_filter.title()} yet."
 
     def _normalize_events(self, raw_events: Any) -> List[Dict[str, str]]:
         """Normalizes incoming event payloads into a consistent list of typed events."""
@@ -634,6 +752,8 @@ class TimelineWidget(QGraphicsView):
             return "marriage"
         if "finance" in normalized or "wealth" in normalized or "income" in normalized:
             return "finance"
+        if "health" in normalized or "wellness" in normalized:
+            return "health"
         return "general"
 
     def _normalize_confidence(self, value: Any) -> str:
@@ -667,6 +787,8 @@ class TimelineWidget(QGraphicsView):
             return "M"
         if event_type == "finance":
             return "F"
+        if event_type == "health":
+            return "H"
         return "G"
 
     def _tooltip_for_event(self, event: Dict[str, str]) -> str:
@@ -680,6 +802,8 @@ class TimelineWidget(QGraphicsView):
             message = "Marriage opportunity"
         elif event_type == "finance":
             message = "Financial opportunity"
+        elif event_type == "health":
+            message = "Health focus phase"
         else:
             message = "General life phase"
 
@@ -687,3 +811,27 @@ class TimelineWidget(QGraphicsView):
         if summary:
             lines.append(summary)
         return "\n".join(lines)
+
+    @staticmethod
+    def _safe_int(value: Any) -> int:
+        try:
+            return int(round(float(value)))
+        except (TypeError, ValueError):
+            return 0
+
+    def _period_from_dates(self, start: Any, end: Any) -> str:
+        start_date = self._parse_date(start)
+        end_date = self._parse_date(end)
+        if start_date and end_date:
+            return f"{start_date.year}-{end_date.year}"
+        if start_date:
+            return str(start_date.year)
+        return "Upcoming"
+
+    def _detect_timeline_mode(self, data: Dict[str, Any], rows: List[Dict[str, Any]]) -> str:
+        if isinstance(data, dict) and str(data.get("mode", "")).strip().lower() == "forecast":
+            return "forecast"
+        if rows and all(("event" in row and "area" in row) for row in rows[: min(len(rows), 3)]):
+            return "forecast"
+        return "dasha"
+

@@ -50,17 +50,29 @@ def aggregate_predictions(rule_keys: Iterable[Any], language: str | None = None)
 def aggregate_context_predictions(predictions: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     rows = [dict(item) for item in (predictions or []) if isinstance(item, Mapping)]
     sorted_rows = sorted(rows, key=lambda item: _safe_score(item.get("score")), reverse=True)
+    top = sorted_rows[:5]
 
     top_areas: list[str] = []
-    for item in sorted_rows[:3]:
+    for item in top[:3]:
         area = str(item.get("area", "")).strip().lower()
         if area and area not in top_areas:
             top_areas.append(area)
 
+    time_focus: list[str] = []
+    for item in top:
+        timing = item.get("timing")
+        if not isinstance(timing, Mapping):
+            continue
+        if str(timing.get("relevance", "")).strip().lower() != "high":
+            continue
+        area = str(item.get("area", "")).strip().lower()
+        if area and area not in time_focus:
+            time_focus.append(area)
+
     confidence_score = 0
-    if sorted_rows:
+    if top:
         confidence_score = int(
-            round(sum(_safe_score(item.get("score")) for item in sorted_rows) / len(sorted_rows))
+            round(sum(_safe_score(item.get("score")) for item in top) / len(top))
         )
 
     strong_yogas = sum(1 for item in rows if str(item.get("strength", "")).strip().lower() == "strong")
@@ -74,8 +86,9 @@ def aggregate_context_predictions(predictions: Iterable[Mapping[str, Any]]) -> d
         "summary": {
             "top_areas": top_areas,
             "confidence_score": confidence_score,
+            "time_focus": time_focus[:3],
         },
-        "predictions": sorted_rows[:5],
+        "predictions": top,
         "meta": meta,
     }
 

@@ -1,6 +1,7 @@
 import sys
 from PyQt6.QtWidgets import QApplication
 from app.config.config_loader import get_astrology_config
+from app.ui.theme import apply_app_theme
 from app.utils.logger import setup_logging, get_logger
 
 logger = get_logger(__name__)
@@ -16,6 +17,7 @@ def main():
     db_manager.initialize_schema()
     
     app = QApplication(sys.argv)
+    apply_app_theme(app)
     
     from app.controllers.main_controller import MainController
     controller = MainController(db_manager)

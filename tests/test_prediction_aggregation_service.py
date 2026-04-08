@@ -54,9 +54,30 @@ class PredictionAggregationServiceTests(unittest.TestCase):
 
     def test_aggregate_context_predictions_returns_ui_ready_contract(self) -> None:
         predictions = [
-            {"yoga": "Gajakesari Yoga", "area": "career", "strength": "strong", "score": 82, "text": "Career success."},
-            {"yoga": "Dhana Yoga", "area": "wealth", "strength": "medium", "score": 70, "text": "Wealth growth."},
-            {"yoga": "Chandra Yoga", "area": "home", "strength": "weak", "score": 35, "text": "Home focus."},
+            {
+                "yoga": "Gajakesari Yoga",
+                "area": "career",
+                "strength": "strong",
+                "score": 82,
+                "text": "Career success.",
+                "timing": {"relevance": "high"},
+            },
+            {
+                "yoga": "Dhana Yoga",
+                "area": "wealth",
+                "strength": "medium",
+                "score": 70,
+                "text": "Wealth growth.",
+                "timing": {"relevance": "medium"},
+            },
+            {
+                "yoga": "Chandra Yoga",
+                "area": "home",
+                "strength": "weak",
+                "score": 35,
+                "text": "Home focus.",
+                "timing": {"relevance": "low"},
+            },
         ]
 
         aggregated = aggregate_context_predictions(predictions)
@@ -65,10 +86,22 @@ class PredictionAggregationServiceTests(unittest.TestCase):
         self.assertIn("predictions", aggregated)
         self.assertIn("meta", aggregated)
         self.assertEqual(["career", "wealth", "home"], aggregated["summary"]["top_areas"])
+        self.assertEqual(["career"], aggregated["summary"]["time_focus"])
         self.assertEqual(62, aggregated["summary"]["confidence_score"])
         self.assertEqual(3, aggregated["meta"]["total_yogas"])
         self.assertEqual(1, aggregated["meta"]["strong_yogas"])
         self.assertTrue(aggregated["meta"]["generated_at"])
+
+    def test_aggregate_context_predictions_ranks_by_score_desc(self) -> None:
+        predictions = [
+            {"yoga": "A", "area": "career", "strength": "strong", "score": 92, "text": "A", "timing": {"relevance": "high"}},
+            {"yoga": "B", "area": "wealth", "strength": "strong", "score": 78, "text": "B", "timing": {"relevance": "high"}},
+            {"yoga": "C", "area": "health", "strength": "strong", "score": 84, "text": "C", "timing": {"relevance": "low"}},
+        ]
+
+        aggregated = aggregate_context_predictions(predictions)
+
+        self.assertEqual(["A", "C", "B"], [row["yoga"] for row in aggregated["predictions"]])
 
 
 if __name__ == "__main__":

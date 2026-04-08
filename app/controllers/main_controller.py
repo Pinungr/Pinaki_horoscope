@@ -1,8 +1,11 @@
 import re
 from pathlib import Path
 import logging
+import os
+from contextlib import contextmanager
 
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox
 from app.ui.main_window import MainWindow
 from app.services.horoscope_service import HoroscopeService
 from app.services.horoscope_chat_service import HoroscopeChatService
@@ -11,6 +14,7 @@ from app.services.language_manager import LanguageManager
 from app.services.openai_refiner_service import OpenAIRefinerService
 from app.services.report_service import ReportService
 from app.repositories.database_manager import DatabaseManager
+from app.utils.cache import get_astrology_cache
 from app.utils.safe_execution import AppError
 from app.utils.logger import log_user_action
 
@@ -30,6 +34,8 @@ class MainController:
             horoscope_service=self.service,
             ai_refiner=self.ai_refiner_service,
         )
+        self.cache = get_astrology_cache()
+        self.debug_ui_enabled = self._is_debug_ui_enabled()
         self.active_user_id = None
         
         # Instantiate UI
@@ -37,6 +43,7 @@ class MainController:
         self.view.chat_screen.configure_chat_service(self.chat_service)
         self.view.settings_screen.load_settings(initial_settings)
         self.view.chat_screen.set_mode_badge("openai" if initial_settings.get("ai_enabled") else "local")
+        self.view.chart_display.set_cache_debug_mode(self.debug_ui_enabled)
         
         # Connect signals
         self.view.input_form.generate_requested.connect(self.handle_generate)
@@ -49,6 +56,7 @@ class MainController:
         
         self.view.rule_editor_screen.save_rule_requested.connect(self.handle_save_rule)
         self.view.chart_display.generate_report_requested.connect(self.handle_generate_report)
+        self.view.chart_display.area_filter_changed.connect(self.view.timeline_view.set_event_filter)
         self.view.timeline_view.period_selected.connect(self.handle_timeline_period_selected)
         self.view.settings_screen.language_changed.connect(self.handle_language_changed)
         self.view.settings_screen.save_requested.connect(self.handle_save_settings)
@@ -76,63 +84,76 @@ class MainController:
 
     def refresh_user_list(self):
         try:
-            users_data = self.service.get_all_users_dicts()
-            self.view.user_list_screen.populate_users(users_data)
+            with self._busy_feedback(users_mode="refresh"):
+                users_data = self.service.get_all_users_dicts()
+                self.view.user_list_screen.populate_users(users_data)
         except Exception as e:
             logger.exception("Failed to load users: %s", e)
             QMessageBox.critical(self.view, "Error", self._friendly_error(e, "Failed to load users."))
 
     def handle_load_user(self, user_id: int):
         try:
-            log_user_action("controller_load_user", user_id=user_id)
-            display_data, predictions = self.service.load_chart_for_user(user_id)
-            user_model = self.service.user_repo.get_by_id(user_id)
-            self.view.chart_display.display_chart(
-                display_data,
-                self._build_chart_header(user_model) if user_model else None,
-            )
-            self.view.chart_display.display_predictions(predictions)
-            self._populate_advanced_views(user_id)
+            with self._busy_feedback(users_mode="load", chart_status="Loading saved chart..."):
+                log_user_action("controller_load_user", user_id=user_id)
+                chart_cache_hit = self._is_chart_cache_hit(user_id)
+                display_data, predictions = self.service.load_chart_for_user(user_id)
+                user_model = self.service.user_repo.get_by_id(user_id)
+                self.view.chart_display.display_chart(
+                    display_data,
+                    self._build_chart_header(user_model) if user_model else None,
+                )
+                self.view.chart_display.display_predictions(predictions)
+                self._populate_advanced_views(user_id, chart_cache_hit=chart_cache_hit)
 
-            # Switch back to Chart Generator tab
-            self.view.tabs.setCurrentIndex(0)
+                # Switch back to Chart Generator tab
+                self.view.tabs.setCurrentIndex(0)
+            self.view.chart_display.set_status("Chart loaded successfully.", "success")
         except Exception as e:
             logger.exception("Failed to load chart for user %s: %s", user_id, e)
+            self.view.chart_display.set_status("Failed to load chart. Please try again.", "error")
             QMessageBox.critical(self.view, "Error", self._friendly_error(e, "Failed to load chart."))
 
     def handle_delete_user(self, user_id: int):
         try:
-            log_user_action("controller_delete_user", user_id=user_id)
-            self.service.delete_user(user_id)
-            if self.active_user_id == user_id:
-                self.active_user_id = None
-            self.refresh_user_list()
+            with self._busy_feedback(users_mode="delete", chart_status="Deleting selected profile..."):
+                log_user_action("controller_delete_user", user_id=user_id)
+                self.service.delete_user(user_id)
+                if self.active_user_id == user_id:
+                    self.active_user_id = None
+                self.refresh_user_list()
+            self.view.chart_display.set_status("Profile deleted successfully.", "success")
         except Exception as e:
             logger.exception("Failed to delete user %s: %s", user_id, e)
+            self.view.chart_display.set_status("Profile deletion failed. Please retry.", "error")
             QMessageBox.critical(self.view, "Error", self._friendly_error(e, "Failed to delete user."))
 
     def handle_generate(self, user_data: dict):
         try:
-            log_user_action("controller_generate", name=user_data.get("name"), state=user_data.get("state"), city=user_data.get("city"))
-            validated_data = self.service.prepare_user_input(user_data)
+            with self._busy_feedback(form_mode="generate", chart_status="Generating chart and predictions..."):
+                log_user_action("controller_generate", name=user_data.get("name"), state=user_data.get("state"), city=user_data.get("city"))
+                validated_data = self.service.prepare_user_input(user_data)
 
-            # 1. Generate and save phase 1 data
-            display_data, predictions = self.service.generate_and_save_chart(validated_data)
-            self.view.chart_display.display_chart(display_data, self._build_chart_header(validated_data))
-            self.view.chart_display.display_predictions(predictions)
-            
-            # 2. Fetch the newly saved DB models for advanced logic
-            users = self.service.user_repo.get_all()
-            if users:
-                latest_user = users[-1]
-                self._populate_advanced_views(latest_user.id)
-            
-            # Automatically refresh user list to include the newly generated user
-            self.refresh_user_list()
-            # Switch back to Chart Generator tab if not already
-            self.view.tabs.setCurrentIndex(0)
+                # 1. Generate and save phase 1 data
+                display_data, predictions = self.service.generate_and_save_chart(validated_data)
+                self.view.chart_display.display_chart(display_data, self._build_chart_header(validated_data))
+                self.view.chart_display.display_predictions(predictions)
+                
+                # 2. Fetch the newly saved DB models for advanced logic
+                users = self.service.user_repo.get_all()
+                if users:
+                    latest_user = users[-1]
+                    self._populate_advanced_views(latest_user.id, chart_cache_hit=False)
+                
+                # Automatically refresh user list to include the newly generated user
+                self.refresh_user_list()
+                # Switch back to Chart Generator tab if not already
+                self.view.tabs.setCurrentIndex(0)
+            self.view.input_form.set_status("Chart generated successfully.", "success")
+            self.view.chart_display.set_status("Fresh predictions are now ready.", "success")
         except Exception as e:
             logger.exception("Failed to generate chart: %s", e)
+            self.view.input_form.set_status("Chart generation failed. Please verify details and retry.", "error")
+            self.view.chart_display.set_status("Chart generation failed. Please retry.", "error")
             QMessageBox.critical(
                 self.view,
                 "Error",
@@ -141,15 +162,18 @@ class MainController:
 
     def handle_save(self, user_data: dict):
         try:
-            log_user_action("controller_validate_input", name=user_data.get("name"))
-            self.service.prepare_user_input(user_data)
+            with self._busy_feedback(form_mode="save"):
+                log_user_action("controller_validate_input", name=user_data.get("name"))
+                self.service.prepare_user_input(user_data)
             QMessageBox.information(
                 self.view,
                 "Info",
                 "Input is valid. Save is handled automatically during Generate.",
             )
+            self.view.input_form.set_status("Input validated. Use Generate Chart to save and analyze.", "success")
         except Exception as exc:
             logger.warning("Input validation failed: %s", exc)
+            self.view.input_form.set_status(str(exc), "error")
             QMessageBox.warning(self.view, "Validation Error", str(exc))
 
     def handle_state_changed(self, state: str):
@@ -196,15 +220,18 @@ class MainController:
             return
 
         try:
-            log_user_action("controller_generate_report", user_id=self.active_user_id, output_path=output_path)
-            saved_path = self.report_service.generate_pdf(self.active_user_id, output_path)
+            with self._busy_feedback(report_busy=True, chart_status="Generating your PDF report..."):
+                log_user_action("controller_generate_report", user_id=self.active_user_id, output_path=output_path)
+                saved_path = self.report_service.generate_pdf(self.active_user_id, output_path)
             QMessageBox.information(
                 self.view,
                 "Report Generated",
                 f"Horoscope report saved successfully.\n{saved_path}",
             )
+            self.view.chart_display.set_status("PDF report generated successfully.", "success")
         except Exception as exc:
             logger.exception("Failed to generate report for user %s: %s", self.active_user_id, exc)
+            self.view.chart_display.set_status("PDF generation failed. Please try another path.", "error")
             QMessageBox.critical(self.view, "Report Error", self._friendly_error(exc, "Failed to generate report."))
 
     def handle_timeline_period_selected(self, period_data: dict):
@@ -250,6 +277,7 @@ class MainController:
             self.view.chat_screen.append_system_message(
                 f"Chat settings updated. Current mode: {mode_text}."
             )
+            self.view.chart_display.set_cache_debug_mode(self.debug_ui_enabled)
         except Exception as exc:
             logger.exception("Failed to save settings: %s", exc)
             QMessageBox.critical(self.view, "Settings Error", self._friendly_error(exc, "Failed to save settings."))
@@ -296,29 +324,72 @@ class MainController:
             logger.exception("Failed to load states: %s", exc)
             QMessageBox.warning(self.view, "Location Error", self._friendly_error(exc, "Failed to load states."))
 
-    def _populate_advanced_views(self, user_id: int):
+    def _populate_advanced_views(self, user_id: int, chart_cache_hit: bool | None = None):
         """Refreshes advanced analysis tabs, including the life timeline."""
         from app.services.astrology_advanced_service import AstrologyAdvancedService
+        from app.services.timeline_service import TimelineService
         import json
 
         try:
-            advanced_service = AstrologyAdvancedService()
             user_model = self.service.user_repo.get_by_id(user_id)
             if not user_model:
                 self.view.timeline_view.clear_timeline()
                 return
 
-            chart_models = self.service.chart_repo.get_by_user_id(user_id)
-            advanced_data = advanced_service.generate_advanced_data(chart_models, user_model.dob)
+            advanced_data = self.cache.get("ui_advanced_data", user_id)
+            advanced_cache_hit = advanced_data is not None
+            if advanced_data is None:
+                chart_models = self.service.chart_repo.get_by_user_id(user_id)
+                advanced_service = AstrologyAdvancedService()
+                advanced_data = advanced_service.generate_advanced_data(chart_models, user_model.dob)
+                self.cache.set("ui_advanced_data", user_id, advanced_data)
+
             self.view.aspects_view.setText(json.dumps(advanced_data["aspects"], indent=2))
             self.view.dasha_view.setText(json.dumps(advanced_data["dasha"], indent=2))
             self.view.navamsha_view.set_navamsha_data(advanced_data["navamsha"])
             self.view.plugins_view.setText(json.dumps(advanced_data["plugins"], indent=2))
+            unified_summary = {}
+            unified_payload = advanced_data.get("unified", {}) if isinstance(advanced_data, dict) else {}
+            if isinstance(unified_payload, dict):
+                unified_summary = dict(unified_payload.get("summary", {}) or {})
+                top_areas = unified_summary.get("top_areas", [])
+                if isinstance(top_areas, list):
+                    unified_summary["top_areas"] = [
+                        "finance" if str(area).strip().lower() in {"wealth", "financial"} else str(area).strip().lower()
+                        for area in top_areas
+                        if str(area or "").strip()
+                    ]
+            self.view.chart_display.display_top_insights(unified_summary)
             self.active_user_id = user_id
             self.view.chat_screen.set_active_user(user_id)
 
             timeline_data = self.service.get_timeline_data(user_id)
-            self.view.timeline_view.set_timeline_data(timeline_data)
+            unified_predictions = []
+            if isinstance(unified_payload, dict):
+                raw_predictions = unified_payload.get("predictions", [])
+                if isinstance(raw_predictions, list):
+                    unified_predictions = [dict(item) for item in raw_predictions if isinstance(item, dict)]
+
+            timeline_forecast = self.cache.get("ui_timeline_forecast", user_id)
+            timeline_cache_hit = timeline_forecast is not None
+            if timeline_forecast is None:
+                timeline_forecast = TimelineService().build_timeline_forecast(
+                    unified_predictions,
+                    advanced_data.get("dasha", []) if isinstance(advanced_data, dict) else [],
+                )
+                self.cache.set("ui_timeline_forecast", user_id, timeline_forecast)
+
+            forecast_rows = timeline_forecast.get("timeline", []) if isinstance(timeline_forecast, dict) else []
+            if isinstance(forecast_rows, list) and forecast_rows:
+                self.view.timeline_view.set_timeline_data({"mode": "forecast", "timeline": forecast_rows})
+            else:
+                self.view.timeline_view.set_timeline_data(timeline_data)
+
+            self._update_cache_debug_badge(
+                chart_hit=chart_cache_hit,
+                advanced_hit=advanced_cache_hit,
+                timeline_hit=timeline_cache_hit,
+            )
         except Exception as exc:
             logger.exception("Failed to populate advanced views for user %s: %s", user_id, exc)
             self.view.aspects_view.setText("{}")
@@ -326,6 +397,11 @@ class MainController:
             self.view.navamsha_view.clear()
             self.view.plugins_view.setText("{}")
             self.view.timeline_view.clear_timeline()
+            self._update_cache_debug_badge(
+                chart_hit=chart_cache_hit,
+                advanced_hit=None,
+                timeline_hit=None,
+            )
             QMessageBox.warning(
                 self.view,
                 "Advanced Analysis",
@@ -334,3 +410,84 @@ class MainController:
 
     def show(self):
         self.view.show()
+
+    def _is_chart_cache_hit(self, user_id: int) -> bool:
+        """Checks whether the chart-display and prediction caches are both available."""
+        return (
+            self.cache.get("chart_display", user_id) is not None
+            and self.cache.get("predictions", user_id) is not None
+        )
+
+    def _update_cache_debug_badge(
+        self,
+        *,
+        chart_hit: bool | None = None,
+        advanced_hit: bool | None = None,
+        timeline_hit: bool | None = None,
+    ) -> None:
+        """Updates the debug-only cache badge with compact HIT/MISS segments."""
+        if not self.debug_ui_enabled:
+            return
+
+        segments = []
+        flags: list[bool] = []
+        for label, flag in (
+            ("Chart", chart_hit),
+            ("Advanced", advanced_hit),
+            ("Timeline", timeline_hit),
+        ):
+            if flag is None:
+                continue
+            segments.append(f"{label} {'HIT' if flag else 'MISS'}")
+            flags.append(flag)
+
+        if not segments:
+            self.view.chart_display.set_cache_debug_status("", None)
+            return
+
+        if flags and all(flags):
+            aggregate = True
+        elif flags and not any(flags):
+            aggregate = False
+        else:
+            aggregate = None
+
+        self.view.chart_display.set_cache_debug_status(" | ".join(segments), aggregate)
+
+    def _is_debug_ui_enabled(self) -> bool:
+        """Enables debug widgets when explicit env flag is set."""
+        value = str(os.getenv("HOROSCOPE_DEBUG_UI", "")).strip().lower()
+        return value in {"1", "true", "yes", "on"}
+
+    @contextmanager
+    def _busy_feedback(
+        self,
+        *,
+        form_mode: str | None = None,
+        users_mode: str | None = None,
+        chart_status: str | None = None,
+        report_busy: bool = False,
+    ):
+        """Applies coordinated busy states so long operations feel responsive."""
+        try:
+            if form_mode:
+                self.view.input_form.set_busy(True, form_mode)
+            if users_mode:
+                self.view.user_list_screen.set_busy(True, users_mode)
+            if report_busy:
+                self.view.chart_display.set_report_busy(True)
+            if chart_status:
+                self.view.chart_display.set_status(chart_status, "info")
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            QApplication.processEvents()
+            yield
+        finally:
+            if report_busy:
+                self.view.chart_display.set_report_busy(False)
+            if form_mode:
+                self.view.input_form.set_busy(False, form_mode)
+            if users_mode:
+                self.view.user_list_screen.set_busy(False, users_mode)
+            if QApplication.overrideCursor() is not None:
+                QApplication.restoreOverrideCursor()
+            QApplication.processEvents()

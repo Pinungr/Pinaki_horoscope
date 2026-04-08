@@ -134,6 +134,11 @@ class OpenAIRefinerService:
             if not refined_text:
                 refined_text = self._fallback_refined_prediction_text(row, normalized_tone)
 
+            refined_text = self._append_timing_sentence(
+                refined_text,
+                row.get("timing"),
+                tone=normalized_tone,
+            )
             row["refined_text"] = refined_text
             refined_rows.append(row)
 
@@ -246,6 +251,7 @@ class OpenAIRefinerService:
                 "strength": prediction.get("strength"),
                 "score": prediction.get("score"),
                 "text": prediction.get("text"),
+                "timing": prediction.get("timing", {}),
             },
         }
         return (
@@ -281,13 +287,76 @@ class OpenAIRefinerService:
             else "You may experience mild or delayed results initially."
         )
 
-        return f"{base_text} {lead} {signal} {outcome}".strip()
+        parts = [base_text, lead, signal, outcome]
+        return " ".join(part for part in parts if part).strip()
 
     def _normalize_tone(self, tone: str) -> str:
         normalized = str(tone or "professional").strip().lower() or "professional"
         if normalized not in self.SUPPORTED_TONES:
             return "professional"
         return normalized
+
+    @staticmethod
+    def _contains_timing_text(text: str) -> bool:
+        normalized = str(text or "").strip().lower()
+        return "mahadasha" in normalized or "antardasha" in normalized
+
+    def _append_timing_sentence(self, text: str, timing: Any, tone: str = "professional") -> str:
+        base = str(text or "").strip()
+        if not base:
+            return ""
+        if self._contains_timing_text(base):
+            return base
+
+        line = self._build_timing_refinement_line(timing)
+        if not line:
+            return base
+
+        adjusted = line
+        if tone == "friendly":
+            adjusted = adjusted.replace("This effect is especially pronounced", "You might really feel this")
+        elif tone == "spiritual":
+            adjusted = adjusted.replace("effect", "karmic influence")
+
+        return f"{base} {adjusted}".strip()
+
+    @staticmethod
+    def _build_timing_refinement_line(timing: Any) -> str:
+        if not isinstance(timing, dict):
+            return ""
+
+        mahadasha = str(timing.get("mahadasha") or "").strip()
+        antardasha = str(timing.get("antardasha") or "").strip()
+        relevance = str(timing.get("relevance") or "low").strip().lower() or "low"
+
+        if not mahadasha and not antardasha:
+            return ""
+
+        if relevance == "high":
+            if mahadasha and antardasha:
+                return (
+                    f"This effect is especially pronounced during your {mahadasha} Mahadasha, "
+                    f"particularly in the {antardasha} phase."
+                )
+            if mahadasha:
+                return f"This effect is especially pronounced during your {mahadasha} Mahadasha."
+            return f"This effect is especially pronounced during your {antardasha} Antardasha."
+
+        if relevance == "medium":
+            if antardasha:
+                if mahadasha:
+                    return (
+                        f"You may notice these results during your {antardasha} Antardasha "
+                        f"within the {mahadasha} Mahadasha."
+                    )
+                return (
+                    f"You may notice these results during your {antardasha} Antardasha."
+                )
+            if mahadasha:
+                return f"You may notice these results during your {mahadasha} Mahadasha."
+            return ""
+
+        return ""
 
     def _extract_text(self, response_json: Dict[str, Any]) -> str:
         """Extracts response text from a Responses API payload."""

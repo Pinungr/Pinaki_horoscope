@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 from typing import Any, Dict
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -11,33 +12,32 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Image as RLImage
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from app.repositories.chart_repo import ChartRepository
 from app.repositories.database_manager import DatabaseManager
 from app.repositories.user_repo import UserRepository
-from app.repositories.chart_repo import ChartRepository
+from app.services.astrology_advanced_service import AstrologyAdvancedService
+from app.services.event_service import EventService
 from app.services.horoscope_service import HoroscopeService
+from app.services.reasoning_service import ReasoningService
+from app.services.timeline_service import TimelineService
 
 
 class ReportService:
-    """
-    Generates offline horoscope PDF reports from existing service-layer outputs.
-
-    Step 2 scope:
-    - fetch report data from existing repositories/services
-    - create a basic PDF shell
-    - keep formatting logic isolated from UI code
-    """
+    """Generates offline horoscope PDF reports from existing service-layer outputs."""
 
     def __init__(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
         self.user_repo = UserRepository(db_manager)
         self.chart_repo = ChartRepository(db_manager)
         self.horoscope_service = HoroscopeService(db_manager)
+        self.advanced_service = AstrologyAdvancedService()
+        self.timeline_service = TimelineService()
+        self.reasoning_service = ReasoningService()
+        self.event_service = EventService()
         self.styles = self._build_styles()
 
     def generate_pdf(self, user_id: int, output_path: str) -> str:
-        """
-        Builds a structured horoscope PDF for the given user and returns the saved path.
-        """
+        """Builds a structured horoscope PDF for the given user and returns the saved path."""
         report_data = self._fetch_report_data(user_id)
         destination = Path(output_path).expanduser().resolve()
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -58,9 +58,12 @@ class ReportService:
 
             story.extend(self._build_header_section(report_data))
             story.extend(self._build_chart_section(chart_image_path))
+            story.extend(self._build_top_insights_section(report_data))
             story.extend(self._build_predictions_section(report_data))
-            story.extend(self._build_dasha_section(report_data))
+            story.extend(self._build_timeline_forecast_section(report_data))
             story.extend(self._build_key_events_section(report_data))
+            story.extend(self._build_reasoning_summary_section(report_data))
+            story.extend(self._build_dasha_section(report_data))
 
             doc.build(story)
         finally:
@@ -84,6 +87,60 @@ class ReportService:
         _, predictions = self.horoscope_service.load_chart_for_user(user_id)
         timeline_data = self.horoscope_service.get_timeline_data(user_id)
 
+        unified_summary: Dict[str, Any] = {}
+        unified_predictions: list[dict[str, Any]] = []
+        timeline_forecast: Dict[str, Any] = {"timeline": []}
+        reasoning_rows: list[dict[str, Any]] = []
+        key_events: Dict[str, Dict[str, Any]] = {}
+
+        import logging as _logging
+        _rlog = _logging.getLogger(__name__)
+
+        # ── 1. Advanced data ──────────────────────────────────────────────────
+        advanced_data: Dict[str, Any] = {}
+        try:
+            advanced_data = self.advanced_service.generate_advanced_data(chart_data, user.dob)
+            unified_payload = advanced_data.get("unified", {}) if isinstance(advanced_data, dict) else {}
+            if isinstance(unified_payload, dict):
+                unified_summary = dict(unified_payload.get("summary", {}) or {})
+                raw_predictions = unified_payload.get("predictions", [])
+                if isinstance(raw_predictions, list):
+                    unified_predictions = [dict(row) for row in raw_predictions if isinstance(row, dict)]
+        except Exception as exc:
+            _rlog.warning("ReportService: advanced data generation failed — unified/timeline sections will be empty: %s", exc)
+
+        # ── 2. Timeline forecast ──────────────────────────────────────────────
+        dasha_timeline = advanced_data.get("dasha", []) if isinstance(advanced_data, dict) else []
+        try:
+            timeline_forecast = self.timeline_service.build_timeline_forecast(
+                unified_predictions,
+                dasha_timeline,
+            )
+        except Exception as exc:
+            _rlog.warning("ReportService: timeline forecast failed — timeline section will be empty: %s", exc)
+
+        # ── 3. Reasoning ──────────────────────────────────────────────────────
+        try:
+            reasoning_rows = self.reasoning_service.generate_explanations(unified_predictions)
+        except Exception as exc:
+            _rlog.warning("ReportService: reasoning generation failed — reasoning section will be empty: %s", exc)
+
+        # ── 4. Key events ─────────────────────────────────────────────────────
+        try:
+            for area in ("career", "marriage", "finance"):
+                event_result = self.event_service.predict_event(
+                    user_query=area,
+                    predictions=unified_predictions,
+                    timeline_data=timeline_forecast,
+                    reasoning_data=reasoning_rows,
+                )
+                if isinstance(event_result, dict):
+                    key_events[area] = event_result
+        except Exception as exc:
+            _rlog.warning("ReportService: key events generation failed — key events section will be empty: %s", exc)
+
+
+
         return {
             "user": {
                 "id": user.id,
@@ -105,6 +162,11 @@ class ReportService:
             ],
             "predictions": predictions,
             "timeline": timeline_data,
+            "unified_summary": unified_summary,
+            "unified_predictions": unified_predictions,
+            "timeline_forecast": timeline_forecast,
+            "reasoning": reasoning_rows,
+            "key_events": key_events,
         }
 
     def _build_styles(self):
@@ -170,6 +232,21 @@ class ReportService:
                 spaceAfter=4 * mm,
             )
         )
+        styles.add(
+            ParagraphStyle(
+                name="InsightCard",
+                parent=styles["BodyText"],
+                fontName="Helvetica",
+                fontSize=10,
+                leading=14,
+                textColor=colors.HexColor("#0f172a"),
+                borderWidth=0.7,
+                borderColor=colors.HexColor("#d1fae5"),
+                borderPadding=8,
+                backColor=colors.HexColor("#f0fdf4"),
+                spaceAfter=3 * mm,
+            )
+        )
         return styles
 
     def _build_header_section(self, report_data: Dict[str, Any]) -> list:
@@ -177,10 +254,10 @@ class ReportService:
         user = report_data["user"]
 
         user_details = (
-            f"<b>Name:</b> {user['name']}<br/>"
-            f"<b>Date of Birth:</b> {user['dob']}<br/>"
-            f"<b>Time of Birth:</b> {user['tob']}<br/>"
-            f"<b>Place:</b> {user['place']}"
+            f"<b>Name:</b> {escape(str(user['name']))}<br/>"
+            f"<b>Date of Birth:</b> {escape(str(user['dob']))}<br/>"
+            f"<b>Time of Birth:</b> {escape(str(user['tob']))}<br/>"
+            f"<b>Place:</b> {escape(str(user['place']))}"
         )
 
         return [
@@ -213,9 +290,71 @@ class ReportService:
 
         return story + [Spacer(1, 4 * mm)]
 
+    def _build_top_insights_section(self, report_data: Dict[str, Any]) -> list:
+        """Builds a concise top-insights summary with confidence and focus areas."""
+        summary = report_data.get("unified_summary", {})
+        if not isinstance(summary, dict):
+            summary = {}
+
+        top_areas = summary.get("top_areas", []) if isinstance(summary.get("top_areas"), list) else []
+        top_areas = [self._normalize_area(area) for area in top_areas if str(area or "").strip()]
+
+        time_focus = summary.get("time_focus", []) if isinstance(summary.get("time_focus"), list) else []
+        time_focus = [self._normalize_area(area) for area in time_focus if str(area or "").strip()]
+
+        confidence_score = self._safe_int(summary.get("confidence_score"))
+        confidence_band = "High" if confidence_score >= 80 else "Medium" if confidence_score >= 50 else "Low"
+
+        story = [Paragraph("Top Insights", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
+
+        body = (
+            f"<b>Overall Confidence:</b> {confidence_score}% ({confidence_band})<br/>"
+            f"<b>Top Areas:</b> {', '.join(area.title() for area in top_areas) if top_areas else 'Not enough data yet'}<br/>"
+            f"<b>Time Focus:</b> {', '.join(area.title() for area in time_focus) if time_focus else 'No immediate timing hotspot'}"
+        )
+        story.append(Paragraph(body, self.styles["InsightCard"]))
+        story.append(Spacer(1, 4 * mm))
+        return story
+
     def _build_predictions_section(self, report_data: Dict[str, Any]) -> list:
-        """Builds the scored prediction section for core categories."""
+        """Builds the prediction section using unified predictions when available."""
         story = [Paragraph("Predictions", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
+
+        unified_predictions = report_data.get("unified_predictions", [])
+        if isinstance(unified_predictions, list) and unified_predictions:
+            sorted_predictions = sorted(
+                [row for row in unified_predictions if isinstance(row, dict)],
+                key=lambda row: self._safe_int(row.get("score")),
+                reverse=True,
+            )
+            for row in sorted_predictions[:6]:
+                area = self._normalize_area(row.get("area", "general")).title()
+                yoga = escape(str(row.get("yoga", "Yoga")))
+                strength = escape(str(row.get("strength", "medium")).title())
+                score = self._safe_int(row.get("score"))
+                text = escape(str(row.get("refined_text") or row.get("text") or "No summary available."))
+
+                timing = row.get("timing", {}) if isinstance(row.get("timing"), dict) else {}
+                maha = escape(str(timing.get("mahadasha", "")))
+                antar = escape(str(timing.get("antardasha", "")))
+                relevance = escape(str(timing.get("relevance", "low")).title())
+
+                timing_line = "Timing: No specific dasha activation."
+                if maha and antar:
+                    timing_line = f"Timing: {maha} Mahadasha / {antar} Antardasha ({relevance})."
+                elif maha:
+                    timing_line = f"Timing: {maha} Mahadasha ({relevance})."
+
+                card_text = (
+                    f"<b>{area} | {yoga}</b><br/>"
+                    f"Strength: {strength} | Score: {score}<br/>"
+                    f"{text}<br/>"
+                    f"<i>{timing_line}</i>"
+                )
+                story.append(Paragraph(card_text, self.styles["PredictionCard"]))
+
+            story.append(Spacer(1, 4 * mm))
+            return story
 
         predictions = report_data.get("predictions", {})
         for category in ("career", "marriage", "finance"):
@@ -227,26 +366,69 @@ class ReportService:
                 },
             )
             text = (
-                f"<b>{category.title()}</b><br/>"
-                f"Summary: {details.get('summary', 'No summary available.')}<br/>"
-                f"Confidence: {str(details.get('confidence', 'low')).title()}"
+                f"<b>{escape(category.title())}</b><br/>"
+                f"Summary: {escape(str(details.get('summary', 'No summary available.')))}<br/>"
+                f"Confidence: {escape(str(details.get('confidence', 'low')).title())}"
             )
             story.append(Paragraph(text, self.styles["PredictionCard"]))
 
         story.append(Spacer(1, 4 * mm))
         return story
 
+    def _build_timeline_forecast_section(self, report_data: Dict[str, Any]) -> list:
+        """Builds a year-wise timeline table from forecast rows."""
+        story = [Paragraph("Timeline Forecast", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
+
+        forecast_rows = report_data.get("timeline_forecast", {}).get("timeline", [])
+        if not isinstance(forecast_rows, list) or not forecast_rows:
+            story.append(Paragraph("No forecast timeline rows are available yet.", self.styles["MutedBody"]))
+            story.append(Spacer(1, 4 * mm))
+            return story
+
+        table_data = [["Period", "Area", "Event", "Confidence"]]
+        for row in forecast_rows[:12]:
+            event_text = str(row.get("event", "")).strip() or "No event summary"
+            if len(event_text) > 62:
+                event_text = event_text[:59].rstrip() + "..."
+            table_data.append(
+                [
+                    str(row.get("period", "Upcoming")),
+                    self._normalize_area(row.get("area", "general")).title(),
+                    event_text,
+                    str(self._safe_int(row.get("confidence"))),
+                ]
+            )
+
+        table = Table(table_data, colWidths=[28 * mm, 24 * mm, 86 * mm, 22 * mm])
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e0f2fe")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bfdbfe")),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                ]
+            )
+        )
+
+        story.extend([table, Spacer(1, 6 * mm)])
+        return story
+
     def _build_dasha_section(self, report_data: Dict[str, Any]) -> list:
         """Builds the Dasha timeline table section."""
         timeline_rows = report_data.get("timeline", {}).get("timeline", [])
+        if not isinstance(timeline_rows, list):
+            timeline_rows = []
 
         table_data = [["Planet", "Start", "End"]]
-        for row in timeline_rows:
+        for row in timeline_rows[:18]:
             table_data.append(
                 [
-                    row.get("planet", "Unknown"),
-                    row.get("start", ""),
-                    row.get("end", ""),
+                    str(row.get("planet", "Unknown")),
+                    str(row.get("start", "")),
+                    str(row.get("end", "")),
                 ]
             )
 
@@ -272,33 +454,85 @@ class ReportService:
         ]
 
     def _build_key_events_section(self, report_data: Dict[str, Any]) -> list:
-        """Builds a compact section summarizing key career, marriage, and finance periods."""
+        """Builds key event highlights for core life areas."""
         story = [Paragraph("Key Life Events", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
 
-        timeline_rows = report_data.get("timeline", {}).get("timeline", [])
+        key_events = report_data.get("key_events", {})
+        if not isinstance(key_events, dict):
+            key_events = {}
+
+        forecast_rows = report_data.get("timeline_forecast", {}).get("timeline", [])
+        if not isinstance(forecast_rows, list):
+            forecast_rows = []
+
         category_labels = {
-            "career": "Career growth periods",
-            "marriage": "Marriage windows",
-            "finance": "Financial peaks",
+            "career": "Career",
+            "marriage": "Marriage",
+            "finance": "Finance",
         }
 
-        for category, label in category_labels.items():
-            matching_periods = []
-            for row in timeline_rows:
-                events = row.get("events", [])
-                if any(str(event.get("type", "")).strip().lower() == category for event in events):
-                    matching_periods.append(
-                        f"{row.get('planet', 'Unknown')} Mahadasha ({row.get('start', '')} to {row.get('end', '')})"
-                    )
+        for area, label in category_labels.items():
+            area_event = key_events.get(area, {}) if isinstance(key_events.get(area), dict) else {}
 
-            if matching_periods:
-                content = "<br/>".join(matching_periods)
+            if area_event.get("answer"):
+                supporting_events = area_event.get("supporting_events", [])
+                first_event = supporting_events[0] if isinstance(supporting_events, list) and supporting_events else {}
+                period = str(first_event.get("period", "Upcoming")).strip() or "Upcoming"
+                confidence = self._safe_int(area_event.get("confidence"))
+                content = (
+                    f"{escape(str(area_event.get('answer', '')))}<br/>"
+                    f"Window: {escape(period)} | Confidence: {confidence}"
+                )
             else:
-                content = "No strong period identified."
+                fallback = next(
+                    (
+                        row for row in forecast_rows
+                        if self._normalize_area(row.get("area", "general")) == area
+                    ),
+                    None,
+                )
+                if fallback:
+                    content = (
+                        f"{escape(str(fallback.get('event', 'Notable development')))}<br/>"
+                        f"Window: {escape(str(fallback.get('period', 'Upcoming')))} | "
+                        f"Confidence: {self._safe_int(fallback.get('confidence'))}"
+                    )
+                else:
+                    content = "No strong period identified."
 
-            story.append(Paragraph(f"<b>{label}</b><br/>{content}", self.styles["SectionBody"]))
+            story.append(Paragraph(f"<b>{escape(label)}</b><br/>{content}", self.styles["SectionBody"]))
+            story.append(Spacer(1, 3 * mm))
+
+        story.append(Spacer(1, 3 * mm))
+        return story
+
+    def _build_reasoning_summary_section(self, report_data: Dict[str, Any]) -> list:
+        """Builds concise reasoning cards from the reasoning engine output."""
+        story = [Paragraph("Reasoning Summary", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
+
+        reasoning_rows = report_data.get("reasoning", [])
+        if not isinstance(reasoning_rows, list) or not reasoning_rows:
+            story.append(Paragraph("Reasoning details are not available yet.", self.styles["MutedBody"]))
             story.append(Spacer(1, 4 * mm))
+            return story
 
+        for row in reasoning_rows[:6]:
+            if not isinstance(row, dict):
+                continue
+            area = self._normalize_area(row.get("area", "general")).title()
+            explanation = escape(str(row.get("explanation", "No explanation available.")))
+            factors = row.get("supporting_factors", [])
+            if isinstance(factors, list):
+                factor_text = "; ".join(escape(str(item)) for item in factors[:4] if str(item or "").strip())
+            else:
+                factor_text = ""
+
+            text = f"<b>{escape(area)}</b><br/>{explanation}"
+            if factor_text:
+                text += f"<br/><i>Supporting factors:</i> {factor_text}"
+            story.append(Paragraph(text, self.styles["PredictionCard"]))
+
+        story.append(Spacer(1, 4 * mm))
         return story
 
     def _render_chart_to_png(self, report_data: Dict[str, Any]) -> str | None:
@@ -355,3 +589,17 @@ class ReportService:
             }
             for entry in chart_data
         ]
+
+    @staticmethod
+    def _normalize_area(area: Any) -> str:
+        normalized = str(area or "general").strip().lower() or "general"
+        if normalized in {"wealth", "financial"}:
+            return "finance"
+        return normalized
+
+    @staticmethod
+    def _safe_int(value: Any) -> int:
+        try:
+            return int(round(float(value)))
+        except (TypeError, ValueError):
+            return 0

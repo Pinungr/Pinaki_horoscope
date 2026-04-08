@@ -120,7 +120,7 @@ class AstrologyAdvancedService:
             engine = self._get_unified_engine()
             unified_output = execute_safely(
                 lambda: (
-                    engine.generate_full_analysis(chart_data_models, language="en")
+                    engine.generate_full_analysis(chart_data_models, dob=user_dob, language="en")
                     if hasattr(engine, "generate_full_analysis")
                     else engine.analyze(chart_data_models, dob=user_dob, language="en")
                 ),

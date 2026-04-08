@@ -4,25 +4,16 @@ from collections import defaultdict, deque
 import re
 import logging
 from typing import Any, Dict, Iterable, Optional
+from app.services.event_service import EventService
+from app.services.intent_keywords import (
+    INTENT_KEYWORDS,
+    detect_intent,
+    detect_intents,
+)
+from app.services.reasoning_service import ReasoningService
+from app.services.timeline_service import TimelineService
+from app.utils.cache import get_astrology_cache
 from app.utils.logger import log_user_action
-
-
-INTENT_KEYWORDS: Dict[str, tuple[str, ...]] = {
-    "career": (
-        "job", "career", "work", "promotion", "profession", "office", "business",
-        "employment", "employer", "boss", "role", "success", "successes",
-        "jobs", "careers", "promotions",
-    ),
-    "marriage": (
-        "marriage", "wedding", "love", "relationship", "relationships", "partner",
-        "spouse", "romance", "romantic", "husband", "wife", "commitment",
-    ),
-    "finance": (
-        "money", "finance", "financial", "income", "salary", "earnings", "wealth",
-        "investment", "investments", "cash", "assets", "loan", "loans", "debt",
-        "profit", "profits", "savings", "finances",
-    ),
-}
 
 logger = logging.getLogger(__name__)
 FOLLOW_UP_MARKERS = {
@@ -33,65 +24,10 @@ FOLLOW_UP_MARKERS = {
     "what",
     "about",
     "how",
+    "why",
+    "explain",
     "more",
 }
-
-
-def _tokenize_query(query: str) -> list[str]:
-    """Splits a user query into normalized keyword-friendly tokens."""
-    return re.findall(r"[a-z]+", str(query or "").lower())
-
-
-def detect_intent(query: str) -> str:
-    """
-    Detects the most likely horoscope intent from a natural-language question.
-
-    Returns one of:
-    - career
-    - marriage
-    - finance
-    - general
-    """
-    tokens = _tokenize_query(query)
-    if not tokens:
-        return "general"
-
-    scores = {
-        intent: _count_matches(tokens, keywords)
-        for intent, keywords in INTENT_KEYWORDS.items()
-    }
-
-    best_intent = max(scores, key=scores.get)
-    return best_intent if scores[best_intent] > 0 else "general"
-
-
-def detect_intents(query: str) -> list[str]:
-    """
-    Detects one or more likely intents from a natural-language question.
-
-    Returns intents ordered by strongest signal first. Falls back to ``["general"]``.
-    """
-    tokens = _tokenize_query(query)
-    if not tokens:
-        return ["general"]
-
-    scores = {
-        intent: _count_matches(tokens, keywords)
-        for intent, keywords in INTENT_KEYWORDS.items()
-    }
-
-    positive_hits = [
-        intent
-        for intent, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)
-        if score > 0
-    ]
-
-    if not positive_hits:
-        return ["general"]
-
-    top_score = scores[positive_hits[0]]
-    selected = [intent for intent in positive_hits if scores[intent] >= max(1, top_score - 1)]
-    return selected or ["general"]
 
 
 def _count_matches(tokens: list[str], keywords: Iterable[str]) -> int:
@@ -147,6 +83,7 @@ def generate_response(intent: str, data: Dict[str, Any]) -> str:
         "career": "Your career outlook suggests the following:",
         "marriage": "Your relationship and marriage outlook suggests the following:",
         "finance": "Your financial outlook suggests the following:",
+        "health": "Your health outlook suggests the following:",
         "general": "Here is the astrological view based on your question:",
     }
     opener = opener_map.get(normalized_intent, opener_map["general"])
@@ -154,6 +91,17 @@ def generate_response(intent: str, data: Dict[str, Any]) -> str:
     parts = [opener]
     if prediction_summary:
         parts.append(prediction_summary)
+    reasoning_rows = data.get("reasoning", []) if isinstance(data, dict) else []
+    if isinstance(reasoning_rows, list) and reasoning_rows:
+        first_reasoning = reasoning_rows[0] if isinstance(reasoning_rows[0], dict) else {}
+        explanation = _clean_sentence(first_reasoning.get("explanation", ""))
+        if explanation:
+            parts.append(f"Why: {explanation}")
+        supporting = first_reasoning.get("supporting_factors", [])
+        if isinstance(supporting, list):
+            supporting_clean = [_clean_sentence(item).rstrip(".") for item in supporting if _clean_sentence(item)]
+            if supporting_clean:
+                parts.append(f"Supporting factors: {'; '.join(supporting_clean)}.")
     parts.append(confidence_text)
     if memory_note:
         parts.append(memory_note)
@@ -178,6 +126,7 @@ def _generate_multi_intent_response(intent_sections: list[dict], data: Dict[str,
                     "prediction_summary": section.get("prediction_summary", ""),
                     "confidence": section.get("confidence", ""),
                     "timeline_hint": section.get("timeline_hint", ""),
+                    "reasoning": section.get("reasoning", []),
                     "memory_note": "",
                 },
             )
@@ -200,9 +149,20 @@ class HoroscopeChatService:
     - exposes extension points for data fetching and response generation
     """
 
-    def __init__(self, horoscope_service: Optional[object] = None, ai_refiner: Optional[object] = None):
+    def __init__(
+        self,
+        horoscope_service: Optional[object] = None,
+        ai_refiner: Optional[object] = None,
+        reasoning_service: Optional[ReasoningService] = None,
+        timeline_service: Optional[TimelineService] = None,
+        event_service: Optional[EventService] = None,
+    ):
         self.horoscope_service = horoscope_service
         self.ai_refiner = ai_refiner
+        self.reasoning_service = reasoning_service or ReasoningService()
+        self.timeline_service = timeline_service or TimelineService()
+        self.event_service = event_service or EventService()
+        self.cache = get_astrology_cache()
         self.memory: dict[int, deque[dict[str, Any]]] = defaultdict(lambda: deque(maxlen=5))
         self.last_query_by_user: dict[int, str] = {}
 
@@ -319,12 +279,52 @@ class HoroscopeChatService:
                 result["data"] = self.fetch_multi_intent_data(user_id, resolved_intents)
             else:
                 result["data"] = self.fetch_intent_data(user_id, result["intent"])
+            unified_predictions = self._get_unified_predictions(user_id)
+            result["data"]["unified_predictions"] = unified_predictions
+            unified_dasha_timeline = self._get_unified_dasha_timeline(user_id)
+            result["data"]["timeline_forecast"] = self._get_cached_timeline_forecast(
+                user_id=user_id,
+                predictions=unified_predictions,
+                dasha_timeline=unified_dasha_timeline,
+            )
+            result["data"]["reasoning"] = self.reasoning_service.generate_explanations(
+                unified_predictions,
+                user_question=normalized_query,
+            )
+            intent_sections = result["data"].get("intent_sections")
+            if isinstance(intent_sections, list):
+                for section in intent_sections:
+                    if not isinstance(section, dict):
+                        continue
+                    section_intent = str(section.get("intent", "general")).strip().lower() or "general"
+                    section["reasoning"] = self.reasoning_service.generate_explanations(
+                        unified_predictions,
+                        user_question=section_intent,
+                    )
             result["data"]["memory_note"] = self._build_memory_note(
                 normalized_query,
                 resolved_intents,
                 conversation_memory,
             )
         return result
+
+    def _get_cached_timeline_forecast(
+        self,
+        *,
+        user_id: int,
+        predictions: list[dict[str, Any]],
+        dasha_timeline: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Returns cached timeline forecast for chat flows, computing it only once per user/TTL."""
+        cached = self.cache.get("chat_timeline_forecast", user_id)
+        if isinstance(cached, dict):
+            return cached
+        forecast = self.timeline_service.build_timeline_forecast(
+            predictions,
+            dasha_timeline,
+        )
+        self.cache.set("chat_timeline_forecast", user_id, forecast)
+        return forecast
 
     def ask(self, user_id: int, query: str) -> Dict[str, Any]:
         """
@@ -340,12 +340,30 @@ class HoroscopeChatService:
         """
         log_user_action("chat_query", user_id=user_id, query=query)
         analysis = self.analyze_query(query, user_id=user_id)
-        local_response = self.generate_response(
-            analysis["intent"],
-            analysis.get("data", {}),
-        )
-        analysis["response"] = local_response
-        analysis["response_source"] = "local"
+
+        used_event_service = False
+        resolved_intents = analysis.get("intents", [])
+        use_event_service = self.event_service.is_specific_query(query) and len(resolved_intents) == 1
+        if use_event_service:
+            event_result = self.event_service.predict_event(
+                user_query=query,
+                predictions=analysis.get("data", {}).get("unified_predictions", []),
+                timeline_data=analysis.get("data", {}).get("timeline_forecast", {}),
+                reasoning_data=analysis.get("data", {}).get("reasoning", []),
+            )
+            analysis["event_prediction"] = event_result
+            if str(event_result.get("answer", "")).strip():
+                analysis["response"] = str(event_result.get("answer", "")).strip()
+                analysis["response_source"] = "event_service"
+                used_event_service = True
+
+        if not used_event_service:
+            local_response = self.generate_response(
+                analysis["intent"],
+                analysis.get("data", {}),
+            )
+            analysis["response"] = local_response
+            analysis["response_source"] = "local"
 
         if self.ai_refiner is not None:
             try:
@@ -415,13 +433,14 @@ class HoroscopeChatService:
 
     def _is_follow_up_query(self, query: str) -> bool:
         """Detects short follow-up style questions that likely depend on prior context."""
-        tokens = _tokenize_query(query)
+        tokens = re.findall(r"[a-z]+", str(query or "").lower())
         if not tokens:
             return False
         if len(tokens) <= 4 and any(token in FOLLOW_UP_MARKERS for token in tokens):
             return True
         normalized = " ".join(tokens)
         return normalized.startswith(("what about", "how about", "and ", "also "))
+
 
     def _build_memory_note(
         self,
@@ -525,3 +544,58 @@ class HoroscopeChatService:
         if summary:
             return f"{base_hint}. {summary}"
         return base_hint + "."
+
+    def _get_unified_predictions(self, user_id: int) -> list[dict]:
+        """Loads unified-engine prediction rows for reasoning/event generation."""
+        advanced_data = self._get_advanced_data_payload(user_id)
+        unified_payload = advanced_data.get("unified", {}) if isinstance(advanced_data, dict) else {}
+        predictions = unified_payload.get("predictions", []) if isinstance(unified_payload, dict) else []
+        if not isinstance(predictions, list):
+            return []
+        return [dict(item) for item in predictions if isinstance(item, dict)]
+
+    def _get_unified_dasha_timeline(self, user_id: int) -> list[dict]:
+        """Loads dasha timeline rows used for timeline-event mapping."""
+        advanced_data = self._get_advanced_data_payload(user_id)
+        dasha_timeline = advanced_data.get("dasha", []) if isinstance(advanced_data, dict) else []
+        if not isinstance(dasha_timeline, list):
+            return []
+        return [dict(item) for item in dasha_timeline if isinstance(item, dict)]
+
+    def _get_advanced_data_payload(self, user_id: int) -> dict[str, Any]:
+        """
+        Loads advanced service payload once and returns a stable dict.
+
+        Returns {} when dependencies/data are unavailable.
+        """
+        cached_payload = self.cache.get("chat_advanced_data", user_id)
+        if isinstance(cached_payload, dict):
+            return cached_payload
+
+        if self.horoscope_service is None:
+            return {}
+
+        try:
+            user_repo = getattr(self.horoscope_service, "user_repo", None)
+            chart_repo = getattr(self.horoscope_service, "chart_repo", None)
+            if user_repo is None or chart_repo is None:
+                return {}
+
+            user = user_repo.get_by_id(user_id)
+            if not user:
+                return {}
+
+            chart_data_models = chart_repo.get_by_user_id(user_id)
+            if not chart_data_models:
+                return {}
+
+            from app.services.astrology_advanced_service import AstrologyAdvancedService
+
+            advanced_service = AstrologyAdvancedService()
+            advanced_data = advanced_service.generate_advanced_data(chart_data_models, str(user.dob))
+            payload = advanced_data if isinstance(advanced_data, dict) else {}
+            self.cache.set("chat_advanced_data", user_id, payload)
+            return payload
+        except Exception as exc:
+            logger.warning("Advanced payload fetch for reasoning/event failed: %s", exc)
+            return {}

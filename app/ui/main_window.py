@@ -1,4 +1,6 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QMessageBox, QTabWidget
+import os
+
+from PyQt6.QtWidgets import QHBoxLayout, QMainWindow, QTabWidget, QWidget
 from app.services.language_manager import LanguageManager
 from app.ui.input_form import InputForm
 from app.ui.chart_display import ChartDisplay
@@ -8,21 +10,28 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.db_manager = db_manager
         self.language_manager = language_manager or LanguageManager()
+        self.debug_ui_enabled = str(os.getenv("HOROSCOPE_DEBUG_UI", "")).strip().lower() in {"1", "true", "yes", "on"}
         self.setWindowTitle(self.language_manager.get_text("ui.app_title"))
-        self.resize(1000, 600)
+        self.resize(1240, 820)
+        self.setMinimumSize(1080, 720)
 
         self.init_ui()
 
     def init_ui(self):
         central_widget = QWidget()
         layout = QHBoxLayout()
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(16)
 
-        # We'll use a QTabWidget as the primary structure
         self.tabs = QTabWidget()
+        self.tabs.setDocumentMode(True)
+        self.tabs.setMovable(False)
 
         # --- TAB 1: Chart Generator --- #
         self.chart_gen_tab = QWidget()
         chart_layout = QHBoxLayout()
+        chart_layout.setContentsMargins(16, 16, 16, 16)
+        chart_layout.setSpacing(16)
 
         self.input_form = InputForm(self.language_manager)
         self.chart_display = ChartDisplay(self.language_manager)
@@ -64,17 +73,20 @@ class MainWindow(QMainWindow):
         from app.ui.settings_screen import SettingsScreen
         self.settings_screen = SettingsScreen(self.language_manager)
 
-        # Add tabs
+        # Primary product tabs
         self.tabs.addTab(self.chart_gen_tab, "")
-        self.tabs.addTab(self.user_list_screen, "")
-        self.tabs.addTab(self.rule_editor_screen, "")
-        self.tabs.addTab(self.chat_screen, "")
-        self.tabs.addTab(self.aspects_view, "")
-        self.tabs.addTab(self.dasha_view, "")
         self.tabs.addTab(self.timeline_view, "")
-        self.tabs.addTab(self.navamsha_view, "")
-        self.tabs.addTab(self.plugins_view, "")
+        self.tabs.addTab(self.chat_screen, "")
+        self.tabs.addTab(self.user_list_screen, "")
         self.tabs.addTab(self.settings_screen, "")
+
+        # Internal analysis tabs (debug only)
+        if self.debug_ui_enabled:
+            self.tabs.addTab(self.rule_editor_screen, "")
+            self.tabs.addTab(self.aspects_view, "")
+            self.tabs.addTab(self.dasha_view, "")
+            self.tabs.addTab(self.navamsha_view, "")
+            self.tabs.addTab(self.plugins_view, "")
 
         layout.addWidget(self.tabs)
         central_widget.setLayout(layout)
@@ -83,20 +95,27 @@ class MainWindow(QMainWindow):
 
     def apply_translations(self) -> None:
         self.setWindowTitle(self.language_manager.get_text("ui.app_title"))
-        self.tabs.setTabText(0, self.language_manager.get_text("ui.chart_generator"))
-        self.tabs.setTabText(1, self.language_manager.get_text("ui.user_management"))
-        self.tabs.setTabText(2, self.language_manager.get_text("ui.rule_editor"))
-        self.tabs.setTabText(3, self.language_manager.get_text("ui.horoscope_chat"))
-        self.tabs.setTabText(4, self.language_manager.get_text("ui.aspects"))
-        self.tabs.setTabText(5, self.language_manager.get_text("ui.dasha"))
-        self.tabs.setTabText(6, self.language_manager.get_text("ui.life_timeline"))
-        self.tabs.setTabText(7, self.language_manager.get_text("ui.navamsha_d9"))
-        self.tabs.setTabText(8, self.language_manager.get_text("ui.plugins"))
-        self.tabs.setTabText(9, self.language_manager.get_text("ui.settings"))
+        tab_labels = [
+            self.language_manager.get_text("ui.chart_generator"),
+            self.language_manager.get_text("ui.life_timeline"),
+            self.language_manager.get_text("ui.horoscope_chat"),
+            self.language_manager.get_text("ui.user_management"),
+            self.language_manager.get_text("ui.settings"),
+        ]
+        if self.debug_ui_enabled:
+            tab_labels.extend(
+                [
+                    self.language_manager.get_text("ui.rule_editor"),
+                    self.language_manager.get_text("ui.aspects"),
+                    self.language_manager.get_text("ui.dasha"),
+                    self.language_manager.get_text("ui.navamsha_d9"),
+                    self.language_manager.get_text("ui.plugins"),
+                ]
+            )
+
+        for index, label in enumerate(tab_labels):
+            self.tabs.setTabText(index, label)
         self.input_form.apply_translations()
         self.chart_display.apply_translations()
         self.settings_screen.apply_translations()
         self.navamsha_view.apply_translations()
-
-# The controller will bind handlers directly to self.input_form.generate_requested and self.input_form.save_requested.
-        # No internal logic needed here in MainWindow.

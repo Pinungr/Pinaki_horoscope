@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 import unittest
 
 from core.predictions.prediction_service import PredictionService
@@ -76,6 +77,61 @@ class ContextualPredictionServiceTests(unittest.TestCase):
         self.assertEqual("weak", payload["strength"])
         self.assertIn("relationships", payload["text"].lower())
         self.assertIn("mild", payload["text"].lower())
+
+    def test_map_yoga_to_planets_extracts_known_planets(self) -> None:
+        yoga = {
+            "id": "gajakesari_yoga",
+            "key_planets": ["Moon", "Jupiter"],
+            "from": "Saturn",
+            "to": "Moon",
+        }
+
+        planets = self.service.map_yoga_to_planets(yoga)
+
+        self.assertEqual(["moon", "jupiter", "saturn"], planets)
+
+    def test_evaluate_dasha_relevance_marks_high_when_mahadasha_matches_yoga_planet(self) -> None:
+        yoga = {"id": "gajakesari_yoga", "key_planets": ["Jupiter", "Moon"]}
+        dasha_data = {
+            "timeline": [
+                {"planet": "Jupiter", "start": "2020-01-01", "end": "2036-01-01"},
+            ]
+        }
+
+        relevance = self.service.evaluate_dasha_relevance(
+            yoga,
+            dasha_data,
+            reference_date=date(2026, 4, 8),
+        )
+
+        self.assertEqual("Jupiter", relevance["mahadasha"])
+        self.assertEqual("high", relevance["relevance"])
+        self.assertIn("jupiter", relevance["matched_planets"])
+        self.assertGreater(relevance["score_multiplier"], 1.0)
+
+    def test_evaluate_dasha_relevance_marks_medium_when_only_antardasha_matches(self) -> None:
+        yoga = {"id": "venus_focus", "key_planets": ["Venus"]}
+        dasha_data = {
+            "timeline": [
+                {
+                    "planet": "Saturn",
+                    "antardasha": "Venus",
+                    "start": "2020-01-01",
+                    "end": "2039-01-01",
+                },
+            ]
+        }
+
+        relevance = self.service.evaluate_dasha_relevance(
+            yoga,
+            dasha_data,
+            reference_date=date(2026, 4, 8),
+        )
+
+        self.assertEqual("Saturn", relevance["mahadasha"])
+        self.assertEqual("Venus", relevance["antardasha"])
+        self.assertEqual("medium", relevance["relevance"])
+        self.assertIn("venus", relevance["matched_planets"])
 
 
 if __name__ == "__main__":

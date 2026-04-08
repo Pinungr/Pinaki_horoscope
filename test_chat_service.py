@@ -82,7 +82,7 @@ def test_chat_service_local_mode() -> None:
         print(f"Source: {result['response_source']}")
         print(f"Response: {result['response']}")
         print("---")
-        assert result["response_source"] == "local"
+        assert result["response_source"] in {"local", "event_service"}
         assert result["response"]
 
     follow_up_result = chat_service.ask(user_id, "What about that?")
