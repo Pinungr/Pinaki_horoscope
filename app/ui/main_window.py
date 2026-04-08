@@ -49,8 +49,8 @@ class MainWindow(QMainWindow):
         self.dasha_view = QTextEdit()
         self.dasha_view.setReadOnly(True)
         
-        self.navamsha_view = QTextEdit()
-        self.navamsha_view.setReadOnly(True)
+        from app.ui.widgets.navamsha_widget import NavamshaWidget
+        self.navamsha_view = NavamshaWidget(language_manager=self.language_manager)
         
         self.plugins_view = QTextEdit()
         self.plugins_view.setReadOnly(True)
@@ -96,6 +96,7 @@ class MainWindow(QMainWindow):
         self.input_form.apply_translations()
         self.chart_display.apply_translations()
         self.settings_screen.apply_translations()
+        self.navamsha_view.apply_translations()
 
 # The controller will bind handlers directly to self.input_form.generate_requested and self.input_form.save_requested.
         # No internal logic needed here in MainWindow.

@@ -312,7 +312,7 @@ class MainController:
             advanced_data = advanced_service.generate_advanced_data(chart_models, user_model.dob)
             self.view.aspects_view.setText(json.dumps(advanced_data["aspects"], indent=2))
             self.view.dasha_view.setText(json.dumps(advanced_data["dasha"], indent=2))
-            self.view.navamsha_view.setText(json.dumps(advanced_data["navamsha"], indent=2))
+            self.view.navamsha_view.set_navamsha_data(advanced_data["navamsha"])
             self.view.plugins_view.setText(json.dumps(advanced_data["plugins"], indent=2))
             self.active_user_id = user_id
             self.view.chat_screen.set_active_user(user_id)
@@ -323,7 +323,7 @@ class MainController:
             logger.exception("Failed to populate advanced views for user %s: %s", user_id, exc)
             self.view.aspects_view.setText("{}")
             self.view.dasha_view.setText("[]")
-            self.view.navamsha_view.setText("{}")
+            self.view.navamsha_view.clear()
             self.view.plugins_view.setText("{}")
             self.view.timeline_view.clear_timeline()
             QMessageBox.warning(
