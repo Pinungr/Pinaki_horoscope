@@ -13,6 +13,7 @@ from app.utils.cache import get_astrology_cache
 from app.utils.logger import log_user_action, log_calculation_step
 from app.utils.validators import validate_user_input
 from app.utils.safe_execution import AppError, execute_safely
+from core.engines.aspect_engine import calculate_aspects
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +93,15 @@ class HoroscopeService:
             return {}
 
         rule_engine = RuleEngine(rules)
+        precomputed_aspects = execute_safely(
+            lambda: calculate_aspects(chart_data_models),
+            logger=logger,
+            operation_name="Aspect precomputation for rule evaluation",
+            user_message="Predictions are unavailable right now.",
+            fallback=[],
+        )
         raw_predictions = execute_safely(
-            lambda: rule_engine.evaluate(chart_data_models),
+            lambda: rule_engine.evaluate(chart_data_models, aspects=precomputed_aspects),
             logger=logger,
             operation_name="Rule engine evaluation",
             user_message="Predictions are unavailable right now.",
@@ -253,8 +261,28 @@ class HoroscopeService:
                         if isinstance(raw_prediction, dict) and raw_prediction.get("rule_confidence")
                         else matched_rule.confidence if matched_rule else "medium"
                     ),
+                    "trace": (
+                        raw_prediction.get("trace")
+                        if isinstance(raw_prediction, dict)
+                        else []
+                    ),
                 }
             )
+
+        def _safe_weight(item: Dict[str, Any]) -> float:
+            try:
+                return float(item.get("weight", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                return 0.0
+
+        scorer_input.sort(key=_safe_weight, reverse=True)
+        unique_scorer_input: Dict[str, Dict[str, Any]] = {}
+        for item in scorer_input:
+            dedupe_key = str(item.get("result_key") or item.get("text") or "").strip().lower()
+            if not dedupe_key or dedupe_key in unique_scorer_input:
+                continue
+            unique_scorer_input[dedupe_key] = item
+        scorer_input = list(unique_scorer_input.values())
 
         scored_predictions = score_predictions(scorer_input)
         scored_predictions = self.interpreter.refine_scored_predictions(scored_predictions)

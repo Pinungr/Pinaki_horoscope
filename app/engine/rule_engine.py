@@ -39,9 +39,11 @@ class RuleEngine:
                 condition = json.loads(rule.condition_json)
                 if computed_aspects is None and self._condition_requires_aspects(condition):
                     computed_aspects = calculate_aspects(chart_data)
-                if self._evaluate_condition(condition, chart_data, computed_aspects):
+                trace: List[str] = []
+                if self._evaluate_condition(condition, chart_data, computed_aspects, trace=trace):
                     predictions.append(
                         {
+                            "rule": str(rule.result_key or f"rule_{rule.id or rule.result_text}"),
                             "text": rule.result_text,
                             "result_text": rule.result_text,
                             "result_key": rule.result_key,
@@ -51,6 +53,7 @@ class RuleEngine:
                             "rule_confidence": rule.confidence,
                             "rule_id": rule.id,
                             "priority": rule.priority,
+                            "trace": trace,
                         }
                     )
                     log_rule_match(
@@ -64,6 +67,7 @@ class RuleEngine:
             except json.JSONDecodeError:
                 logger.warning("Skipping invalid rule JSON for rule_id=%s.", rule.id)
                 continue
+        predictions = self._deduplicate_predictions(predictions)
         logger.info("Rule evaluation completed with %d match(es).", len(predictions))
         return predictions
 
@@ -72,45 +76,101 @@ class RuleEngine:
         condition: Any,
         chart_data: List[ChartData],
         aspects: Optional[List[Dict[str, Any]]] = None,
+        *,
+        trace: Optional[List[str]] = None,
     ) -> bool:
         if not isinstance(condition, dict):
+            if trace is not None:
+                trace.append("Invalid condition payload.")
             return False
 
         if "AND" in condition:
-            return all(self._evaluate_condition(c, chart_data, aspects) for c in condition["AND"])
+            and_conditions = condition["AND"]
+            if not isinstance(and_conditions, list):
+                if trace is not None:
+                    trace.append("Invalid AND condition list.")
+                return False
+
+            all_matched = True
+            for index, child_condition in enumerate(and_conditions):
+                child_trace: List[str] = []
+                child_matched = self._evaluate_condition(
+                    child_condition,
+                    chart_data,
+                    aspects,
+                    trace=child_trace,
+                )
+                if trace is not None:
+                    trace.extend(child_trace)
+                    trace.append(f"AND[{index}] => {'matched' if child_matched else 'failed'}")
+                if not child_matched:
+                    all_matched = False
+            return all_matched
         
         if "OR" in condition:
-            return any(self._evaluate_condition(c, chart_data, aspects) for c in condition["OR"])
+            or_conditions = condition["OR"]
+            if not isinstance(or_conditions, list):
+                if trace is not None:
+                    trace.append("Invalid OR condition list.")
+                return False
+
+            any_matched = False
+            for index, child_condition in enumerate(or_conditions):
+                child_trace: List[str] = []
+                child_matched = self._evaluate_condition(
+                    child_condition,
+                    chart_data,
+                    aspects,
+                    trace=child_trace,
+                )
+                if trace is not None:
+                    trace.extend(child_trace)
+                    trace.append(f"OR[{index}] => {'matched' if child_matched else 'failed'}")
+                if child_matched:
+                    any_matched = True
+            return any_matched
 
         # Simple condition matching
-        return self._match_simple_condition(condition, chart_data, aspects)
+        return self._match_simple_condition(condition, chart_data, aspects, trace=trace)
 
     def _match_simple_condition(
         self,
         condition: Dict[str, Any],
         chart_data: List[ChartData],
         aspects: Optional[List[Dict[str, Any]]] = None,
+        *,
+        trace: Optional[List[str]] = None,
     ) -> bool:
         if condition.get("type") == "conjunction":
-            return self._match_conjunction_condition(condition, chart_data)
+            return self._match_conjunction_condition(condition, chart_data, trace=trace)
 
         if condition.get("type") == "aspect":
-            return self._match_aspect_condition(
+            matched = self._match_aspect_condition(
                 condition,
                 aspects if aspects is not None else calculate_aspects(chart_data),
             )
+            if trace is not None:
+                from_planet = self._normalize_planet_name(condition.get("from"))
+                to_planet = self._normalize_planet_name(condition.get("to"))
+                trace.append(
+                    f"Aspect check: {from_planet or '*'} -> {to_planet or '*'} => {'matched' if matched else 'not matched'}"
+                )
+            return matched
 
         if condition.get("type") == "in_kendra":
-            return self._match_house_group_condition(condition, chart_data, "kendra")
+            return self._match_house_group_condition(condition, chart_data, "kendra", trace=trace)
 
         if condition.get("type") == "relative_house":
-            return self._match_relative_house_condition(condition, chart_data)
+            return self._match_relative_house_condition(condition, chart_data, trace=trace)
 
         if self._is_aspect_condition(condition):
-            return self._match_aspect_condition(
+            matched = self._match_aspect_condition(
                 condition,
                 aspects if aspects is not None else calculate_aspects(chart_data),
             )
+            if trace is not None:
+                trace.append(f"Aspect condition => {'matched' if matched else 'not matched'}")
+            return matched
 
         target_planet = condition.get("planet")
         target_sign = condition.get("sign")
@@ -118,26 +178,40 @@ class RuleEngine:
 
         # Find matching planets in chart data
         for cd in chart_data:
-            if target_planet and cd.planet_name != target_planet:
+            current_planet = self._extract_planet_name(cd)
+            current_sign = getattr(cd, "sign", None) if not isinstance(cd, dict) else cd.get("sign", cd.get("Sign"))
+            current_house = self._extract_house(cd)
+
+            if target_planet and current_planet != self._normalize_planet_name(target_planet):
                 continue
-            if target_sign and cd.sign != target_sign:
+            if target_sign and str(current_sign) != str(target_sign):
                 continue
-            if target_house and cd.house != target_house:
+            if target_house and current_house != target_house:
                 continue
-            
+             
             # If we reach here, it means all specified criteria matched this ChartData
         # For a simple condition, we only need ONE matching entity in the chart.
+            if trace is not None:
+                trace.append(
+                    f"Simple condition matched: planet={current_planet or '*'} sign={current_sign or '*'} house={current_house}"
+                )
             return True
-            
+             
+        if trace is not None:
+            trace.append("Simple condition did not match.")
         return False
 
     @staticmethod
     def _match_conjunction_condition(
         condition: Dict[str, Any],
         chart_data: List[Any],
+        *,
+        trace: Optional[List[str]] = None,
     ) -> bool:
         target_planets = condition.get("planets", [])
         if not isinstance(target_planets, list):
+            if trace is not None:
+                trace.append("Conjunction condition has invalid planets payload.")
             return False
 
         normalized_targets = []
@@ -147,16 +221,27 @@ class RuleEngine:
                 normalized_targets.append(planet_name)
 
         if len(normalized_targets) < 2:
+            if trace is not None:
+                trace.append("Conjunction requires at least two planets.")
             return False
 
-        target_houses = []
+        target_houses: List[int] = []
+        house_pairs: List[str] = []
         for planet_name in normalized_targets:
             house = RuleEngine.get_planet_house(chart_data, planet_name)
             if house is None:
+                if trace is not None:
+                    trace.append(f"Conjunction failed: missing/invalid house for {planet_name}.")
                 return False
             target_houses.append(house)
+            house_pairs.append(f"{planet_name}={house}")
 
-        return len(set(target_houses)) == 1
+        matched = len(set(target_houses)) == 1
+        if trace is not None:
+            trace.append(
+                f"Conjunction houses ({', '.join(house_pairs)}) => {'matched' if matched else 'not matched'}"
+            )
+        return matched
 
     @staticmethod
     def get_planet_house(chart_data: List[Any], planet_name: str) -> Optional[int]:
@@ -171,24 +256,38 @@ class RuleEngine:
         condition: Dict[str, Any],
         chart_data: List[Any],
         group_name: str,
+        *,
+        trace: Optional[List[str]] = None,
     ) -> bool:
         target_planet = condition.get("planet")
         target_house = RuleEngine.get_planet_house(chart_data, target_planet)
         if target_house is None:
+            if trace is not None:
+                trace.append(f"{group_name} check failed: missing house for {target_planet}.")
             return False
 
-        return target_house in HOUSE_GROUPS.get(group_name, set())
+        matched = target_house in HOUSE_GROUPS.get(group_name, set())
+        if trace is not None:
+            trace.append(
+                f"{RuleEngine._normalize_planet_name(target_planet)} house={target_house} in {group_name} => "
+                f"{'matched' if matched else 'not matched'}"
+            )
+        return matched
 
     @staticmethod
     def _match_relative_house_condition(
         condition: Dict[str, Any],
         chart_data: List[Any],
+        *,
+        trace: Optional[List[str]] = None,
     ) -> bool:
         from_planet = condition.get("from")
         to_planet = condition.get("to")
         target_houses = condition.get("houses", [])
 
         if not isinstance(target_houses, list) or not target_houses:
+            if trace is not None:
+                trace.append("relative_house requires a non-empty houses list.")
             return False
 
         normalized_target_houses = set()
@@ -201,15 +300,62 @@ class RuleEngine:
                 normalized_target_houses.add(house_number)
 
         if not normalized_target_houses:
+            if trace is not None:
+                trace.append("relative_house has no valid target houses.")
             return False
 
         from_house = RuleEngine.get_planet_house(chart_data, from_planet)
         to_house = RuleEngine.get_planet_house(chart_data, to_planet)
         if from_house is None or to_house is None:
+            if trace is not None:
+                trace.append("relative_house failed: missing house for source/target planet.")
             return False
 
         relative_house = (to_house - from_house) % 12 + 1
-        return relative_house in normalized_target_houses
+        matched = relative_house in normalized_target_houses
+        if trace is not None:
+            normalized_from = RuleEngine._normalize_planet_name(from_planet) or "unknown"
+            normalized_to = RuleEngine._normalize_planet_name(to_planet) or "unknown"
+            trace.append(f"{normalized_from}-{normalized_to} relative house = {relative_house}")
+            trace.append(
+                f"Condition satisfied: relative house in {sorted(normalized_target_houses)} => "
+                f"{'matched' if matched else 'not matched'}"
+            )
+        return matched
+
+    @staticmethod
+    def _deduplicate_predictions(predictions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        unique_predictions: Dict[str, Dict[str, Any]] = {}
+
+        for prediction in predictions:
+            dedupe_key = str(
+                prediction.get("rule")
+                or prediction.get("result_key")
+                or prediction.get("rule_id")
+                or prediction.get("text")
+                or ""
+            ).strip().lower()
+            if not dedupe_key:
+                continue
+
+            current_weight = RuleEngine._safe_weight(prediction.get("weight", 0.0))
+            existing = unique_predictions.get(dedupe_key)
+            if existing is None:
+                unique_predictions[dedupe_key] = prediction
+                continue
+
+            existing_weight = RuleEngine._safe_weight(existing.get("weight", 0.0))
+            if current_weight > existing_weight:
+                unique_predictions[dedupe_key] = prediction
+
+        return list(unique_predictions.values())
+
+    @staticmethod
+    def _safe_weight(value: Any) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
 
     @staticmethod
     def _normalize_planet_name(planet_name: Any) -> str:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
+
+from core.utils.chart_utils import extract_house, extract_planet_name
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,17 @@ VALID_PLANETS = {
     "Saturn",
     "Rahu",
     "Ketu",
+}
+CANONICAL_PLANET_NAMES = {
+    "sun": "Sun",
+    "moon": "Moon",
+    "mars": "Mars",
+    "mercury": "Mercury",
+    "jupiter": "Jupiter",
+    "venus": "Venus",
+    "saturn": "Saturn",
+    "rahu": "Rahu",
+    "ketu": "Ketu",
 }
 
 
@@ -107,7 +120,7 @@ def _normalize_chart_data(chart_data: Iterable[object]) -> list[dict[str, int | 
 
     for item in chart_data:
         planet_name = _extract_planet_name(item)
-        house = _extract_house(item)
+        house = extract_house(item)
 
         if not planet_name or house is None:
             logger.debug("Skipping chart row with missing planet or house: %r", item)
@@ -123,30 +136,7 @@ def _normalize_chart_data(chart_data: Iterable[object]) -> list[dict[str, int | 
 
 
 def _extract_planet_name(item: object) -> str | None:
-    if isinstance(item, Mapping):
-        raw_planet = item.get("planet_name", item.get("planet", item.get("Planet")))
-    else:
-        raw_planet = getattr(item, "planet_name", None)
-
-    if raw_planet is None:
+    normalized_name = extract_planet_name(item)
+    if not normalized_name:
         return None
-
-    planet_name = str(raw_planet).strip()
-    return planet_name or None
-
-
-def _extract_house(item: object) -> int | None:
-    if isinstance(item, Mapping):
-        raw_house = item.get("house", item.get("House"))
-    else:
-        raw_house = getattr(item, "house", None)
-
-    try:
-        house = int(raw_house) if raw_house is not None else None
-    except (TypeError, ValueError):
-        return None
-
-    if house is None or house < 1 or house > 12:
-        return None
-
-    return house
+    return CANONICAL_PLANET_NAMES.get(normalized_name)

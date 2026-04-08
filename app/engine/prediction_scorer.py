@@ -59,12 +59,20 @@ def _normalize_prediction(prediction: Any) -> Dict[str, Any]:
         except (TypeError, ValueError):
             weight = 1.0
         result_key = str(prediction.get("result_key") or prediction.get("text_key") or "").strip() or None
+        raw_trace = prediction.get("trace")
+        if isinstance(raw_trace, (list, tuple, set)):
+            trace = [str(item).strip() for item in raw_trace if str(item).strip()]
+        elif isinstance(raw_trace, str):
+            trace = [raw_trace.strip()] if raw_trace.strip() else []
+        else:
+            trace = []
     else:
         text = str(prediction).strip()
         category = "general"
         effect = "positive"
         weight = 1.0
         result_key = None
+        trace = []
 
     return {
         "text": text,
@@ -72,6 +80,7 @@ def _normalize_prediction(prediction: Any) -> Dict[str, Any]:
         "effect": effect,
         "weight": weight,
         "result_key": result_key,
+        "trace": trace,
     }
 
 
@@ -241,6 +250,7 @@ def score_predictions(predictions: list) -> dict:
                 "negative_texts": [],
                 "positive_keys": [],
                 "negative_keys": [],
+                "trace_lines": [],
             },
         )
 
@@ -254,6 +264,8 @@ def score_predictions(predictions: list) -> dict:
             bucket["positive_texts"].append(normalized["text"])
             if normalized["result_key"]:
                 bucket["positive_keys"].append(normalized["result_key"])
+
+        bucket["trace_lines"].extend(normalized.get("trace", []))
 
     scored_output: Dict[str, Dict[str, Any]] = {}
     for category, bucket in grouped.items():
@@ -274,6 +286,7 @@ def score_predictions(predictions: list) -> dict:
             ),
             "positive_summary_keys": _deduplicate_values(bucket["positive_keys"]),
             "negative_summary_keys": _deduplicate_values(bucket["negative_keys"]),
+            "trace": _deduplicate_values(bucket["trace_lines"]),
         }
 
     return scored_output

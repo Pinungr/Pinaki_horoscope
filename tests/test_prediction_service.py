@@ -72,6 +72,8 @@ class HoroscopePredictionServiceTests(unittest.TestCase):
         self.assertEqual(["career_growth_strong"], career["positive_summary_keys"])
         self.assertEqual(["career_progress_delayed"], career["negative_summary_keys"])
         self.assertIn("however", career["summary"].lower())
+        self.assertIn("trace", career)
+        self.assertTrue(any("matched" in line.lower() for line in career["trace"]))
 
         finance = predictions["finance"]
         self.assertEqual(1.1, finance["score"])

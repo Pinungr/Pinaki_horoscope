@@ -4,7 +4,7 @@ import re
 from difflib import SequenceMatcher
 from typing import Any, Dict, Iterable, List
 
-from .prediction_service import get_prediction
+from .prediction_service import get_prediction, get_prediction_weight
 
 
 EXPLANATION_TEMPLATES = {
@@ -16,7 +16,7 @@ EXPLANATION_TEMPLATES = {
 
 def aggregate_predictions(rule_keys: Iterable[Any], language: str | None = None) -> dict[str, Any]:
     normalized_language = str(language or "en").strip().lower() or "en"
-    unique_keys = _deduplicate_keys(rule_keys)
+    unique_keys = _sort_by_weight(_deduplicate_keys(rule_keys))
 
     details: list[dict[str, str]] = []
     seen_texts: list[str] = []
@@ -58,6 +58,14 @@ def _deduplicate_keys(rule_keys: Iterable[Any]) -> list[str]:
         unique_keys.append(normalized_key)
 
     return unique_keys
+
+
+def _sort_by_weight(rule_keys: list[str]) -> list[str]:
+    return sorted(
+        rule_keys,
+        key=lambda key: get_prediction_weight(key),
+        reverse=True,
+    )
 
 
 def _build_explanation(rule_key: str, language: str) -> str:

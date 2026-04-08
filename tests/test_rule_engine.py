@@ -263,6 +263,8 @@ class RuleEngineTests(unittest.TestCase):
 
         self.assertEqual(1, len(predictions))
         self.assertEqual("Jupiter is 5th from Moon.", predictions[0]["text"])
+        self.assertIn("trace", predictions[0])
+        self.assertTrue(any("relative house =" in line.lower() for line in predictions[0]["trace"]))
 
     def test_evaluate_supports_case_insensitive_relative_house_with_dict_rows(self) -> None:
         chart = [
