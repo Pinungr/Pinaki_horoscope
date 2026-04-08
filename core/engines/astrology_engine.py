@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Iterable
 
 from app.engine.dasha import DashaEngine
 from core.engines.strength_engine import StrengthEngine
-from core.predictions.aggregation_service import aggregate_predictions
+from core.predictions.aggregation_service import aggregate_context_predictions, aggregate_predictions
 from core.predictions.prediction_service import PredictionService
 from core.yoga.models import ChartSnapshot
 from core.yoga.yoga_engine import YogaEngine, YogaResult
@@ -41,11 +42,13 @@ class UnifiedAstrologyEngine:
         strength_engine: StrengthEngine | None = None,
         dasha_engine: DashaEngine | None = None,
         prediction_service: PredictionService | None = None,
+        ai_refiner: Any | None = None,
     ) -> None:
         self.yoga_engine = yoga_engine or YogaEngine()
         self.strength_engine = strength_engine or StrengthEngine()
         self.dasha_engine = dasha_engine or DashaEngine()
         self.prediction_service = prediction_service or PredictionService()
+        self.ai_refiner = ai_refiner
 
     def analyze(
         self,
@@ -79,6 +82,58 @@ class UnifiedAstrologyEngine:
             "final_predictions": final_predictions,
             "confidence_score": self._compute_confidence_score(yoga_results, chart_strength),
         }
+
+    def generate_full_analysis(
+        self,
+        chart_data: Iterable[Any],
+        *,
+        language: str = "en",
+        include_trace: bool = False,
+        tone: str = "professional",
+    ) -> dict[str, Any]:
+        chart_snapshot = self._build_chart_snapshot(chart_data)
+        normalized_language = str(language or "en").strip().lower() or "en"
+        yoga_results = self._detect_yogas(
+            chart_snapshot,
+            language=normalized_language,
+            include_trace=include_trace,
+        )
+
+        enriched_predictions: list[dict[str, Any]] = []
+        for yoga in yoga_results:
+            strength = {
+                "level": yoga.strength_level,
+                "score": yoga.strength_score,
+            }
+            context_prediction = self.prediction_service.generate_contextual(
+                chart=chart_snapshot,
+                yoga={
+                    "id": yoga.id,
+                    "key_planets": list(yoga.key_planets),
+                    "strength_level": yoga.strength_level,
+                    "strength_score": yoga.strength_score,
+                },
+                strength=strength,
+                language=normalized_language,
+            )
+
+            enriched_predictions.append(
+                {
+                    "yoga": _humanize_yoga_name(yoga.id),
+                    "area": context_prediction.get("area", "general"),
+                    "strength": yoga.strength_level,
+                    "score": yoga.strength_score,
+                    "text": context_prediction.get("text", ""),
+                }
+            )
+
+        final_output = aggregate_context_predictions(enriched_predictions)
+        final_output["predictions"] = self._refine_predictions(
+            final_output.get("predictions", []),
+            final_output.get("summary", {}),
+            tone=tone,
+        )
+        return final_output
 
     @staticmethod
     def _build_chart_snapshot(chart_data: Iterable[Any]) -> ChartSnapshot:
@@ -161,12 +216,40 @@ class UnifiedAstrologyEngine:
         blended = (0.7 * yoga_average) + (0.3 * chart_average)
         return round(max(0.0, min(100.0, blended)), 2)
 
+    def _refine_predictions(
+        self,
+        predictions: list[dict[str, Any]],
+        summary: dict[str, Any],
+        *,
+        tone: str,
+    ) -> list[dict[str, Any]]:
+        if self.ai_refiner is not None and hasattr(self.ai_refiner, "refine_predictions"):
+            try:
+                refined = self.ai_refiner.refine_predictions(predictions, summary, tone=tone)
+                if isinstance(refined, list):
+                    return refined
+            except Exception:
+                pass
 
-def create_default_unified_engine() -> UnifiedAstrologyEngine:
+        fallback_rows: list[dict[str, Any]] = []
+        for prediction in predictions:
+            row = dict(prediction)
+            row["refined_text"] = str(row.get("text", "")).strip()
+            fallback_rows.append(row)
+        return fallback_rows
+
+
+def create_default_unified_engine(*, ai_refiner: Any | None = None) -> UnifiedAstrologyEngine:
     """Factory helper for the default production orchestration stack."""
     return UnifiedAstrologyEngine(
         yoga_engine=YogaEngine(),
         strength_engine=StrengthEngine(),
         dasha_engine=DashaEngine(),
         prediction_service=PredictionService(),
+        ai_refiner=ai_refiner,
     )
+
+
+def _humanize_yoga_name(yoga_id: str) -> str:
+    words = re.sub(r"[_\s]+", " ", str(yoga_id or "").strip()).split()
+    return " ".join(word.capitalize() for word in words)

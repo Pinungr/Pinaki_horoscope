@@ -86,6 +86,56 @@ class UnifiedAstrologyEngineTests(unittest.TestCase):
         self.assertEqual([], result["weak_yogas"])
         self.assertEqual([], result["final_predictions"])
 
+    def test_generate_full_analysis_returns_ui_ready_contract(self) -> None:
+        engine = self._build_engine_with_single_gajakesari()
+        chart_data = [
+            {"planet_name": "Ascendant", "sign": "Aries", "house": 1, "degree": 5.0},
+            {"planet_name": "Moon", "sign": "Cancer", "house": 4, "degree": 10.0},
+            {"planet_name": "Jupiter", "sign": "Cancer", "house": 4, "degree": 12.0},
+            {"planet_name": "Sun", "sign": "Gemini", "house": 3, "degree": 15.0},
+        ]
+
+        result = engine.generate_full_analysis(chart_data, language="en")
+
+        self.assertIn("summary", result)
+        self.assertIn("predictions", result)
+        self.assertIn("meta", result)
+        self.assertEqual(1, result["meta"]["total_yogas"])
+        self.assertEqual(1, len(result["predictions"]))
+        self.assertEqual("gajakesari yoga", result["predictions"][0]["yoga"].lower())
+        self.assertIn("refined_text", result["predictions"][0])
+        self.assertEqual(result["predictions"][0]["text"], result["predictions"][0]["refined_text"])
+        self.assertTrue(result["meta"]["generated_at"])
+
+    def test_generate_full_analysis_uses_ai_refiner_when_available(self) -> None:
+        class _StubRefiner:
+            def refine_predictions(self, predictions, summary, tone="professional"):
+                rows = []
+                for prediction in predictions:
+                    row = dict(prediction)
+                    row["refined_text"] = f"AI:{tone}:{row.get('text', '')}"
+                    rows.append(row)
+                return rows
+
+        gajakesari = YogaDefinition.from_dict(
+            {
+                "id": "gajakesari_yoga",
+                "conditions": [{"type": "conjunction", "planets": ["moon", "jupiter"]}],
+                "prediction": {"en": "placeholder"},
+            }
+        )
+        yoga_engine = YogaEngine(config_dir=Path("/nonexistent"), extra_definitions=[gajakesari])
+        engine = UnifiedAstrologyEngine(yoga_engine=yoga_engine, ai_refiner=_StubRefiner())
+
+        chart_data = [
+            {"planet_name": "Moon", "sign": "Cancer", "house": 4, "degree": 10.0},
+            {"planet_name": "Jupiter", "sign": "Cancer", "house": 4, "degree": 12.0},
+        ]
+        result = engine.generate_full_analysis(chart_data, language="en", tone="friendly")
+
+        self.assertEqual(1, len(result["predictions"]))
+        self.assertIn("AI:friendly:", result["predictions"][0]["refined_text"])
+
 
 if __name__ == "__main__":
     unittest.main()

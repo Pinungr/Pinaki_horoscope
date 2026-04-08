@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from core.predictions.aggregation_service import aggregate_predictions
+from core.predictions.aggregation_service import aggregate_context_predictions, aggregate_predictions
 
 
 class PredictionAggregationServiceTests(unittest.TestCase):
@@ -51,6 +51,24 @@ class PredictionAggregationServiceTests(unittest.TestCase):
 
         self.assertEqual("rule_high", aggregated["details"][0]["rule"])
         self.assertEqual("rule_low", aggregated["details"][1]["rule"])
+
+    def test_aggregate_context_predictions_returns_ui_ready_contract(self) -> None:
+        predictions = [
+            {"yoga": "Gajakesari Yoga", "area": "career", "strength": "strong", "score": 82, "text": "Career success."},
+            {"yoga": "Dhana Yoga", "area": "wealth", "strength": "medium", "score": 70, "text": "Wealth growth."},
+            {"yoga": "Chandra Yoga", "area": "home", "strength": "weak", "score": 35, "text": "Home focus."},
+        ]
+
+        aggregated = aggregate_context_predictions(predictions)
+
+        self.assertIn("summary", aggregated)
+        self.assertIn("predictions", aggregated)
+        self.assertIn("meta", aggregated)
+        self.assertEqual(["career", "wealth", "home"], aggregated["summary"]["top_areas"])
+        self.assertEqual(62, aggregated["summary"]["confidence_score"])
+        self.assertEqual(3, aggregated["meta"]["total_yogas"])
+        self.assertEqual(1, aggregated["meta"]["strong_yogas"])
+        self.assertTrue(aggregated["meta"]["generated_at"])
 
 
 if __name__ == "__main__":

@@ -25,8 +25,12 @@ class AstrologyAdvancedService:
     def _get_unified_engine(self):
         if self._unified_engine is None:
             from core.engines import create_default_unified_engine
+            from app.services.app_settings_service import AppSettingsService
+            from app.services.openai_refiner_service import OpenAIRefinerService
 
-            self._unified_engine = create_default_unified_engine()
+            settings_service = AppSettingsService()
+            ai_refiner = OpenAIRefinerService(settings_service)
+            self._unified_engine = create_default_unified_engine(ai_refiner=ai_refiner)
         return self._unified_engine
 
     def _is_unified_engine_enabled(self) -> bool:
@@ -113,8 +117,13 @@ class AstrologyAdvancedService:
         )
         unified_output: Dict[str, Any] = {}
         if self._is_unified_engine_enabled():
+            engine = self._get_unified_engine()
             unified_output = execute_safely(
-                lambda: self._get_unified_engine().analyze(chart_data_models, dob=user_dob, language="en"),
+                lambda: (
+                    engine.generate_full_analysis(chart_data_models, language="en")
+                    if hasattr(engine, "generate_full_analysis")
+                    else engine.analyze(chart_data_models, dob=user_dob, language="en")
+                ),
                 logger=logger,
                 operation_name="Unified astrology analysis",
                 user_message="Unified astrology analysis is unavailable right now.",

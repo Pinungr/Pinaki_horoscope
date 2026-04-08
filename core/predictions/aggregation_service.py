@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 from difflib import SequenceMatcher
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Mapping
 
 from .prediction_service import get_prediction, get_prediction_weight
 
@@ -43,6 +44,39 @@ def aggregate_predictions(rule_keys: Iterable[Any], language: str | None = None)
     return {
         "summary": " ".join(summary_parts).strip(),
         "details": details,
+    }
+
+
+def aggregate_context_predictions(predictions: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+    rows = [dict(item) for item in (predictions or []) if isinstance(item, Mapping)]
+    sorted_rows = sorted(rows, key=lambda item: _safe_score(item.get("score")), reverse=True)
+
+    top_areas: list[str] = []
+    for item in sorted_rows[:3]:
+        area = str(item.get("area", "")).strip().lower()
+        if area and area not in top_areas:
+            top_areas.append(area)
+
+    confidence_score = 0
+    if sorted_rows:
+        confidence_score = int(
+            round(sum(_safe_score(item.get("score")) for item in sorted_rows) / len(sorted_rows))
+        )
+
+    strong_yogas = sum(1 for item in rows if str(item.get("strength", "")).strip().lower() == "strong")
+    meta = {
+        "total_yogas": len(rows),
+        "strong_yogas": strong_yogas,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    return {
+        "summary": {
+            "top_areas": top_areas,
+            "confidence_score": confidence_score,
+        },
+        "predictions": sorted_rows[:5],
+        "meta": meta,
     }
 
 
@@ -99,3 +133,10 @@ def _contains_similar_text(existing_texts: List[str], candidate: str) -> bool:
 
 def _normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", str(text or "").lower())).strip()
+
+
+def _safe_score(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
