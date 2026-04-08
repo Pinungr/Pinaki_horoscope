@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from typing import List, Dict, Any, Optional
 import re
 from app.services.language_manager import LanguageManager
+from core.predictions.aggregation_service import aggregate_predictions
 from core.predictions.prediction_service import get_prediction
 
 class ChartDisplay(QWidget):
@@ -244,6 +245,9 @@ class ChartDisplay(QWidget):
                 localized_summary = self._localized_summary_for_details(details_copy)
                 if localized_summary:
                     details_copy["summary"] = localized_summary
+                detail_items = self._localized_detail_items(details_copy)
+                if detail_items:
+                    details_copy["details"] = detail_items
                 localized[category] = details_copy
             return localized
 
@@ -259,8 +263,16 @@ class ChartDisplay(QWidget):
         return localized_list
 
     def _localized_summary_for_details(self, details: Dict[str, Any]) -> str:
-        positive_text = self._join_prediction_messages(details.get("positive_summary_keys", []))
-        negative_text = self._join_prediction_messages(details.get("negative_summary_keys", []))
+        positive_aggregation = aggregate_predictions(
+            details.get("positive_summary_keys", []),
+            self.language_manager.current_language,
+        )
+        negative_aggregation = aggregate_predictions(
+            details.get("negative_summary_keys", []),
+            self.language_manager.current_language,
+        )
+        positive_text = positive_aggregation.get("summary", "")
+        negative_text = negative_aggregation.get("summary", "")
         if not positive_text and not negative_text:
             return ""
 
@@ -276,6 +288,17 @@ class ChartDisplay(QWidget):
             return f"{positive_text} {connector} {negative_text}".strip()
 
         return positive_text or negative_text
+
+    def _localized_detail_items(self, details: Dict[str, Any]) -> List[Dict[str, str]]:
+        positive_details = aggregate_predictions(
+            details.get("positive_summary_keys", []),
+            self.language_manager.current_language,
+        ).get("details", [])
+        negative_details = aggregate_predictions(
+            details.get("negative_summary_keys", []),
+            self.language_manager.current_language,
+        ).get("details", [])
+        return list(positive_details) + list(negative_details)
 
     def _join_prediction_messages(self, keys: List[str]) -> str:
         messages = [self._translated_prediction_message(key) for key in keys]
