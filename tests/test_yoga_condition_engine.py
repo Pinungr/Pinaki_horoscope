@@ -199,6 +199,25 @@ class YogaConditionEngineTests(unittest.TestCase):
         self.assertTrue(matched)
         self.assertEqual(0, mock_calculate.call_count)
 
+    def test_evaluate_conditions_with_trace_returns_entries(self) -> None:
+        chart = ChartSnapshot.from_rows(
+            [
+                {"planet_name": "Moon", "house": 4, "sign": "Cancer"},
+                {"planet_name": "Jupiter", "house": 4, "sign": "Cancer"},
+            ]
+        )
+
+        matched, trace = self.engine.evaluate_conditions_with_trace(
+            [{"type": "conjunction", "planets": ["Moon", "Jupiter"]}],
+            chart,
+        )
+
+        self.assertTrue(matched)
+        self.assertEqual(1, len(trace))
+        self.assertEqual("conjunction", trace[0]["type"])
+        self.assertTrue(trace[0]["ok"])
+        self.assertIn("elapsed_ms", trace[0])
+
 
     def test_evaluate_condition_supports_house_lord_relation_match(self) -> None:
         # Ascendant in Aries → house 7 sign is Libra → lord is Venus.

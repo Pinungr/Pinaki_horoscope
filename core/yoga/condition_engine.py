@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from time import perf_counter
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -110,6 +111,50 @@ class ConditionEngine:
             logger.exception("Failed while evaluating condition type '%s'.", condition_type)
             return False
 
+    def evaluate_condition_with_trace(
+        self,
+        condition: YogaCondition | dict[str, Any],
+        chart: ChartSnapshot,
+        *,
+        context: ConditionContext | None = None,
+        path: str | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
+        condition_type, params = self._normalize_condition(condition)
+        trace_entry: dict[str, Any] = {
+            "path": str(path or "").strip(),
+            "type": condition_type,
+        }
+
+        if not condition_type:
+            trace_entry["ok"] = False
+            trace_entry["reason"] = "invalid_condition"
+            trace_entry["elapsed_ms"] = 0.0
+            return False, trace_entry
+
+        handler = self._handlers.get(condition_type)
+        if handler is None:
+            logger.debug("Unsupported condition type '%s'.", condition_type)
+            trace_entry["ok"] = False
+            trace_entry["reason"] = "unknown_handler"
+            trace_entry["elapsed_ms"] = 0.0
+            return False, trace_entry
+
+        evaluation_context = context or ConditionContext(chart)
+        started_at = perf_counter()
+        try:
+            matched = bool(handler(params, chart, evaluation_context))
+            trace_entry["ok"] = matched
+            trace_entry["reason"] = "matched" if matched else "not_matched"
+        except Exception:
+            logger.exception("Failed while evaluating condition type '%s'.", condition_type)
+            matched = False
+            trace_entry["ok"] = False
+            trace_entry["reason"] = "handler_error"
+        finally:
+            trace_entry["elapsed_ms"] = round((perf_counter() - started_at) * 1000, 3)
+
+        return matched, trace_entry
+
     def evaluate_conditions(
         self,
         conditions: list[YogaCondition | dict[str, Any]] | tuple[YogaCondition | dict[str, Any], ...],
@@ -130,6 +175,37 @@ class ConditionEngine:
             for condition in conditions
         ]
         return any(results) if use_any else all(results)
+
+    def evaluate_conditions_with_trace(
+        self,
+        conditions: list[YogaCondition | dict[str, Any]] | tuple[YogaCondition | dict[str, Any], ...],
+        chart: ChartSnapshot,
+        *,
+        mode: str = "all",
+        context: ConditionContext | None = None,
+        path_prefix: str = "conditions",
+    ) -> tuple[bool, list[dict[str, Any]]]:
+        if not conditions:
+            return False, []
+
+        normalized_mode = str(mode or "all").strip().lower()
+        use_any = normalized_mode == "any"
+        evaluation_context = context or ConditionContext(chart)
+
+        traces: list[dict[str, Any]] = []
+        results: list[bool] = []
+
+        for index, condition in enumerate(conditions):
+            matched, trace_entry = self.evaluate_condition_with_trace(
+                condition,
+                chart,
+                context=evaluation_context,
+                path=f"{path_prefix}[{index}]",
+            )
+            traces.append(trace_entry)
+            results.append(matched)
+
+        return (any(results) if use_any else all(results)), traces
 
     @staticmethod
     def _normalize_condition(condition: YogaCondition | dict[str, Any]) -> tuple[str, dict[str, Any]]:

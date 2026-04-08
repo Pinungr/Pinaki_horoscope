@@ -241,6 +241,35 @@ class YogaEngineBulkTests(unittest.TestCase):
             serialised = json.dumps(r.as_dict())  # must not raise
             self.assertIn(r.id, serialised)
 
+    def test_evaluate_include_trace_adds_trace_for_detected_yoga(self) -> None:
+        chart = ChartSnapshot.from_rows([
+            {"planet_name": "Sun",     "house": 1, "sign": "Aries", "degree": 10.0},
+            {"planet_name": "Mercury", "house": 1, "sign": "Aries", "degree": 8.0},
+        ])
+        results = self.engine.evaluate(chart, detected_only=True, include_trace=True)
+        budha = next((r for r in results if r.id == "budhaditya_yoga"), None)
+
+        self.assertIsNotNone(budha)
+        self.assertTrue(len(budha.trace) > 0)
+        self.assertIsNotNone(budha.trace_summary)
+        self.assertEqual(len(budha.trace), budha.trace_summary["total"])
+        self.assertEqual(
+            budha.trace_summary["total"],
+            budha.trace_summary["passed"] + budha.trace_summary["failed"],
+        )
+
+    def test_evaluate_one_include_trace_returns_trace_for_non_detected_yoga(self) -> None:
+        chart = ChartSnapshot.from_rows([
+            {"planet_name": "Moon", "house": 1, "sign": "Aries", "degree": 5.0},
+            {"planet_name": "Jupiter", "house": 3, "sign": "Gemini", "degree": 10.0},
+        ])
+        result = self.engine.evaluate_one("gajakesari_yoga", chart, include_trace=True)
+
+        self.assertIsNotNone(result)
+        self.assertFalse(result.detected)
+        self.assertTrue(len(result.trace) > 0)
+        self.assertIsNotNone(result.trace_summary)
+
 
 if __name__ == "__main__":
     unittest.main()

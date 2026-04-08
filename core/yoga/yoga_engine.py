@@ -64,9 +64,11 @@ class YogaResult:
     strength_level: str
     prediction: str
     key_planets: tuple[str, ...] = field(default_factory=tuple)
+    trace: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    trace_summary: dict[str, int] | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "id": self.id,
             "detected": self.detected,
             "strength_score": self.strength_score,
@@ -74,6 +76,11 @@ class YogaResult:
             "prediction": self.prediction,
             "key_planets": list(self.key_planets),
         }
+        if self.trace:
+            payload["trace"] = list(self.trace)
+        if self.trace_summary is not None:
+            payload["trace_summary"] = dict(self.trace_summary)
+        return payload
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +131,7 @@ class YogaEngine:
         *,
         language: str = "en",
         detected_only: bool = False,
+        include_trace: bool = False,
     ) -> list[YogaResult]:
         """
         Evaluates every loaded yoga against the given chart.
@@ -146,7 +154,13 @@ class YogaEngine:
         not_detected: list[YogaResult] = []
 
         for defn in self._definitions:
-            result = self._evaluate_one(defn, chart, context, normalized_lang)
+            result = self._evaluate_one(
+                defn,
+                chart,
+                context,
+                normalized_lang,
+                include_trace=include_trace,
+            )
             if result.detected:
                 detected_results.append(result)
             elif not detected_only:
@@ -161,6 +175,7 @@ class YogaEngine:
         chart: ChartSnapshot,
         *,
         language: str = "en",
+        include_trace: bool = False,
     ) -> YogaResult | None:
         """
         Evaluates a single yoga by id.  Returns None if the id is not found.
@@ -169,7 +184,13 @@ class YogaEngine:
         for defn in self._definitions:
             if defn.id.lower() == norm_id:
                 context = ConditionContext(chart)
-                return self._evaluate_one(defn, chart, context, language)
+                return self._evaluate_one(
+                    defn,
+                    chart,
+                    context,
+                    language,
+                    include_trace=include_trace,
+                )
         return None
 
     @property
@@ -187,16 +208,28 @@ class YogaEngine:
         chart: ChartSnapshot,
         context: ConditionContext,
         language: str,
+        *,
+        include_trace: bool = False,
     ) -> YogaResult:
         """Evaluates one YogaDefinition and returns a YogaResult."""
+        traces: list[dict[str, Any]] = []
+        trace_summary: dict[str, int] | None = None
         try:
             # Evaluate all conditions with the shared context so aspect data
             # can be reused and computed only once.
-            detected = self._condition_engine.evaluate_conditions(
-                defn.conditions,
-                chart,
-                context=context,
-            )
+            if include_trace:
+                detected, traces = self._condition_engine.evaluate_conditions_with_trace(
+                    defn.conditions,
+                    chart,
+                    context=context,
+                )
+                trace_summary = self._build_trace_summary(traces)
+            else:
+                detected = self._condition_engine.evaluate_conditions(
+                    defn.conditions,
+                    chart,
+                    context=context,
+                )
         except Exception:
             logger.exception("YogaEngine: error evaluating conditions for %r.", defn.id)
             detected = False
@@ -208,6 +241,8 @@ class YogaEngine:
                 strength_score=0,
                 strength_level="weak",
                 prediction="",
+                trace=tuple(traces),
+                trace_summary=trace_summary,
             )
 
         key_planets = self._extract_key_planets(defn)
@@ -226,6 +261,8 @@ class YogaEngine:
             strength_level=strength_level,
             prediction=prediction,
             key_planets=tuple(key_planets),
+            trace=tuple(traces),
+            trace_summary=trace_summary,
         )
 
     def _compute_strength(
@@ -293,6 +330,16 @@ class YogaEngine:
                             planet_ids.append(pid)
 
         return planet_ids
+
+    @staticmethod
+    def _build_trace_summary(traces: list[dict[str, Any]]) -> dict[str, int]:
+        passed = sum(1 for trace in traces if bool(trace.get("ok")))
+        total = len(traces)
+        return {
+            "total": total,
+            "passed": passed,
+            "failed": total - passed,
+        }
 
     # ------------------------------------------------------------------
     # Config loading
