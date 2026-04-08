@@ -83,7 +83,11 @@ class MainController:
         try:
             log_user_action("controller_load_user", user_id=user_id)
             display_data, predictions = self.service.load_chart_for_user(user_id)
-            self.view.chart_display.display_chart(display_data)
+            user_model = self.service.user_repo.get_by_id(user_id)
+            self.view.chart_display.display_chart(
+                display_data,
+                self._build_chart_header(user_model) if user_model else None,
+            )
             self.view.chart_display.display_predictions(predictions)
             self._populate_advanced_views(user_id)
 
@@ -111,7 +115,7 @@ class MainController:
 
             # 1. Generate and save phase 1 data
             display_data, predictions = self.service.generate_and_save_chart(validated_data)
-            self.view.chart_display.display_chart(display_data)
+            self.view.chart_display.display_chart(display_data, self._build_chart_header(validated_data))
             self.view.chart_display.display_predictions(predictions)
             
             # 2. Fetch the newly saved DB models for advanced logic
@@ -251,6 +255,27 @@ class MainController:
         if not cleaned_name:
             cleaned_name = "Horoscope"
         return f"{cleaned_name}_Horoscope_Report.pdf"
+
+    def _build_chart_header(self, source: object) -> dict:
+        """Builds stable presentation metadata for the chart header."""
+        if isinstance(source, dict):
+            name = str(source.get("name", "")).strip()
+            dob = str(source.get("dob", "")).strip()
+            tob = str(source.get("tob", "")).strip()
+            place = str(source.get("place", "")).strip()
+        else:
+            name = str(getattr(source, "name", "")).strip()
+            dob = str(getattr(source, "dob", "")).strip()
+            tob = str(getattr(source, "tob", "")).strip()
+            place = str(getattr(source, "place", "")).strip()
+
+        return {
+            "title": "Birth Chart",
+            "name": name,
+            "dob": dob,
+            "tob": tob,
+            "place": place,
+        }
 
     def _load_location_options(self):
         """Loads the state dropdown from the local location database."""

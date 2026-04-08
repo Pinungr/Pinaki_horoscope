@@ -1,6 +1,6 @@
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView
-from typing import List, Dict, Any
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
+from typing import List, Dict, Any, Optional
 
 class ChartDisplay(QWidget):
     generate_report_requested = pyqtSignal()
@@ -15,9 +15,10 @@ class ChartDisplay(QWidget):
         self.title_label = QLabel("Chart Information")
         self.title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
         
-        # Replace the literal table with our graphical widget
-        from app.ui.widgets.kundli_chart import KundliChart
-        self.kundli_widget = KundliChart()
+        from app.ui.widgets import ChartHeaderData, NorthIndianChartWidget
+
+        self._chart_header_type = ChartHeaderData
+        self.kundli_widget = NorthIndianChartWidget()
         
         self.predictions_label = QLabel("Predictions:")
         self.predictions_label.setStyleSheet("font-size: 14px; font-weight: bold; margin-top: 10px;")
@@ -37,9 +38,23 @@ class ChartDisplay(QWidget):
         
         self.setLayout(layout)
 
-    def display_chart(self, chart_data: List[Dict]):
-        """Pass the dictionary data strictly to the visual map representation."""
-        self.kundli_widget.update_chart(chart_data)
+    def display_chart(self, chart_data: List[Dict], header_data: Optional[Dict[str, str]] = None):
+        """Renders chart rows and optional chart-header metadata."""
+        self.kundli_widget.set_chart_data(chart_data)
+
+        if header_data:
+            self.kundli_widget.set_header_data(
+                self._chart_header_type(
+                    title=str(header_data.get("title", "Birth Chart")),
+                    name=str(header_data.get("name", "")),
+                    dob=str(header_data.get("dob", "")),
+                    tob=str(header_data.get("tob", "")),
+                    place=str(header_data.get("place", "")),
+                )
+            )
+        else:
+            self.kundli_widget.clear_header_data()
+
         self.report_button.setEnabled(bool(chart_data))
 
     def display_predictions(self, predictions: Any):

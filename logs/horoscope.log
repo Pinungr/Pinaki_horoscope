@@ -3,3 +3,54 @@
 2026-04-08 01:44:05 | INFO | horoscope | User action: verification_action | user_id=123
 2026-04-08 01:44:05 | INFO | horoscope | Rule matched | rule_id=42, result_text='Sample match', category='career'
 2026-04-08 01:44:05 | INFO | horoscope | Calculation step: verification_step | status='ok'
+2026-04-08 02:18:18 | INFO | horoscope | Logging initialized. | log_file='C:\\Users\\pinun\\OneDrive\\Documents\\GitHub\\Pinaki_horoscope\\logs\\horoscope.log'
+2026-04-08 02:18:18 | INFO | __main__ | Initializing Horoscope Application UI...
+2026-04-08 02:18:18 | INFO | app.config.config_loader | Astrology config loaded from C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope\app\config\astrology_config.json.
+2026-04-08 02:18:18 | INFO | __main__ | Active astrology config: {'ayanamsa': 'Lahiri', 'house_system': 'whole_sign', 'timezone_mode': 'auto'}
+2026-04-08 02:18:18 | INFO | app.repositories.database_manager | Applied rules table migration for scoring/effect columns.
+2026-04-08 02:20:00 | INFO | horoscope | User action: controller_select_state | state='Odisha'
+2026-04-08 02:20:32 | INFO | horoscope | User action: controller_select_city | state='Odisha', city='Nayagarh'
+2026-04-08 02:20:36 | INFO | horoscope | User action: controller_generate | name='Pinaki', state='Odisha', city='Nayagarh'
+2026-04-08 02:20:36 | INFO | app.services.horoscope_service | Validated user input for name=Pinaki state=Odisha city=Nayagarh.
+2026-04-08 02:20:36 | INFO | app.services.horoscope_service | Validated user input for name=Pinaki state=Odisha city=Nayagarh.
+2026-04-08 02:20:36 | INFO | horoscope | User action: generate_chart | name='Pinaki', place='Nayagarh, Odisha'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: ephemeris_path_configured | ephemeris_path='C:\\Users\\pinun\\OneDrive\\Documents\\GitHub\\Pinaki_horoscope\\app\\data\\ephemeris'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: ayanamsa_applied | ayanamsa='lahiri'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: chart_calculation_started | user_id=0, name='Pinaki', dob='1993-06-03', latitude=20.12882, longitude=85.09626
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: timezone_resolved | timezone='Asia/Kolkata', timezone_mode='auto', latitude=20.12882, longitude=85.09626
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: julian_day_computed | jd_ut=2449141.909718707
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: ascendant_computed | sign='Libra', degree=8.3229
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: planet_computed | planet='Sun', sign='Taurus', house=8, degree=19.0603
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: planet_computed | planet='Moon', sign='Scorpio', house=2, degree=4.3679
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: planet_computed | planet='Mars', sign='Cancer', house=10, degree=25.0226
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: planet_computed | planet='Mercury', sign='Gemini', house=9, degree=8.3633
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: planet_computed | planet='Jupiter', sign='Virgo', house=12, degree=10.9964
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: planet_computed | planet='Venus', sign='Aries', house=7, degree=3.4797
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: planet_computed | planet='Saturn', sign='Aquarius', house=5, degree=6.5199
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: planet_computed | planet='Rahu', sign='Scorpio', house=2, degree=18.532
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: planet_computed | planet='Ketu', sign='Taurus', house=8, degree=18.532
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: chart_calculation_completed | user_id=0, points=10
+2026-04-08 02:20:36 | INFO | app.engine.rule_engine | Starting rule evaluation for 4 rule(s) against 10 chart row(s).
+2026-04-08 02:20:36 | INFO | app.engine.rule_engine | Rule evaluation completed with 0 match(es).
+2026-04-08 02:20:36 | WARNING | app.services.horoscope_service | No rules matched for user 'Pinaki'. Returning system fallback prediction.
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: chart_generation_completed | user_id=2, rows=10, prediction_categories=1
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: advanced_analysis_started | chart_points=10, user_dob='1993-06-03'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_calculation_started | moon_longitude=214.3679, dob='1993-06-03'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_period_computed | planet='Saturn', start='1993-06-03', end='2010-12-12'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_period_computed | planet='Mercury', start='2010-12-12', end='2027-12-12'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_period_computed | planet='Ketu', start='2027-12-12', end='2034-12-11'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_period_computed | planet='Venus', start='2034-12-11', end='2054-12-11'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_period_computed | planet='Sun', start='2054-12-11', end='2060-12-11'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_period_computed | planet='Moon', start='2060-12-11', end='2070-12-11'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_period_computed | planet='Mars', start='2070-12-11', end='2077-12-11'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_period_computed | planet='Rahu', start='2077-12-11', end='2095-12-11'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_period_computed | planet='Jupiter', start='2095-12-11', end='2111-12-12'
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: dasha_calculation_completed | periods=9
+2026-04-08 02:20:36 | INFO | app.plugins.plugin_manager | Plugin loaded: NumerologyPlugin
+2026-04-08 02:20:36 | INFO | app.plugins.plugin_manager | Executing plugin: Numerology Core
+2026-04-08 02:20:36 | INFO | horoscope | Calculation step: advanced_analysis_started | chart_points=10, user_dob='1993-06-03'
+2026-04-08 02:20:36 | INFO | app.services.astrology_advanced_service | Advanced analysis cache hit for user 2.
+2026-04-08 02:20:36 | INFO | app.services.horoscope_service | Built life timeline for user 2 with 9 dasha period(s).
+2026-04-08 02:20:53 | INFO | horoscope | User action: controller_generate_report | user_id=2, output_path='C:/Users/pinun/OneDrive/Desktop/Pinaki_Horoscope_Report.pdf'
+2026-04-08 02:20:53 | INFO | app.services.horoscope_service | Chart cache hit for user 2.
+2026-04-08 02:20:53 | INFO | app.services.horoscope_service | Timeline cache hit for user 2.
