@@ -1,5 +1,6 @@
 {
   "ayanamsa": "Lahiri",
   "house_system": "whole_sign",
-  "timezone_mode": "auto"
+  "timezone_mode": "auto",
+  "enable_unified_engine": true
 }

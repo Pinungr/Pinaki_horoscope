@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Dict, List
+from app.config.config_loader import get_astrology_config_loader
 from app.models.domain import ChartData
 from app.engine.dasha import DashaEngine
 from app.engine.navamsha import NavamshaEngine
@@ -18,6 +19,18 @@ class AstrologyAdvancedService:
         self.dasha_engine = DashaEngine()
         self.navamsha_engine = NavamshaEngine()
         self.cache = get_astrology_cache()
+        self.config_loader = get_astrology_config_loader()
+        self._unified_engine = None
+
+    def _get_unified_engine(self):
+        if self._unified_engine is None:
+            from core.engines import create_default_unified_engine
+
+            self._unified_engine = create_default_unified_engine()
+        return self._unified_engine
+
+    def _is_unified_engine_enabled(self) -> bool:
+        return bool(self.config_loader.get("enable_unified_engine", True))
 
     def generate_advanced_data(self, chart_data_models: List[ChartData], user_dob: str) -> Dict[str, Any]:
         """
@@ -98,13 +111,23 @@ class AstrologyAdvancedService:
             user_message="Plugin analysis is unavailable right now.",
             fallback={},
         )
+        unified_output: Dict[str, Any] = {}
+        if self._is_unified_engine_enabled():
+            unified_output = execute_safely(
+                lambda: self._get_unified_engine().analyze(chart_data_models, dob=user_dob, language="en"),
+                logger=logger,
+                operation_name="Unified astrology analysis",
+                user_message="Unified astrology analysis is unavailable right now.",
+                fallback={},
+            )
 
         # 3. Compile Master Output
         advanced_payload = {
             "aspects": aspects_output,
             "navamsha": navamsha_output,
             "dasha": dasha_output,
-            "plugins": plugins_output
+            "plugins": plugins_output,
+            "unified": unified_output,
         }
         if user_id:
             self.cache.set("advanced_data", user_id, advanced_payload)

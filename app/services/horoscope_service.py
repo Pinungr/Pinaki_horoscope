@@ -5,7 +5,6 @@ from app.repositories.user_repo import UserRepository
 from app.repositories.chart_repo import ChartRepository
 from app.repositories.location_repo import LocationRepository
 from app.repositories.rule_repo import RuleRepository
-from app.engine.calculator import AstrologyEngine
 from app.engine.prediction_scorer import score_predictions
 from app.engine.rule_engine import RuleEngine
 from app.engine.interpreter import InterpreterEngine
@@ -56,6 +55,16 @@ class HoroscopeService:
             validated.get("city"),
         )
         return validated
+
+    @staticmethod
+    def _calculate_chart_data(user: User) -> List[Any]:
+        """
+        Lazily imports the heavy chart calculator dependency at runtime.
+        This keeps service imports safe in environments where swisseph is not installed.
+        """
+        from app.engine.calculator import AstrologyEngine
+
+        return AstrologyEngine().calculate_chart(user)
 
     @staticmethod
     def _system_prediction(summary: str) -> Dict[str, Dict[str, Any]]:
@@ -282,9 +291,8 @@ class HoroscopeService:
         )
 
         # Execute Engine
-        astrology_engine = AstrologyEngine()
         chart_data_models = execute_safely(
-            lambda: astrology_engine.calculate_chart(user),
+            lambda: self._calculate_chart_data(user),
             logger=logger,
             operation_name="Chart calculation",
             user_message="Unable to generate the chart right now. Please verify the birth details and try again.",

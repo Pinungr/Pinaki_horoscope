@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import List, Dict
 from app.utils.logger import log_calculation_step
@@ -54,7 +54,7 @@ class DashaEngine:
             current_date = datetime.strptime(dob, "%Y-%m-%d")
         except ValueError:
             logger.warning("Invalid DOB '%s' received for dasha calculation. Falling back to UTC now.", dob)
-            current_date = datetime.utcnow() # fallback
+            current_date = datetime.now(timezone.utc).replace(tzinfo=None)  # UTC fallback (naive for consistency)
             
         timeline = []
         

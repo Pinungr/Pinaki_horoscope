@@ -25,6 +25,7 @@ class AstrologyConfigLoader:
         "ayanamsa": "Lahiri",
         "house_system": "whole_sign",
         "timezone_mode": "auto",
+        "enable_unified_engine": True,
     }
 
     def __init__(self, config_path: Path | None = None):
@@ -51,6 +52,11 @@ class AstrologyConfigLoader:
         normalized["ayanamsa"] = str(normalized.get("ayanamsa", self.DEFAULTS["ayanamsa"])).strip() or self.DEFAULTS["ayanamsa"]
         normalized["house_system"] = str(normalized.get("house_system", self.DEFAULTS["house_system"])).strip() or self.DEFAULTS["house_system"]
         normalized["timezone_mode"] = str(normalized.get("timezone_mode", self.DEFAULTS["timezone_mode"])).strip() or self.DEFAULTS["timezone_mode"]
+        raw_unified = normalized.get("enable_unified_engine", self.DEFAULTS["enable_unified_engine"])
+        if isinstance(raw_unified, str):
+            normalized["enable_unified_engine"] = raw_unified.strip().lower() in {"1", "true", "yes", "on"}
+        else:
+            normalized["enable_unified_engine"] = bool(raw_unified)
 
         self._cached_config = normalized
         logger.info("Astrology config loaded from %s.", self.config_path)
