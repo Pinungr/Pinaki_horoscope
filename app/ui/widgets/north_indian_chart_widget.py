@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import sys
+import math
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Union
 
-from PyQt6.QtCore import QLineF, QPointF, QRectF, QSize, Qt
-from PyQt6.QtGui import QColor, QFont, QPaintEvent, QPainter, QPen
-from PyQt6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtCore import QLineF, QPoint, QPointF, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QFont, QMouseEvent, QPaintEvent, QPainter, QPen
+from PyQt6.QtWidgets import QApplication, QLabel, QToolTip, QVBoxLayout, QWidget
 
 from app.models.domain import ChartData
 
@@ -33,6 +35,16 @@ class PlanetDisplay:
 
     code: str
     house: int
+    name: str = ""
+    sign: str = ""
+
+
+@dataclass(frozen=True)
+class PlanetHitArea:
+    """Stores interactive hit-test data for one rendered planet badge."""
+
+    planet: PlanetDisplay
+    rect: QRectF
 
 
 @dataclass(frozen=True)
@@ -47,6 +59,12 @@ class ChartHeaderData:
 
 
 class NorthIndianChartWidget(QWidget):
+    planet_hovered = pyqtSignal(dict)
+    planet_clicked = pyqtSignal(dict)
+    house_hovered = pyqtSignal(dict)
+    house_clicked = pyqtSignal(int)
+    hover_cleared = pyqtSignal()
+
     """
     Reusable presentation widget for a North Indian horoscope chart.
 
@@ -67,6 +85,13 @@ class NorthIndianChartWidget(QWidget):
     TITLE_TEXT_COLOR = QColor("#1E293B")
     SUBTITLE_TEXT_COLOR = QColor("#475569")
     CARD_BORDER_COLOR = QColor("#CBD5E1")
+    HOUSE_SLOT_BORDER_COLOR = QColor("#E2E8F0")
+    HOUSE_SLOT_FILL_COLOR = QColor("#F8FAFC")
+    OCCUPIED_HOUSE_BORDER_COLOR = QColor("#CBD5E1")
+    OCCUPIED_HOUSE_FILL_COLOR = QColor(241, 245, 249, 220)
+    HOVERED_HOUSE_BORDER_COLOR = QColor("#7C3AED")
+    HOVERED_HOUSE_FILL_COLOR = QColor(124, 58, 237, 28)
+    HOVERED_PLANET_BORDER_COLOR = QColor("#0F172A")
     HEADER_GAP = 12.0
     HEADER_HEIGHT = 64.0
 
@@ -99,13 +124,33 @@ class NorthIndianChartWidget(QWidget):
         "Lagna": "As",
     }
 
+    PLANET_COLORS = {
+        "As": QColor("#7C3AED"),
+        "Su": QColor("#EA580C"),
+        "Mo": QColor("#2563EB"),
+        "Ma": QColor("#DC2626"),
+        "Me": QColor("#059669"),
+        "Ju": QColor("#D97706"),
+        "Ve": QColor("#DB2777"),
+        "Sa": QColor("#475569"),
+        "Ra": QColor("#0F766E"),
+        "Ke": QColor("#7C2D12"),
+    }
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setMinimumSize(360, 360)
+        self.setMouseTracking(True)
         self._show_house_labels = True
         self._house_cells: Dict[int, HouseCell] = {}
-        self._planets_by_house: Dict[int, List[str]] = {house: [] for house in range(1, 13)}
+        self._planets_by_house: Dict[int, List[PlanetDisplay]] = {house: [] for house in range(1, 13)}
         self._header_data = ChartHeaderData()
+        self._hovered_house: Optional[int] = None
+        self._hovered_planet: Optional[PlanetDisplay] = None
+        self._planet_hit_areas: List[PlanetHitArea] = []
+        self._insights_by_planet: Dict[str, str] = {}
+        self._insights_by_house: Dict[int, str] = {}
+        self._default_insight = ""
 
     def sizeHint(self) -> QSize:
         return QSize(420, 420)
@@ -121,6 +166,29 @@ class NorthIndianChartWidget(QWidget):
     def clear_header_data(self) -> None:
         self._header_data = ChartHeaderData()
         self.update()
+
+    def set_insights(
+        self,
+        *,
+        by_planet: Optional[Dict[str, str]] = None,
+        by_house: Optional[Dict[int, str]] = None,
+        default: str = "",
+    ) -> None:
+        self._insights_by_planet = {str(key): str(value).strip() for key, value in (by_planet or {}).items() if str(value).strip()}
+        self._insights_by_house = {
+            int(key): str(value).strip()
+            for key, value in (by_house or {}).items()
+            if str(value).strip()
+        }
+        self._default_insight = str(default or "").strip()
+
+    def clear_insights(self) -> None:
+        self._insights_by_planet = {}
+        self._insights_by_house = {}
+        self._default_insight = ""
+
+    def get_house_insight(self, house: int) -> str:
+        return self._insight_for_house(house)
 
     def get_house_cells(self) -> Dict[int, HouseCell]:
         """Returns the current widget-space coordinate system for all houses."""
@@ -139,6 +207,9 @@ class NorthIndianChartWidget(QWidget):
         """
 
         self._planets_by_house = {house: [] for house in range(1, 13)}
+        self._planet_hit_areas = []
+        self._hovered_house = None
+        self._hovered_planet = None
 
         for item in chart_data:
             planet = self._extract_planet_name(item)
@@ -146,12 +217,23 @@ class NorthIndianChartWidget(QWidget):
             if not planet or house is None or house not in self._planets_by_house:
                 continue
 
-            self._planets_by_house[house].append(self._abbreviate_planet(planet))
+            self._planets_by_house[house].append(
+                PlanetDisplay(
+                    code=self._abbreviate_planet(planet),
+                    house=house,
+                    name=planet,
+                    sign=self._extract_sign(item),
+                )
+            )
 
         self.update()
 
     def clear_chart_data(self) -> None:
         self._planets_by_house = {house: [] for house in range(1, 13)}
+        self._planet_hit_areas = []
+        self._hovered_house = None
+        self._hovered_planet = None
+        self.clear_insights()
         self.update()
 
     def paintEvent(self, event: QPaintEvent) -> None:
@@ -169,12 +251,14 @@ class NorthIndianChartWidget(QWidget):
             return
 
         self._house_cells = self._build_house_cells(chart_rect)
+        self._planet_hit_areas = []
 
         self._draw_chart_frame(painter, chart_rect)
 
         if self._show_house_labels:
             self._draw_house_labels(painter)
 
+        self._draw_hovered_house_outline(painter)
         self._draw_planets(painter)
 
     def _calculate_chart_rect(self) -> QRectF:
@@ -328,34 +412,274 @@ class NorthIndianChartWidget(QWidget):
 
     def _draw_planets(self, painter: QPainter) -> None:
         painter.save()
-        painter.setPen(self.PLANET_TEXT_COLOR)
-        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
 
-        for house_number, planet_codes in self._planets_by_house.items():
-            if not planet_codes:
+        for house_number, planets in self._planets_by_house.items():
+            if not planets:
                 continue
 
             cell = self._house_cells.get(house_number)
             if cell is None:
                 continue
 
-            text = self._format_planet_text(planet_codes)
-            painter.drawText(
-                cell.content_rect,
-                Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
-                text,
-            )
+            planet_slots = self._build_planet_layout(cell.content_rect, len(planets))
+            painter.setFont(self._planet_font_for_count(len(planets), cell.content_rect))
+            self._draw_house_focus_background(painter, cell.content_rect)
+
+            for planet, slot_rect in zip(planets, planet_slots):
+                self._draw_planet_badge(painter, planet, slot_rect)
+                self._planet_hit_areas.append(PlanetHitArea(planet=planet, rect=QRectF(slot_rect)))
+                painter.setPen(QPen(self._planet_text_color(planet.code), 1.0))
+                painter.drawText(
+                    self._badge_text_rect(slot_rect),
+                    Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
+                    planet.code,
+                )
 
         painter.restore()
 
-    def _format_planet_text(self, planet_codes: List[str]) -> str:
-        if len(planet_codes) <= 2:
-            return " ".join(planet_codes)
+    def _draw_hovered_house_outline(self, painter: QPainter) -> None:
+        if self._hovered_house is None:
+            return
 
-        midpoint = (len(planet_codes) + 1) // 2
-        first_line = " ".join(planet_codes[:midpoint])
-        second_line = " ".join(planet_codes[midpoint:])
-        return f"{first_line}\n{second_line}"
+        hovered_cell = self._house_cells.get(self._hovered_house)
+        if hovered_cell is None:
+            return
+
+        if self._planets_by_house.get(self._hovered_house):
+            return
+
+        focus_rect = QRectF(hovered_cell.content_rect)
+        focus_rect.adjust(-4.0, -3.0, 4.0, 3.0)
+
+        painter.save()
+        painter.setPen(QPen(self.HOVERED_HOUSE_BORDER_COLOR, 1.4))
+        painter.setBrush(self.HOVERED_HOUSE_FILL_COLOR)
+        painter.drawRoundedRect(focus_rect, 8.0, 8.0)
+        painter.restore()
+
+    def _draw_house_focus_background(self, painter: QPainter, content_rect: QRectF) -> None:
+        focus_rect = QRectF(content_rect)
+        focus_rect.adjust(-4.0, -3.0, 4.0, 3.0)
+
+        painter.save()
+        house_number = self._house_for_rect(content_rect)
+        is_hovered = house_number is not None and house_number == self._hovered_house
+        border_color = self.HOVERED_HOUSE_BORDER_COLOR if is_hovered else self.OCCUPIED_HOUSE_BORDER_COLOR
+        fill_color = self.HOVERED_HOUSE_FILL_COLOR if is_hovered else self.OCCUPIED_HOUSE_FILL_COLOR
+        painter.setPen(QPen(border_color, 1.4 if is_hovered else 1.0))
+        painter.setBrush(fill_color)
+        painter.drawRoundedRect(focus_rect, 8.0, 8.0)
+        painter.restore()
+
+    def _draw_planet_badge(self, painter: QPainter, planet: PlanetDisplay, slot_rect: QRectF) -> None:
+        badge_rect = QRectF(slot_rect)
+        badge_rect.adjust(1.5, 1.5, -1.5, -1.5)
+
+        painter.save()
+        is_hovered = self._hovered_planet == planet
+        border_color = self.HOVERED_PLANET_BORDER_COLOR if is_hovered else self.HOUSE_SLOT_BORDER_COLOR
+        border_width = 1.5 if is_hovered else 1.0
+        painter.setPen(QPen(border_color, border_width))
+        painter.setBrush(self._planet_badge_fill(planet.code))
+        painter.drawRoundedRect(badge_rect, 6.0, 6.0)
+        painter.restore()
+
+    def _badge_text_rect(self, slot_rect: QRectF) -> QRectF:
+        text_rect = QRectF(slot_rect)
+        text_rect.adjust(2.0, 1.0, -2.0, -1.0)
+        return text_rect
+
+    def _planet_badge_fill(self, planet_code: str) -> QColor:
+        base = QColor(self.PLANET_COLORS.get(planet_code, self.HOUSE_SLOT_FILL_COLOR))
+        fill = QColor(base)
+        fill.setAlpha(52)
+        return fill
+
+    def _planet_text_color(self, planet_code: str) -> QColor:
+        return QColor(self.PLANET_COLORS.get(planet_code, self.PLANET_TEXT_COLOR))
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        hovered_planet = self._planet_at_position(event.position().toPoint())
+        hovered_house = hovered_planet.house if hovered_planet else self._house_at_position(event.position().toPoint())
+
+        if hovered_planet != self._hovered_planet or hovered_house != self._hovered_house:
+            self._hovered_planet = hovered_planet
+            self._hovered_house = hovered_house
+            self.update()
+
+        if hovered_planet:
+            QToolTip.showText(event.globalPosition().toPoint(), self._planet_tooltip_text(hovered_planet), self)
+            self.planet_hovered.emit(
+                {
+                    "planet": hovered_planet.name,
+                    "code": hovered_planet.code,
+                    "house": hovered_planet.house,
+                    "sign": hovered_planet.sign,
+                    "insight": self._insight_for_planet(hovered_planet),
+                }
+            )
+        elif hovered_house is not None:
+            self.house_hovered.emit(
+                {
+                    "house": hovered_house,
+                    "insight": self._insight_for_house(hovered_house),
+                }
+            )
+        else:
+            QToolTip.hideText()
+            self.hover_cleared.emit()
+
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self._hovered_house = None
+        self._hovered_planet = None
+        QToolTip.hideText()
+        self.hover_cleared.emit()
+        self.update()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            clicked_planet = self._planet_at_position(event.position().toPoint())
+            if clicked_planet:
+                self.planet_clicked.emit(
+                    {
+                        "planet": clicked_planet.name,
+                        "code": clicked_planet.code,
+                        "house": clicked_planet.house,
+                        "sign": clicked_planet.sign,
+                        "insight": self._insight_for_planet(clicked_planet),
+                    }
+                )
+                event.accept()
+                return
+
+            clicked_house = self._house_at_position(event.position().toPoint())
+            if clicked_house is not None:
+                self.house_clicked.emit(clicked_house)
+                event.accept()
+                return
+
+        super().mousePressEvent(event)
+
+    def _planet_at_position(self, point: QPoint) -> Optional[PlanetDisplay]:
+        for hit_area in reversed(self._planet_hit_areas):
+            if hit_area.rect.contains(QPointF(point)):
+                return hit_area.planet
+        return None
+
+    def _house_at_position(self, point: QPoint) -> Optional[int]:
+        pointf = QPointF(point)
+        for house_number, cell in self._house_cells.items():
+            focus_rect = QRectF(cell.content_rect)
+            focus_rect.adjust(-4.0, -3.0, 4.0, 3.0)
+            if focus_rect.contains(pointf):
+                return house_number
+        return None
+
+    def _house_for_rect(self, content_rect: QRectF) -> Optional[int]:
+        for house_number, cell in self._house_cells.items():
+            if cell.content_rect == content_rect:
+                return house_number
+        return None
+
+    def _planet_tooltip_text(self, planet: PlanetDisplay) -> str:
+        lines = [
+            planet.name or planet.code,
+            f"House: {planet.house}",
+        ]
+        if planet.sign:
+            lines.append(f"Sign: {planet.sign}")
+        insight = self._insight_for_planet(planet)
+        if insight:
+            lines.append("")
+            lines.append(insight)
+        return "\n".join(lines)
+
+    def _insight_for_planet(self, planet: PlanetDisplay) -> str:
+        key = self._planet_insight_key(planet.name or planet.code, planet.house)
+        return self._insights_by_planet.get(key) or self._insights_by_house.get(planet.house, "") or self._default_insight
+
+    def _insight_for_house(self, house: int) -> str:
+        return self._insights_by_house.get(house, "") or self._default_insight
+
+    def _planet_insight_key(self, planet_name: str, house: int) -> str:
+        normalized_planet = re.sub(r"\s+", " ", str(planet_name or "").strip().lower())
+        return f"{normalized_planet}|{int(house)}"
+
+    def _build_planet_layout(self, content_rect: QRectF, planet_count: int) -> List[QRectF]:
+        """
+        Distributes planets inside a house cell without overlap.
+
+        Layout rules:
+        - 1 planet: centered
+        - 2 planets: two columns
+        - 3-4 planets: 2x2 grid
+        - 5+ planets: responsive grid capped at 3 columns
+        """
+        if planet_count <= 0:
+            return []
+
+        inner_rect = QRectF(content_rect)
+        horizontal_padding = max(2.0, content_rect.width() * 0.04)
+        vertical_padding = max(2.0, content_rect.height() * 0.08)
+        inner_rect.adjust(horizontal_padding, vertical_padding, -horizontal_padding, -vertical_padding)
+
+        if planet_count == 1:
+            return [inner_rect]
+
+        if planet_count == 2:
+            return self._grid_rects(inner_rect, rows=1, columns=2, item_count=2)
+
+        if planet_count <= 4:
+            return self._grid_rects(inner_rect, rows=2, columns=2, item_count=planet_count)
+
+        columns = min(3, math.ceil(math.sqrt(planet_count)))
+        rows = math.ceil(planet_count / columns)
+        return self._grid_rects(inner_rect, rows=rows, columns=columns, item_count=planet_count)
+
+    def _grid_rects(
+        self,
+        rect: QRectF,
+        *,
+        rows: int,
+        columns: int,
+        item_count: int,
+    ) -> List[QRectF]:
+        if rows <= 0 or columns <= 0 or item_count <= 0:
+            return []
+
+        gap_x = max(2.0, rect.width() * 0.03)
+        gap_y = max(2.0, rect.height() * 0.06)
+        cell_width = max(1.0, (rect.width() - ((columns - 1) * gap_x)) / columns)
+        cell_height = max(1.0, (rect.height() - ((rows - 1) * gap_y)) / rows)
+
+        total_width = (cell_width * columns) + (gap_x * (columns - 1))
+        total_height = (cell_height * rows) + (gap_y * (rows - 1))
+        start_x = rect.center().x() - (total_width / 2)
+        start_y = rect.center().y() - (total_height / 2)
+
+        layout_rects: List[QRectF] = []
+        for index in range(item_count):
+            row = index // columns
+            col = index % columns
+            x = start_x + (col * (cell_width + gap_x))
+            y = start_y + (row * (cell_height + gap_y))
+            layout_rects.append(QRectF(x, y, cell_width, cell_height))
+        return layout_rects
+
+    def _planet_font_for_count(self, planet_count: int, content_rect: QRectF) -> QFont:
+        if planet_count <= 1:
+            size = max(10, int(content_rect.height() * 0.22))
+        elif planet_count == 2:
+            size = max(9, int(content_rect.height() * 0.19))
+        elif planet_count <= 4:
+            size = max(8, int(content_rect.height() * 0.16))
+        else:
+            size = max(7, int(content_rect.height() * 0.13))
+
+        return QFont("Segoe UI", size, QFont.Weight.Bold)
 
     def _extract_planet_name(self, item: Union[ChartData, dict]) -> Optional[str]:
         if isinstance(item, ChartData):
@@ -378,6 +702,13 @@ class NorthIndianChartWidget(QWidget):
         except (TypeError, ValueError):
             return None
         return house
+
+    def _extract_sign(self, item: Union[ChartData, dict]) -> str:
+        if isinstance(item, ChartData):
+            return str(item.sign or "").strip()
+        if isinstance(item, dict):
+            return str(item.get("Sign") or item.get("sign") or "").strip()
+        return ""
 
     def _abbreviate_planet(self, planet_name: str) -> str:
         normalized = planet_name.strip()
@@ -416,13 +747,16 @@ class ChartPreviewWindow(QWidget):
                 {"Planet": "Ascendant", "House": 1},
                 {"Planet": "Sun", "House": 1},
                 {"Planet": "Mercury", "House": 1},
+                {"Planet": "Venus", "House": 1},
+                {"Planet": "Saturn", "House": 1},
                 {"Planet": "Moon", "House": 4},
                 {"Planet": "Mars", "House": 7},
                 {"Planet": "Jupiter", "House": 9},
-                {"Planet": "Saturn", "House": 10},
                 {"Planet": "Rahu", "House": 11},
                 {"Planet": "Ketu", "House": 5},
-                {"Planet": "Venus", "House": 12},
+                {"Planet": "Sun", "House": 10},
+                {"Planet": "Moon", "House": 10},
+                {"Planet": "Mercury", "House": 10},
             ]
         )
 
