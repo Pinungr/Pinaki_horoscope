@@ -1,12 +1,12 @@
 import logging
-from typing import List, Dict
+from typing import Any, Dict, List
 from app.models.domain import ChartData
-from app.engine.aspects import AspectsEngine
 from app.engine.dasha import DashaEngine
 from app.engine.navamsha import NavamshaEngine
 from app.utils.cache import get_astrology_cache
 from app.utils.safe_execution import execute_safely
 from app.utils.logger import log_calculation_step
+from core.engines.aspect_engine import calculate_aspects
 
 
 logger = logging.getLogger(__name__)
@@ -15,12 +15,11 @@ class AstrologyAdvancedService:
     """Service layer coordinating advanced astrological math engines."""
 
     def __init__(self):
-        self.aspects_engine = AspectsEngine()
         self.dasha_engine = DashaEngine()
         self.navamsha_engine = NavamshaEngine()
         self.cache = get_astrology_cache()
 
-    def generate_advanced_data(self, chart_data_models: List[ChartData], user_dob: str) -> Dict:
+    def generate_advanced_data(self, chart_data_models: List[ChartData], user_dob: str) -> Dict[str, Any]:
         """
         Coordinates the Aspects, Dasha, and Navamsha engines.
         Returns a master dictionary containing all three advanced analysis sets.
@@ -34,9 +33,6 @@ class AstrologyAdvancedService:
                 return cached_advanced
 
         # 1. Transpile domain models to the dictionary shapes expected by engines
-        # Aspects input: {"Planet": {"house": X}}
-        aspects_input = {cd.planet_name: {"house": cd.house} for cd in chart_data_models}
-        
         # Navamsha input: {"Planet": {"sign": "Aries", "degree": 15.5}}
         navamsha_input = {cd.planet_name: {"sign": cd.sign, "degree": cd.degree} for cd in chart_data_models}
         
@@ -57,11 +53,11 @@ class AstrologyAdvancedService:
 
         # 2. Execute engines
         aspects_output = execute_safely(
-            lambda: self.aspects_engine.calculate_aspects(aspects_input),
+            lambda: calculate_aspects(chart_data_models),
             logger=logger,
             operation_name="Aspects calculation",
             user_message="Advanced aspect analysis is unavailable right now.",
-            fallback={},
+            fallback=[],
         )
         navamsha_output = execute_safely(
             lambda: self.navamsha_engine.calculate_navamsha(navamsha_input),
