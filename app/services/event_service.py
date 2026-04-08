@@ -26,6 +26,45 @@ class EventService:
         "wealth": "finance",
         "financial": "finance",
     }
+    _SUPPORTED_LANGUAGES = {"en", "hi", "or"}
+    _TEMPLATES: Dict[str, Dict[str, str]] = {
+        "en": {
+            "no_window": "I do not see a clear {intent} event window yet in the current dasha timeline.",
+            "phrase_career": "career growth",
+            "phrase_marriage": "marriage progress",
+            "phrase_finance": "financial improvement",
+            "phrase_health": "health improvement",
+            "phrase_default": "notable results",
+            "answer_period_label": "You are likely to experience {phrase} between {period}. {label}.",
+            "answer_period_only": "You are likely to experience {phrase} between {period}.",
+            "answer_label_only": "You are likely to experience {phrase}. {label}.",
+            "answer_default": "You are likely to experience {phrase} soon.",
+        },
+        "hi": {
+            "no_window": "वर्तमान दशा-समयरेखा में अभी {intent} के लिए स्पष्ट घटना-समय नहीं दिख रहा है।",
+            "phrase_career": "करियर में प्रगति",
+            "phrase_marriage": "विवाह/रिश्ते में प्रगति",
+            "phrase_finance": "आर्थिक सुधार",
+            "phrase_health": "स्वास्थ्य में सुधार",
+            "phrase_default": "उल्लेखनीय परिणाम",
+            "answer_period_label": "आपको {period} के दौरान {phrase} का अनुभव होने की संभावना है। {label}।",
+            "answer_period_only": "आपको {period} के दौरान {phrase} का अनुभव होने की संभावना है।",
+            "answer_label_only": "आपको {phrase} का अनुभव होने की संभावना है। {label}।",
+            "answer_default": "आपको जल्द ही {phrase} का अनुभव होने की संभावना है।",
+        },
+        "or": {
+            "no_window": "ବର୍ତ୍ତମାନ ଦଶା ସମୟରେଖାରେ {intent} ପାଇଁ ଏପର୍ଯ୍ୟନ୍ତ ସ୍ପଷ୍ଟ ଘଟଣା-ସମୟ ଦେଖାଯାଉନି।",
+            "phrase_career": "କ୍ୟାରିଅର ଉନ୍ନତି",
+            "phrase_marriage": "ବିବାହ/ସମ୍ପର୍କ ଉନ୍ନତି",
+            "phrase_finance": "ଆର୍ଥିକ ସୁଧାର",
+            "phrase_health": "ସ୍ୱାସ୍ଥ୍ୟ ସୁଧାର",
+            "phrase_default": "ଲକ୍ଷଣୀୟ ଫଳ",
+            "answer_period_label": "{period} ସମୟରେ ଆପଣ {phrase} ଅନୁଭବ କରିବାର ସମ୍ଭାବନା ଅଛି। {label}।",
+            "answer_period_only": "{period} ସମୟରେ ଆପଣ {phrase} ଅନୁଭବ କରିବାର ସମ୍ଭାବନା ଅଛି।",
+            "answer_label_only": "ଆପଣ {phrase} ଅନୁଭବ କରିବାର ସମ୍ଭାବନା ଅଛି। {label}।",
+            "answer_default": "ଶୀଘ୍ର ଆପଣ {phrase} ଅନୁଭବ କରିପାରନ୍ତି।",
+        },
+    }
 
     def detect_intent(self, user_query: str) -> str:
         """Delegates to the shared intent detector for consistency with the chat pipeline."""
@@ -41,7 +80,10 @@ class EventService:
         predictions: Iterable[Mapping[str, Any]] | None,
         timeline_data: Any,
         reasoning_data: Iterable[Mapping[str, Any]] | None,
+        language: str = "en",
     ) -> dict[str, Any]:
+        normalized_language = self._normalize_language(language)
+        templates = self._TEMPLATES[normalized_language]
         intent = self.detect_intent(user_query)
         if intent == "general":
             return {
@@ -58,14 +100,14 @@ class EventService:
 
         if not top_events:
             return {
-                "answer": f"I do not see a clear {intent} event window yet in the current dasha timeline.",
+                "answer": templates["no_window"].format(intent=intent),
                 "confidence": 0,
                 "supporting_events": [],
                 "reasoning": reasoning_rows,
             }
 
         top_event = top_events[0]
-        answer = self._build_answer(intent, top_event)
+        answer = self._build_answer(intent, top_event, language=normalized_language)
         confidence = self._safe_int(top_event.get("confidence"))
 
         return {
@@ -114,25 +156,26 @@ class EventService:
         ranked.sort(key=sort_key)
         return ranked[: max(1, int(max_events))]
 
-    def _build_answer(self, intent: str, event: Mapping[str, Any]) -> str:
+    def _build_answer(self, intent: str, event: Mapping[str, Any], *, language: str) -> str:
+        templates = self._TEMPLATES.get(language, self._TEMPLATES["en"])
         period = str(event.get("period", "")).strip()
         label = str(event.get("event", "")).strip()
 
         phrase_map = {
-            "career": "career growth",
-            "marriage": "marriage progress",
-            "finance": "financial improvement",
-            "health": "health improvement",
+            "career": templates["phrase_career"],
+            "marriage": templates["phrase_marriage"],
+            "finance": templates["phrase_finance"],
+            "health": templates["phrase_health"],
         }
-        phrase = phrase_map.get(intent, "notable results")
+        phrase = phrase_map.get(intent, templates["phrase_default"])
 
         if period and label:
-            return f"You are likely to experience {phrase} between {period}. {label}."
+            return templates["answer_period_label"].format(phrase=phrase, period=period, label=label)
         if period:
-            return f"You are likely to experience {phrase} between {period}."
+            return templates["answer_period_only"].format(phrase=phrase, period=period)
         if label:
-            return f"You are likely to experience {phrase}. {label}."
-        return f"You are likely to experience {phrase} soon."
+            return templates["answer_label_only"].format(phrase=phrase, label=label)
+        return templates["answer_default"].format(phrase=phrase)
 
     def _filter_reasoning_by_area(
         self,
@@ -178,3 +221,9 @@ class EventService:
             return int(round(float(value)))
         except (TypeError, ValueError):
             return 0
+
+    def _normalize_language(self, language: str) -> str:
+        normalized = str(language or "en").strip().lower() or "en"
+        if normalized not in self._SUPPORTED_LANGUAGES:
+            return "en"
+        return normalized

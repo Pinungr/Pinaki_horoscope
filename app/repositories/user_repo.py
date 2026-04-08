@@ -40,7 +40,7 @@ class UserRepository:
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         '''
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql, (
                     name,
@@ -62,7 +62,7 @@ class UserRepository:
         """Retrieves a user by ID."""
         sql = 'SELECT * FROM users WHERE id = ?'
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql, (user_id,))
                 row = cursor.fetchone()
@@ -88,7 +88,7 @@ class UserRepository:
         sql = 'SELECT * FROM users'
         users = []
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql)
                 for row in cursor.fetchall():
@@ -112,7 +112,7 @@ class UserRepository:
         """Deletes a user by ID."""
         sql = 'DELETE FROM users WHERE id = ?'
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql, (user_id,))
                 conn.commit()

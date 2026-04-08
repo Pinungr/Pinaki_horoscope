@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.yoga.models import ChartSnapshot, PlanetPlacement, normalize_planet_id
+from .shadbala.shadbala_aggregator import ShadbalaEngine, ShadbalaResult
 
 logger = logging.getLogger(__name__)
 
@@ -135,17 +136,13 @@ class PlanetStrength:
 
 class StrengthEngine:
     """
-    Calculates Vedic-style dignitary strength for every planet in a chart.
-
-    Usage
-    -----
-    ::
-
-        engine = StrengthEngine()
-        results = engine.score_chart(chart_snapshot)
-        sun_strength = engine.score_planet("sun", chart_snapshot)
-        print(sun_strength.score, sun_strength.level)
+    Calculates planetary strength using the modular Shadbala (Six-Fold) system.
+    Maintains backward compatibility with 0-100 scoring while providing
+    professional-grade astronomical precision.
     """
+
+    def __init__(self):
+        self._shadbala_engine = ShadbalaEngine()
 
     # -----------------------------------------------------------------------
     # Public API
@@ -154,57 +151,56 @@ class StrengthEngine:
     def score_chart(self, chart: ChartSnapshot) -> dict[str, PlanetStrength]:
         """
         Returns a strength assessment for every planet present in the chart.
-
-        Returns
-        -------
-        dict mapping normalized planet id -> PlanetStrength
+        Uses Shadbala for high-precision results.
         """
+        shadbala_result = self._shadbala_engine.calculate(chart)
         results: dict[str, PlanetStrength] = {}
-        for planet_id in chart.placements:
-            results[planet_id] = self.score_planet(planet_id, chart)
+        
+        for planet_id, sb in shadbala_result.planets.items():
+            score = self._to_percentage(sb.total, planet_id)
+            level = self._level_for_score(score)
+            
+            # Map Shadbala factors back to the breakdown for UI compatibility
+            breakdown = {
+                "sthana": round(sb.sthana_bala, 1),
+                "dik": round(sb.dik_bala, 1),
+                "kala": round(sb.kala_bala, 1),
+                "chestha": round(sb.chestha_bala, 1),
+                "naisargika": round(sb.naisargika_bala, 1),
+                "total_virupas": round(sb.total, 1)
+            }
+            
+            results[planet_id] = PlanetStrength(
+                planet=planet_id,
+                score=score,
+                level=level,
+                breakdown=breakdown
+            )
+            
         return results
 
     def score_planet(self, planet: str, chart: ChartSnapshot) -> PlanetStrength:
-        """
-        Scores a single planet against the full chart context.
-
-        Parameters
-        ----------
-        planet  : planet name (any casing; will be normalized)
-        chart   : ChartSnapshot with all placements
-        """
+        """Scores a single planet against the full chart context."""
         planet_id = normalize_planet_id(planet)
-        placement = chart.get(planet_id)
+        all_results = self.score_chart(chart)
+        return all_results.get(planet_id, PlanetStrength(planet=planet_id, score=0, level="weak", breakdown={}))
 
-        if placement is None:
-            logger.debug("StrengthEngine: planet %r not found in chart.", planet_id)
-            return PlanetStrength(planet=planet_id, score=0, level="weak", breakdown={})
-
-        breakdown: dict[str, int] = {"base": _BASE_SCORE}
-        total = _BASE_SCORE
-
-        total = self._apply_dignity(planet_id, placement, breakdown, total)
-        total = self._apply_retrograde(placement, breakdown, total)
-        total = self._apply_combustion(planet_id, placement, chart, breakdown, total)
-        total = self._apply_house_strength(placement, breakdown, total)
-
-        clamped = max(0, min(100, total))
-        level = self._level_for_score(clamped)
-
-        logger.debug(
-            "StrengthEngine: %s score=%d level=%s breakdown=%s",
-            planet_id,
-            clamped,
-            level,
-            breakdown,
-        )
-
-        return PlanetStrength(
-            planet=planet_id,
-            score=clamped,
-            level=level,
-            breakdown=breakdown,
-        )
+    @staticmethod
+    def _to_percentage(total_virupas: float, planet: str) -> int:
+        """
+        Maps raw Shadbala Virupa points to a 0-100 percentage.
+        Standard 'Strong' thresholds (Minimum Required Virupas):
+        Sun: 390, Moon: 360, Mars: 300, Mercury: 420, Jupiter: 390, Venus: 330, Saturn: 300
+        """
+        thresholds = {
+            "sun": 390, "moon": 360, "mars": 300, 
+            "mercury": 420, "jupiter": 390, "venus": 330, "saturn": 300
+        }
+        
+        target = thresholds.get(planet, 300)
+        # Scaled so that reaching the threshold is roughly 75/100
+        percentage = (total_virupas / target) * 75
+        return int(round(max(0, min(100, percentage))))
 
     # -----------------------------------------------------------------------
     # Factor handlers
@@ -239,7 +235,7 @@ class StrengthEngine:
         breakdown: dict[str, int],
         total: int,
     ) -> int:
-        if placement.retrograde:
+        if placement.is_retrograde:
             breakdown["retrograde"] = _RETROGRADE_BONUS
             return total + _RETROGRADE_BONUS
         return total
@@ -265,17 +261,12 @@ class StrengthEngine:
         if sun is None:
             return total
 
-        # Combustion is only possible when both are in the same sign (same house
-        # in whole-sign system), or adjacent signs with degree proximity.
-        # We use a simple degree-delta check: compute the absolute arc on the
-        # ecliptic between the two planets using their within-sign degrees.
-        # Full absolute longitude comparison would require storing it; we
-        # approximate using house proximity + degree delta.
-        if sun.house != placement.house:
-            return total
+        # Combustion orb check using precise absolute longitude proximity.
+        # Calculate the shortest distance on a 360-degree circle.
+        delta = abs(sun.absolute_longitude - placement.absolute_longitude)
+        shortest_arc = min(delta, 360.0 - delta)
 
-        degree_delta = abs(sun.degree - placement.degree)
-        if degree_delta <= orb:
+        if shortest_arc <= orb:
             breakdown["combustion"] = _COMBUSTION_PENALTY
             return total + _COMBUSTION_PENALTY
 

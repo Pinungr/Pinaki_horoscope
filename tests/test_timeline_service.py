@@ -99,7 +99,17 @@ class TimelineServiceTests(unittest.TestCase):
         forecast = self.service.build_timeline_forecast(unmatched, self.dasha_timeline)
         self.assertEqual([], forecast["timeline"])
 
+    def test_build_timeline_forecast_localizes_event_and_reasoning_text(self) -> None:
+        forecast = self.service.build_timeline_forecast(
+            self.predictions,
+            self.dasha_timeline,
+            language="hi",
+        )
+
+        self.assertTrue(forecast["timeline"])
+        self.assertIn("करियर", forecast["timeline"][0]["event"])
+        self.assertIn("महादशा", forecast["timeline"][0]["reasoning_link"])
+
 
 if __name__ == "__main__":
     unittest.main()
-

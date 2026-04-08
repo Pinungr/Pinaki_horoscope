@@ -34,6 +34,7 @@ class MainController:
             horoscope_service=self.service,
             ai_refiner=self.ai_refiner_service,
         )
+        self.chat_service.set_language(str(initial_settings.get("language_code", "en")))
         self.cache = get_astrology_cache()
         self.debug_ui_enabled = self._is_debug_ui_enabled()
         self.active_user_id = None
@@ -222,7 +223,11 @@ class MainController:
         try:
             with self._busy_feedback(report_busy=True, chart_status="Generating your PDF report..."):
                 log_user_action("controller_generate_report", user_id=self.active_user_id, output_path=output_path)
-                saved_path = self.report_service.generate_pdf(self.active_user_id, output_path)
+                saved_path = self.report_service.generate_pdf(
+                    self.active_user_id,
+                    output_path,
+                    language=self.language_manager.current_language,
+                )
             QMessageBox.information(
                 self.view,
                 "Report Generated",
@@ -264,6 +269,7 @@ class MainController:
             log_user_action("controller_save_settings", ai_enabled=settings_data.get("ai_enabled"))
             saved_settings = self.settings_service.save(settings_data)
             self.language_manager.set_language(str(saved_settings.get("language_code", "en")))
+            self.chat_service.set_language(self.language_manager.current_language)
             self.view.apply_translations()
             self.view.settings_screen.load_settings(saved_settings)
 
@@ -285,7 +291,20 @@ class MainController:
     def handle_language_changed(self, language_code: str):
         """Applies a newly selected language immediately without restart."""
         self.language_manager.set_language(language_code)
+        self.chat_service.set_language(self.language_manager.current_language)
         self.view.apply_translations()
+        self.cache.clear(
+            namespaces=(
+                "advanced_data",
+                "timeline",
+                "ui_advanced_data",
+                "ui_timeline_forecast",
+                "chat_advanced_data",
+                "chat_timeline_forecast",
+            )
+        )
+        if self.active_user_id is not None:
+            self._populate_advanced_views(self.active_user_id)
 
     def _build_report_filename(self, user_name: str) -> str:
         """Builds a filesystem-safe default report filename from the active user name."""
@@ -336,12 +355,24 @@ class MainController:
                 self.view.timeline_view.clear_timeline()
                 return
 
+            active_language = self.language_manager.current_language
             advanced_data = self.cache.get("ui_advanced_data", user_id)
-            advanced_cache_hit = advanced_data is not None
+            advanced_cache_hit = False
+            if isinstance(advanced_data, dict):
+                cached_language = str(advanced_data.get("_language", "en")).strip().lower() or "en"
+                advanced_cache_hit = cached_language == active_language
+                if not advanced_cache_hit:
+                    advanced_data = None
+            elif advanced_data is not None and active_language == "en":
+                advanced_cache_hit = True
             if advanced_data is None:
                 chart_models = self.service.chart_repo.get_by_user_id(user_id)
                 advanced_service = AstrologyAdvancedService()
-                advanced_data = advanced_service.generate_advanced_data(chart_models, user_model.dob)
+                advanced_data = advanced_service.generate_advanced_data(
+                    chart_models,
+                    user_model.dob,
+                    language=active_language,
+                )
                 self.cache.set("ui_advanced_data", user_id, advanced_data)
 
             self.view.aspects_view.setText(json.dumps(advanced_data["aspects"], indent=2))
@@ -363,7 +394,7 @@ class MainController:
             self.active_user_id = user_id
             self.view.chat_screen.set_active_user(user_id)
 
-            timeline_data = self.service.get_timeline_data(user_id)
+            timeline_data = self.service.get_timeline_data(user_id, language=self.language_manager.current_language)
             unified_predictions = []
             if isinstance(unified_payload, dict):
                 raw_predictions = unified_payload.get("predictions", [])
@@ -371,12 +402,22 @@ class MainController:
                     unified_predictions = [dict(item) for item in raw_predictions if isinstance(item, dict)]
 
             timeline_forecast = self.cache.get("ui_timeline_forecast", user_id)
-            timeline_cache_hit = timeline_forecast is not None
+            timeline_cache_hit = False
+            if isinstance(timeline_forecast, dict):
+                cached_language = str(timeline_forecast.get("_language", "en")).strip().lower() or "en"
+                timeline_cache_hit = cached_language == active_language
+                if not timeline_cache_hit:
+                    timeline_forecast = None
+            elif timeline_forecast is not None and active_language == "en":
+                timeline_cache_hit = True
             if timeline_forecast is None:
                 timeline_forecast = TimelineService().build_timeline_forecast(
                     unified_predictions,
                     advanced_data.get("dasha", []) if isinstance(advanced_data, dict) else [],
+                    language=active_language,
                 )
+                if isinstance(timeline_forecast, dict):
+                    timeline_forecast["_language"] = active_language
                 self.cache.set("ui_timeline_forecast", user_id, timeline_forecast)
 
             forecast_rows = timeline_forecast.get("timeline", []) if isinstance(timeline_forecast, dict) else []

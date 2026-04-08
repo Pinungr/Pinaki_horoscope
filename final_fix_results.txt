@@ -1,0 +1,259 @@
+python : ..................
+...Invalid DOB 
+'invalid-date' received 
+for dasha calculation. 
+Falling back to UTC now.
+At line:1 char:1
++ python -m unittest 
+discover tests 2>&1 | 
+Out-File -FilePath 
+final_fix ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (...  
+  ...............ack to    
+ UTC now.:String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+.........................C:
+\Users\pinun\AppData\Local\
+Python\pythoncore-3.14-64\L
+ib\json\decoder.py:361: 
+ResourceWarning: unclosed 
+database in 
+<sqlite3.Connection object 
+at 0x000001B5950055D0>
+  obj, end = 
+self.scan_once(s, idx)
+ResourceWarning: Enable 
+tracemalloc to get the 
+object allocation traceback
+...........C:\Users\pinun\A
+ppData\Local\Python\pythonc
+ore-3.14-64\Lib\enum.py:676
+: ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection object 
+at 0x000001B5950055D0>
+  def __call__(cls, value, 
+names=_not_given, *values, 
+module=None, 
+qualname=None, type=None, 
+start=1, boundary=None):
+ResourceWarning: Enable 
+tracemalloc to get the 
+object allocation traceback
+C:\Users\pinun\AppData\Loca
+l\Python\pythoncore-3.14-64
+\Lib\enum.py:676: 
+ResourceWarning: unclosed 
+database in 
+<sqlite3.Connection object 
+at 0x000001B595004220>
+  def __call__(cls, value, 
+names=_not_given, *values, 
+module=None, 
+qualname=None, type=None, 
+start=1, boundary=None):
+ResourceWarning: Enable 
+tracemalloc to get the 
+object allocation traceback
+........Skipping invalid 
+rule JSON for rule_id=None.
+...................Shadbala
+ calculation requires Sun 
+and Ascendant placements.
+FShadbala calculation 
+requires Sun and Ascendant 
+placements.
+..........F.............Yog
+aEngine: config directory 
+'\\nonexistent' does not 
+exist. No yogas loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+................Shadbala 
+calculation requires Sun 
+and Ascendant placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+..Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.....Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+....Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+..Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+..Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+..YogaEngine: config 
+directory 
+'\\no\\such\\dir' does not 
+exist. No yogas loaded.
+...
+===========================
+===========================
+================
+FAIL: test_combustion_appli
+es_within_orb (test_strengt
+h_engine.StrengthEngineTest
+s.test_combustion_applies_w
+ithin_orb)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_stre
+ngth_engine.py", line 100, 
+in test_combustion_applies_
+within_orb
+    self.assertIn("combusti
+on", result.breakdown)
+    ~~~~~~~~~~~~~^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 
+'combustion' not found in 
+{}
+
+===========================
+===========================
+================
+FAIL: test_own_sign_planet_
+scores_medium_or_above (tes
+t_strength_engine.StrengthE
+ngineTests.test_own_sign_pl
+anet_scores_medium_or_above
+)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_stre
+ngth_engine.py", line 59, 
+in test_own_sign_planet_sco
+res_medium_or_above
+    self.assertGreaterEqual
+(result.score, 40)
+    ~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
+AssertionError: 38 not 
+greater than or equal to 40
+
+---------------------------
+---------------------------
+----------------
+Ran 155 tests in 0.309s
+
+FAILED (failures=2)

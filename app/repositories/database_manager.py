@@ -24,6 +24,38 @@ class DatabaseManager:
             logger.exception("Failed to open database connection '%s': %s", self.db_path, exc)
             raise AppError("Unable to connect to the local database right now. Please try again.") from exc
 
+    def connection_context(self):
+        """Helper to ensure the connection is always closed, even if exceptions occur."""
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _execute():
+            conn = self.get_connection()
+            try:
+                yield conn
+            finally:
+                conn.close()
+
+        return _execute()
+
+    def _migrate_chart_data_table(self, conn: sqlite3.Connection) -> None:
+        """Safely extends the existing chart_data table with exact astronomical coordinates."""
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(chart_data)")
+        existing_columns = {row["name"] for row in cursor.fetchall()}
+
+        alter_statements = []
+        if "absolute_longitude" not in existing_columns:
+            alter_statements.append("ALTER TABLE chart_data ADD COLUMN absolute_longitude REAL DEFAULT 0.0")
+        if "is_retrograde" not in existing_columns:
+            alter_statements.append("ALTER TABLE chart_data ADD COLUMN is_retrograde INTEGER DEFAULT 0")
+
+        for statement in alter_statements:
+            cursor.execute(statement)
+
+        if alter_statements:
+            logger.info("Applied chart_data table migration for precision astronomy columns.")
+
     def _migrate_rules_table(self, conn: sqlite3.Connection) -> None:
         """Safely extends the existing rules table with scoring columns."""
         cursor = conn.cursor()
@@ -235,6 +267,8 @@ class DatabaseManager:
             sign TEXT NOT NULL,
             house INTEGER NOT NULL,
             degree REAL NOT NULL,
+            absolute_longitude REAL DEFAULT 0.0,
+            is_retrograde INTEGER DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
         
@@ -266,6 +300,7 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 # Execution of the schema script
                 conn.executescript(schema)
+                self._migrate_chart_data_table(conn)
                 self._migrate_rules_table(conn)
                 self._migrate_users_table(conn)
                 self._seed_locations_table(conn)

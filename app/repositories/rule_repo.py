@@ -19,7 +19,7 @@ class RuleRepository:
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         '''
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql, (
                     rule.condition_json,
@@ -42,7 +42,7 @@ class RuleRepository:
         sql = 'SELECT * FROM rules ORDER BY priority DESC'
         rules = []
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql)
                 for row in cursor.fetchall():
@@ -66,7 +66,7 @@ class RuleRepository:
         """Deletes a rule."""
         sql = 'DELETE FROM rules WHERE id = ?'
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql, (rule_id,))
                 conn.commit()

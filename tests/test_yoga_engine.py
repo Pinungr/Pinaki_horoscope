@@ -86,8 +86,11 @@ class HamsaYogaTests(unittest.TestCase):
 
     def test_hamsa_detected_jupiter_exalted_kendra(self) -> None:
         # Jupiter exalted in Cancer = house 4 kendra
+        # Include Sun (10th house) and Ascendant (Aries) for context
         chart = ChartSnapshot.from_rows([
-            {"planet_name": "Jupiter", "house": 4, "sign": "Cancer", "degree": 15.0},
+            {"planet_name": "Jupiter", "house": 4, "sign": "Cancer", "degree": 15.0, "absolute_longitude": 105.0},
+            {"planet_name": "Sun", "house": 10, "sign": "Capricorn", "degree": 0.0, "absolute_longitude": 270.0},
+            {"planet_name": "Ascendant", "house": 1, "sign": "Aries", "degree": 0.0, "absolute_longitude": 0.0},
         ])
         result = self.engine.evaluate_one("hamsa_yoga", chart)
         self.assertTrue(result.detected)
@@ -212,9 +215,11 @@ class YogaEngineBulkTests(unittest.TestCase):
 
     def test_evaluate_detected_results_are_sorted_by_strength(self) -> None:
         chart = ChartSnapshot.from_rows([
-            {"planet_name": "Moon",    "house": 1, "sign": "Taurus", "degree": 5.0},   # exalted Moon
-            {"planet_name": "Jupiter", "house": 4, "sign": "Cancer", "degree": 10.0},  # exalted Jupiter
-            {"planet_name": "Mercury", "house": 4, "sign": "Cancer", "degree": 12.0},
+            {"planet_name": "Moon",    "house": 1, "sign": "Taurus", "degree": 5.0, "absolute_longitude": 35.0},
+            {"planet_name": "Jupiter", "house": 4, "sign": "Cancer", "degree": 10.0, "absolute_longitude": 100.0},
+            {"planet_name": "Mercury", "house": 4, "sign": "Cancer", "degree": 12.0, "absolute_longitude": 102.0},
+            {"planet_name": "Sun", "house": 10, "sign": "Capricorn", "degree": 0.0, "absolute_longitude": 270.0},
+            {"planet_name": "Ascendant", "house": 1, "sign": "Aries", "degree": 0.0, "absolute_longitude": 0.0},
         ])
         results = self.engine.evaluate(chart, detected_only=True)
         scores = [r.strength_score for r in results]

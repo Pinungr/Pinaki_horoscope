@@ -1,0 +1,310 @@
+python : ..............
+.......Invalid DOB 
+'invalid-date' 
+received for dasha 
+calculation. Falling 
+back to UTC now.
+At line:1 char:1
++ python -m unittest 
+discover tests 2>&1 | 
+Out-File -FilePath 
+tests_err ...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo     
+         : 
+NotSpecified: (...    
+...............ack to  
+   UTC now.:String) 
+[], R    emoteException
+    + 
+FullyQualifiedErrorI   
+ d : NativeCommandError
+ 
+.......................
+..C:\Users\pinun\AppDat
+a\Local\Python\pythonco
+re-3.14-64\Lib\json\dec
+oder.py:361: 
+ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection 
+object at 
+0x0000023F36E54E50>
+  obj, end = 
+self.scan_once(s, idx)
+ResourceWarning: 
+Enable tracemalloc to 
+get the object 
+allocation traceback
+...........C:\Users\pin
+un\AppData\Local\Python
+\pythoncore-3.14-64\Lib
+\enum.py:676: 
+ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection 
+object at 
+0x0000023F36D2FA60>
+  def __call__(cls, 
+value, 
+names=_not_given, 
+*values, module=None, 
+qualname=None, 
+type=None, start=1, 
+boundary=None):
+ResourceWarning: 
+Enable tracemalloc to 
+get the object 
+allocation traceback
+C:\Users\pinun\AppData\
+Local\Python\pythoncore
+-3.14-64\Lib\enum.py:67
+6: ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection 
+object at 
+0x0000023F36D2F5B0>
+  def __call__(cls, 
+value, 
+names=_not_given, 
+*values, module=None, 
+qualname=None, 
+type=None, start=1, 
+boundary=None):
+ResourceWarning: 
+Enable tracemalloc to 
+get the object 
+allocation traceback
+C:\Users\pinun\AppData\
+Local\Python\pythoncore
+-3.14-64\Lib\enum.py:67
+6: ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection 
+object at 
+0x0000023F36E54E50>
+  def __call__(cls, 
+value, 
+names=_not_given, 
+*values, module=None, 
+qualname=None, 
+type=None, start=1, 
+boundary=None):
+ResourceWarning: 
+Enable tracemalloc to 
+get the object 
+allocation traceback
+C:\Users\pinun\AppData\
+Local\Python\pythoncore
+-3.14-64\Lib\enum.py:67
+6: ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection 
+object at 
+0x0000023F36E54400>
+  def __call__(cls, 
+value, 
+names=_not_given, 
+*values, module=None, 
+qualname=None, 
+type=None, start=1, 
+boundary=None):
+ResourceWarning: 
+Enable tracemalloc to 
+get the object 
+allocation traceback
+C:\Users\pinun\AppData\
+Local\Python\pythoncore
+-3.14-64\Lib\enum.py:67
+6: ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection 
+object at 
+0x0000023F36E546D0>
+  def __call__(cls, 
+value, 
+names=_not_given, 
+*values, module=None, 
+qualname=None, 
+type=None, start=1, 
+boundary=None):
+ResourceWarning: 
+Enable tracemalloc to 
+get the object 
+allocation traceback
+C:\Users\pinun\AppData\
+Local\Python\pythoncore
+-3.14-64\Lib\enum.py:67
+6: ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection 
+object at 
+0x0000023F36E556C0>
+  def __call__(cls, 
+value, 
+names=_not_given, 
+*values, module=None, 
+qualname=None, 
+type=None, start=1, 
+boundary=None):
+ResourceWarning: 
+Enable tracemalloc to 
+get the object 
+allocation traceback
+C:\Users\pinun\AppData\
+Local\Python\pythoncore
+-3.14-64\Lib\enum.py:67
+6: ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection 
+object at 
+0x0000023F36E544F0>
+  def __call__(cls, 
+value, 
+names=_not_given, 
+*values, module=None, 
+qualname=None, 
+type=None, start=1, 
+boundary=None):
+ResourceWarning: 
+Enable tracemalloc to 
+get the object 
+allocation traceback
+C:\Users\pinun\AppData\
+Local\Python\pythoncore
+-3.14-64\Lib\enum.py:67
+6: ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection 
+object at 
+0x0000023F36E545E0>
+  def __call__(cls, 
+value, 
+names=_not_given, 
+*values, module=None, 
+qualname=None, 
+type=None, start=1, 
+boundary=None):
+ResourceWarning: 
+Enable tracemalloc to 
+get the object 
+allocation traceback
+C:\Users\pinun\AppData\
+Local\Python\pythoncore
+-3.14-64\Lib\enum.py:67
+6: ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection 
+object at 
+0x0000023F36E547C0>
+  def __call__(cls, 
+value, 
+names=_not_given, 
+*values, module=None, 
+qualname=None, 
+type=None, start=1, 
+boundary=None):
+ResourceWarning: 
+Enable tracemalloc to 
+get the object 
+allocation traceback
+........Skipping 
+invalid rule JSON for 
+rule_id=None.
+.................F.....
+..................YogaE
+ngine: config 
+directory 
+'\\nonexistent' does 
+not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory 
+'\\nonexistent' does 
+not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory 
+'\\nonexistent' does 
+not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory 
+'\\nonexistent' does 
+not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory 
+'\\nonexistent' does 
+not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory 
+'\\nonexistent' does 
+not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory 
+'\\nonexistent' does 
+not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory 
+'\\nonexistent' does 
+not exist. No yogas 
+loaded.
+.......................
+...........YogaEngine: 
+config directory 
+'\\nonexistent' does 
+not exist. No yogas 
+loaded.
+..YogaEngine: config 
+directory 
+'\\no\\such\\dir' does 
+not exist. No yogas 
+loaded.
+...
+=======================
+=======================
+=======================
+=
+FAIL: test_combustion_d
+oes_not_apply_outside_o
+rb (test_strength_engin
+e.StrengthEngineTests.t
+est_combustion_does_not
+_apply_outside_orb)
+-----------------------
+-----------------------
+-----------------------
+-
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\
+OneDrive\Documents\GitH
+ub\Pinaki_horoscope\tes
+ts\test_strength_engine
+.py", line 99, in test_
+combustion_does_not_app
+ly_outside_orb
+    self.assertNotIn("c
+ombustion", 
+result.breakdown)
+    ~~~~~~~~~~~~~~~~^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^
+AssertionError: 
+'combustion' 
+unexpectedly found in 
+{'base': 50, 
+'combustion': -15}
+
+-----------------------
+-----------------------
+-----------------------
+-
+Ran 152 tests in 0.284s
+
+FAILED (failures=1)

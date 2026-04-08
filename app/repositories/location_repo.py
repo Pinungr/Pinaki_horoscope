@@ -19,7 +19,7 @@ class LocationRepository:
         """Returns all available states ordered alphabetically."""
         sql = "SELECT DISTINCT state FROM locations ORDER BY state"
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql)
                 return [row["state"] for row in cursor.fetchall() if row["state"]]
@@ -31,7 +31,7 @@ class LocationRepository:
         """Returns all cities for a given state ordered alphabetically."""
         sql = "SELECT city FROM locations WHERE state = ? ORDER BY city"
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql, (state,))
                 return [row["city"] for row in cursor.fetchall() if row["city"]]
@@ -47,7 +47,7 @@ class LocationRepository:
         WHERE state = ? AND city = ?
         """
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql, (state, city))
                 row = cursor.fetchone()

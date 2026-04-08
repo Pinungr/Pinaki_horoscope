@@ -81,7 +81,16 @@ class EventServiceTests(unittest.TestCase):
         self.assertEqual("", payload["answer"])
         self.assertEqual(0, payload["confidence"])
 
+    def test_predict_event_localizes_answer_for_selected_language(self) -> None:
+        payload = self.service.predict_event(
+            user_query="Will my career improve?",
+            predictions=[],
+            timeline_data=self.timeline_data,
+            reasoning_data=self.reasoning,
+            language="hi",
+        )
+        self.assertIn("संभावना", payload["answer"])
+
 
 if __name__ == "__main__":
     unittest.main()
-

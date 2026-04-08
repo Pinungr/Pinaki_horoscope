@@ -65,7 +65,33 @@ class ReasoningServiceTests(unittest.TestCase):
         self.assertIn("explanation", row)
         self.assertIn("supporting_factors", row)
 
+    def test_build_ui_payload_returns_summary_and_compact_detail_rows(self) -> None:
+        payload = self.service.build_ui_payload(
+            self.predictions,
+            summary={
+                "top_areas": ["career", "wealth"],
+                "time_focus": ["career"],
+                "confidence_score": 83,
+            },
+        )
+
+        self.assertIn("Top focus areas are career, finance.", payload["summary"])
+        self.assertIn("Timing is strongest around career.", payload["summary"])
+        self.assertIn("Overall confidence is 83%.", payload["summary"])
+        self.assertEqual(2, len(payload["details"]))
+        self.assertEqual("raj_yoga", payload["details"][0]["rule"])
+        self.assertEqual("Raj Yoga", self.predictions[0]["yoga"])
+        self.assertEqual(9, payload["details"][0]["weight"])
+        self.assertIn("Raj Yoga", payload["details"][0]["explanation"])
+        self.assertIn("Dhana Yoga", payload["details"][1]["explanation"])
+
+    def test_generate_explanations_supports_selected_language(self) -> None:
+        rows = self.service.generate_explanations(self.predictions, language="hi")
+
+        self.assertEqual(2, len(rows))
+        self.assertIn("महादशा", rows[0]["explanation"])
+        self.assertTrue(any("सक्रिय" in factor for factor in rows[0]["supporting_factors"]))
+
 
 if __name__ == "__main__":
     unittest.main()
-

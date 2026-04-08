@@ -18,8 +18,8 @@ class ChartRepository:
             return
 
         sql = '''
-        INSERT INTO chart_data (user_id, planet_name, sign, house, degree)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO chart_data (user_id, planet_name, sign, house, degree, absolute_longitude, is_retrograde)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         '''
         
         # Prepare the dataset as a list of tuples
@@ -28,11 +28,13 @@ class ChartRepository:
             data.planet_name,
             data.sign,
             data.house,
-            data.degree
+            data.degree,
+            data.absolute_longitude,
+            1 if data.is_retrograde else 0
         ) for data in chart_data_list]
         
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.executemany(sql, values)
                 conn.commit()
@@ -45,7 +47,7 @@ class ChartRepository:
         sql = 'SELECT * FROM chart_data WHERE user_id = ?'
         chart_data = []
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql, (user_id,))
                 for row in cursor.fetchall():
@@ -55,7 +57,9 @@ class ChartRepository:
                         planet_name=row['planet_name'],
                         sign=row['sign'],
                         house=row['house'],
-                        degree=row['degree']
+                        degree=row['degree'],
+                        absolute_longitude=float(row['absolute_longitude'] or 0.0),
+                        is_retrograde=bool(row['is_retrograde'])
                     ))
             return chart_data
         except sqlite3.Error as exc:
@@ -66,7 +70,7 @@ class ChartRepository:
         """Clears chart data for a specific user (useful for recalculations)."""
         sql = 'DELETE FROM chart_data WHERE user_id = ?'
         try:
-            with self.db.get_connection() as conn:
+            with self.db.connection_context() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql, (user_id,))
                 conn.commit()

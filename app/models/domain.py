@@ -26,6 +26,8 @@ class ChartData:
     house: int
     degree: float
     id: Optional[int] = None
+    absolute_longitude: float = 0.0
+    is_retrograde: bool = False
 
 @dataclass
 class Rule:

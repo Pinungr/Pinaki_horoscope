@@ -180,6 +180,18 @@ class UnifiedAstrologyEngineTests(unittest.TestCase):
         self.assertEqual(1, len(result["predictions"]))
         self.assertIn("AI:friendly:", result["predictions"][0]["refined_text"])
 
+    def test_generate_full_analysis_respects_selected_language_for_prediction_text(self) -> None:
+        engine = self._build_engine_with_single_gajakesari()
+        chart_data = [
+            {"planet_name": "Moon", "sign": "Cancer", "house": 4, "degree": 10.0},
+            {"planet_name": "Jupiter", "sign": "Cancer", "house": 4, "degree": 12.0},
+        ]
+
+        result = engine.generate_full_analysis(chart_data, language="hi")
+
+        self.assertEqual(1, len(result["predictions"]))
+        self.assertIn("उपस्थित", result["predictions"][0]["text"])
+
 
 if __name__ == "__main__":
     unittest.main()

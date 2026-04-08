@@ -13,6 +13,7 @@ class OpenAIRefinerService:
 
     API_URL = "https://api.openai.com/v1/responses"
     SUPPORTED_TONES = {"professional", "friendly", "spiritual"}
+    SUPPORTED_LANGUAGES = {"en", "hi", "or"}
 
     def __init__(self, settings_service: AppSettingsService):
         self.settings_service = settings_service
@@ -22,7 +23,7 @@ class OpenAIRefinerService:
         settings = self.settings_service.load()
         return bool(settings.get("ai_enabled")) and bool(self._get_api_key(settings))
 
-    def refine_response(self, query: str, local_result: Dict[str, Any]) -> str:
+    def refine_response(self, query: str, local_result: Dict[str, Any], *, language: str = "en") -> str:
         """
         Refines a local horoscope answer with OpenAI when enabled.
 
@@ -37,7 +38,13 @@ class OpenAIRefinerService:
             raise RuntimeError("OpenAI API key is not configured.")
 
         model = str(settings.get("openai_model") or "gpt-5-mini").strip() or "gpt-5-mini"
-        prompt = self._build_prompt(query, local_result)
+        normalized_language = self._normalize_language(language)
+        prompt = self._build_prompt(query, local_result, language=normalized_language)
+        language_directive = {
+            "en": "Respond in English.",
+            "hi": "Respond in Hindi (Devanagari script).",
+            "or": "Respond in Odia.",
+        }.get(normalized_language, "Respond in English.")
         payload = {
             "model": model,
             "store": False,
@@ -51,7 +58,8 @@ class OpenAIRefinerService:
                                 "You are a warm, concise horoscope assistant. "
                                 "Refine the local astrology answer using only the supplied context. "
                                 "Do not invent facts or timing not present in the context. "
-                                "If the context is limited, be transparent."
+                                "If the context is limited, be transparent. "
+                                f"{language_directive}"
                             ),
                         }
                     ],
@@ -99,6 +107,7 @@ class OpenAIRefinerService:
         summary: Dict[str, Any] | None = None,
         *,
         tone: str = "professional",
+        language: str = "en",
     ) -> List[Dict[str, Any]]:
         """
         Refines aggregated prediction rows and appends `refined_text` to each item.
@@ -107,6 +116,7 @@ class OpenAIRefinerService:
         or unavailable, it falls back to a deterministic local refinement.
         """
         normalized_tone = self._normalize_tone(tone)
+        normalized_language = self._normalize_language(language)
         summary_payload = dict(summary or {})
         refined_rows: List[Dict[str, Any]] = []
 
@@ -127,17 +137,19 @@ class OpenAIRefinerService:
                         row,
                         summary_payload,
                         normalized_tone,
+                        normalized_language,
                     )
                 except RuntimeError:
                     refined_text = ""
 
             if not refined_text:
-                refined_text = self._fallback_refined_prediction_text(row, normalized_tone)
+                refined_text = self._fallback_refined_prediction_text(row, normalized_tone, normalized_language)
 
             refined_text = self._append_timing_sentence(
                 refined_text,
                 row.get("timing"),
                 tone=normalized_tone,
+                language=normalized_language,
             )
             row["refined_text"] = refined_text
             refined_rows.append(row)
@@ -152,7 +164,7 @@ class OpenAIRefinerService:
             or ""
         ).strip()
 
-    def _build_prompt(self, query: str, local_result: Dict[str, Any]) -> str:
+    def _build_prompt(self, query: str, local_result: Dict[str, Any], *, language: str = "en") -> str:
         """Formats structured local context for the Responses API."""
         data = local_result.get("data", {})
         context = {
@@ -163,6 +175,7 @@ class OpenAIRefinerService:
             "confidence": data.get("confidence", ""),
             "timeline_hint": data.get("timeline_hint", ""),
             "matching_periods": data.get("matching_periods", []),
+            "language": language,
         }
         return (
             "Refine this horoscope answer into a clear, natural reply.\n\n"
@@ -174,6 +187,7 @@ class OpenAIRefinerService:
         prediction: Dict[str, Any],
         summary: Dict[str, Any],
         tone: str,
+        language: str,
     ) -> str:
         settings = self.settings_service.load()
         api_key = self._get_api_key(settings)
@@ -181,7 +195,12 @@ class OpenAIRefinerService:
             raise RuntimeError("OpenAI API key is not configured.")
 
         model = str(settings.get("openai_model") or "gpt-5-mini").strip() or "gpt-5-mini"
-        prompt = self._build_prediction_refine_prompt(prediction, summary, tone)
+        prompt = self._build_prediction_refine_prompt(prediction, summary, tone, language)
+        language_directive = {
+            "en": "Respond in English.",
+            "hi": "Respond in Hindi (Devanagari script).",
+            "or": "Respond in Odia.",
+        }.get(language, "Respond in English.")
         payload = {
             "model": model,
             "store": False,
@@ -195,7 +214,8 @@ class OpenAIRefinerService:
                                 "You are an expert Vedic astrology assistant. "
                                 "Refine prediction language only. Keep the original meaning unchanged. "
                                 "Return 2-3 sentences and include reasoning phrases like "
-                                "'This is because', 'This indicates', and 'You may experience' naturally."
+                                "'This is because', 'This indicates', and 'You may experience' naturally. "
+                                f"{language_directive}"
                             ),
                         }
                     ],
@@ -241,9 +261,11 @@ class OpenAIRefinerService:
         prediction: Dict[str, Any],
         summary: Dict[str, Any],
         tone: str,
+        language: str,
     ) -> str:
         context = {
             "tone": tone,
+            "language": language,
             "summary": summary,
             "prediction": {
                 "yoga": prediction.get("yoga"),
@@ -261,31 +283,64 @@ class OpenAIRefinerService:
             f"Context:\n{json.dumps(context, indent=2)}"
         )
 
-    def _fallback_refined_prediction_text(self, prediction: Dict[str, Any], tone: str) -> str:
+    def _fallback_refined_prediction_text(self, prediction: Dict[str, Any], tone: str, language: str) -> str:
         base_text = str(prediction.get("text", "")).strip()
         if not base_text:
             return ""
 
         area = str(prediction.get("area", "life areas")).strip() or "life areas"
         strength = str(prediction.get("strength", "medium")).strip().lower() or "medium"
-
-        if tone == "friendly":
-            lead = "This is because the chart pattern is clearly supportive."
-            signal = f"This indicates momentum in {area} matters."
-        elif tone == "spiritual":
-            lead = "This is because your karmic pattern is activating this yoga."
-            signal = f"This indicates a meaningful life lesson through {area}."
+        if language == "hi":
+            if tone == "friendly":
+                lead = "ऐसा इसलिए है क्योंकि आपकी कुंडली में यह संयोजन सहयोग दे रहा है।"
+                signal = f"यह {area} से जुड़े मामलों में गति का संकेत देता है।"
+            elif tone == "spiritual":
+                lead = "ऐसा इसलिए है क्योंकि आपकी कर्मिक दिशा इस योग को सक्रिय कर रही है।"
+                signal = f"यह {area} के माध्यम से एक अर्थपूर्ण जीवन-पाठ दिखाता है।"
+            else:
+                lead = "ऐसा इसलिए है क्योंकि ग्रहों का यह संयोजन ज्योतिषीय रूप से महत्वपूर्ण है।"
+                signal = f"यह {area} में उल्लेखनीय प्रभाव का संकेत देता है।"
+            outcome = (
+                "आपको तेज और मजबूत परिणाम अनुभव हो सकते हैं।"
+                if strength == "strong"
+                else "आपको संतुलित और क्रमिक परिणाम अनुभव हो सकते हैं।"
+                if strength == "medium"
+                else "शुरुआत में हल्के या विलंबित परिणाम अनुभव हो सकते हैं।"
+            )
+        elif language == "or":
+            if tone == "friendly":
+                lead = "ଏହାର କାରଣ ହେଉଛି ଆପଣଙ୍କ ଚାର୍ଟର ଏହି ଯୋଗ ସହଯୋଗ ଦେଉଛି।"
+                signal = f"ଏହା {area} ସମ୍ବନ୍ଧିତ ବିଷୟରେ ଗତି ସୂଚାଏ।"
+            elif tone == "spiritual":
+                lead = "ଏହାର କାରଣ ହେଉଛି ଆପଣଙ୍କ କର୍ମିକ ପଥ ଏହି ଯୋଗକୁ ସକ୍ରିୟ କରୁଛି।"
+                signal = f"ଏହା {area} ମାଧ୍ୟମରେ ଅର୍ଥପୂର୍ଣ୍ଣ ଜୀବନ ପାଠ ସୂଚାଏ।"
+            else:
+                lead = "ଏହାର କାରଣ ହେଉଛି ଗ୍ରହ ସଂଯୋଜନ ଜ୍ୟୋତିଷ ଦୃଷ୍ଟିରେ ଗୁରୁତ୍ୱପୂର୍ଣ୍ଣ।"
+                signal = f"ଏହା {area} ରେ ଲକ୍ଷଣୀୟ ପ୍ରଭାବ ସୂଚାଏ।"
+            outcome = (
+                "ଆପଣ ଶକ୍ତିଶାଳୀ ଏବଂ ଶୀଘ୍ର ଫଳ ଅନୁଭବ କରିପାରନ୍ତି।"
+                if strength == "strong"
+                else "ଆପଣ ସନ୍ତୁଳିତ ଏବଂ କ୍ରମାଗତ ଫଳ ଅନୁଭବ କରିପାରନ୍ତି।"
+                if strength == "medium"
+                else "ଆରମ୍ଭରେ ମୃଦୁ କିମ୍ବା ବିଳମ୍ବିତ ଫଳ ଅନୁଭବ ହୋଇପାରେ।"
+            )
         else:
-            lead = "This is because the planetary combination is astrologically significant."
-            signal = f"This indicates notable effects in {area}."
-
-        outcome = (
-            "You may experience stronger and faster results."
-            if strength == "strong"
-            else "You may experience balanced and progressive outcomes."
-            if strength == "medium"
-            else "You may experience mild or delayed results initially."
-        )
+            if tone == "friendly":
+                lead = "This is because the chart pattern is clearly supportive."
+                signal = f"This indicates momentum in {area} matters."
+            elif tone == "spiritual":
+                lead = "This is because your karmic pattern is activating this yoga."
+                signal = f"This indicates a meaningful life lesson through {area}."
+            else:
+                lead = "This is because the planetary combination is astrologically significant."
+                signal = f"This indicates notable effects in {area}."
+            outcome = (
+                "You may experience stronger and faster results."
+                if strength == "strong"
+                else "You may experience balanced and progressive outcomes."
+                if strength == "medium"
+                else "You may experience mild or delayed results initially."
+            )
 
         parts = [base_text, lead, signal, outcome]
         return " ".join(part for part in parts if part).strip()
@@ -299,29 +354,42 @@ class OpenAIRefinerService:
     @staticmethod
     def _contains_timing_text(text: str) -> bool:
         normalized = str(text or "").strip().lower()
-        return "mahadasha" in normalized or "antardasha" in normalized
+        return (
+            "mahadasha" in normalized
+            or "antardasha" in normalized
+            or "महादशा" in normalized
+            or "अंतरदशा" in normalized
+            or "ମହାଦଶା" in normalized
+            or "ଅନ୍ତରଦଶା" in normalized
+        )
 
-    def _append_timing_sentence(self, text: str, timing: Any, tone: str = "professional") -> str:
+    def _append_timing_sentence(
+        self,
+        text: str,
+        timing: Any,
+        tone: str = "professional",
+        language: str = "en",
+    ) -> str:
         base = str(text or "").strip()
         if not base:
             return ""
         if self._contains_timing_text(base):
             return base
 
-        line = self._build_timing_refinement_line(timing)
+        line = self._build_timing_refinement_line(timing, language=language)
         if not line:
             return base
 
         adjusted = line
-        if tone == "friendly":
+        if language == "en" and tone == "friendly":
             adjusted = adjusted.replace("This effect is especially pronounced", "You might really feel this")
-        elif tone == "spiritual":
+        elif language == "en" and tone == "spiritual":
             adjusted = adjusted.replace("effect", "karmic influence")
 
         return f"{base} {adjusted}".strip()
 
     @staticmethod
-    def _build_timing_refinement_line(timing: Any) -> str:
+    def _build_timing_refinement_line(timing: Any, *, language: str = "en") -> str:
         if not isinstance(timing, dict):
             return ""
 
@@ -334,16 +402,36 @@ class OpenAIRefinerService:
 
         if relevance == "high":
             if mahadasha and antardasha:
+                if language == "hi":
+                    return f"यह प्रभाव {mahadasha} महादशा में, विशेष रूप से {antardasha} अंतरदशा के दौरान अधिक प्रबल रहता है।"
+                if language == "or":
+                    return f"ଏହି ପ୍ରଭାବ {mahadasha} ମହାଦଶାରେ, ବିଶେଷକରି {antardasha} ଅନ୍ତରଦଶା ସମୟରେ ଅଧିକ ପ୍ରବଳ ହୁଏ।"
                 return (
                     f"This effect is especially pronounced during your {mahadasha} Mahadasha, "
                     f"particularly in the {antardasha} phase."
                 )
             if mahadasha:
+                if language == "hi":
+                    return f"यह प्रभाव {mahadasha} महादशा में अधिक प्रबल रहता है।"
+                if language == "or":
+                    return f"ଏହି ପ୍ରଭାବ {mahadasha} ମହାଦଶାରେ ଅଧିକ ପ୍ରବଳ ରହେ।"
                 return f"This effect is especially pronounced during your {mahadasha} Mahadasha."
+            if language == "hi":
+                return f"यह प्रभाव {antardasha} अंतरदशा में अधिक प्रबल रहता है।"
+            if language == "or":
+                return f"ଏହି ପ୍ରଭାବ {antardasha} ଅନ୍ତରଦଶାରେ ଅଧିକ ପ୍ରବଳ ରହେ।"
             return f"This effect is especially pronounced during your {antardasha} Antardasha."
 
         if relevance == "medium":
             if antardasha:
+                if language == "hi":
+                    if mahadasha:
+                        return f"ये परिणाम {mahadasha} महादशा के भीतर {antardasha} अंतरदशा में अधिक दिख सकते हैं।"
+                    return f"ये परिणाम {antardasha} अंतरदशा में अधिक दिख सकते हैं।"
+                if language == "or":
+                    if mahadasha:
+                        return f"ଏହି ଫଳ {mahadasha} ମହାଦଶା ମଧ୍ୟରେ {antardasha} ଅନ୍ତରଦଶାରେ ଅଧିକ ଦେଖାଯାଇପାରେ।"
+                    return f"ଏହି ଫଳ {antardasha} ଅନ୍ତରଦଶାରେ ଅଧିକ ଦେଖାଯାଇପାରେ।"
                 if mahadasha:
                     return (
                         f"You may notice these results during your {antardasha} Antardasha "
@@ -353,6 +441,10 @@ class OpenAIRefinerService:
                     f"You may notice these results during your {antardasha} Antardasha."
                 )
             if mahadasha:
+                if language == "hi":
+                    return f"ये परिणाम {mahadasha} महादशा में अधिक दिख सकते हैं।"
+                if language == "or":
+                    return f"ଏହି ଫଳ {mahadasha} ମହାଦଶାରେ ଅଧିକ ଦେଖାଯାଇପାରେ।"
                 return f"You may notice these results during your {mahadasha} Mahadasha."
             return ""
 
@@ -374,3 +466,9 @@ class OpenAIRefinerService:
                     if text:
                         parts.append(text)
         return "\n".join(parts).strip()
+
+    def _normalize_language(self, language: str) -> str:
+        normalized = str(language or "en").strip().lower() or "en"
+        if normalized not in self.SUPPORTED_LANGUAGES:
+            return "en"
+        return normalized

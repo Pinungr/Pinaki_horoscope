@@ -57,7 +57,16 @@
     "settings_saved_title": "ସେଟିଙ୍ଗସ୍ ସଞ୍ଚୟ ହେଲା",
     "settings_saved_message": "ସେଟିଙ୍ଗସ୍ ସଫଳତାର ସହ ସଞ୍ଚୟ ହେଲା।\nମୋଡ୍: {mode}",
     "mode_openai": "OpenAI enhancement ସକ୍ରିୟ",
-    "mode_local": "କେବଳ ସ୍ଥାନୀୟ ଚାଟ"
+    "mode_local": "କେବଳ ସ୍ଥାନୀୟ ଚାଟ",
+    "all": "ସମସ୍ତ",
+    "chart_subtitle": "ଆପଣଙ୍କ ମୁଖ୍ୟ ଶକ୍ତି, ସମୟ ଏବଂ ପ୍ରାୟୋଗିକ ଭବିଷ୍ୟବାଣୀ ଦେଖନ୍ତୁ।",
+    "top_insights": "ମୁଖ୍ୟ ଅନୁଭୂତି",
+    "overall_confidence": "ସମୁଦାୟ ବିଶ୍ୱାସ",
+    "generating_pdf": "PDF ତିଆରି ହେଉଛି...",
+    "no_area_predictions": "{area} ପାଇଁ ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ଭବିଷ୍ୟବାଣୀ ନାହିଁ।",
+    "top_focus_rank": "ଶୀର୍ଷ ଫୋକସ୍ #{rank}",
+    "timing_active": "ସମୟ ସକ୍ରିୟ",
+    "no_major_signal": "ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ପ୍ରମୁଖ ସଙ୍କେତ ନାହିଁ"
   },
   "chart": {
     "house": "ଭାବ",
@@ -93,6 +102,73 @@
       "moon_cancer_intuition": "କର୍କଟ ରାଶିରେ ଚନ୍ଦ୍ର ଗଭୀର ଭାବନାତ୍ମକ ବୁଦ୍ଧି ଏବଂ ଶକ୍ତିଶାଳୀ ଅନ୍ତର୍ଜ୍ଞାନ ଦେଇଥାଏ।",
       "budhaditya_yoga_first_house": "ପ୍ରଥମ ଭାବରେ ବୁଧାଦିତ୍ୟ ଯୋଗ ଉଚ୍ଚ ବୁଦ୍ଧିମତା, ଆକର୍ଷଣୀୟ କଥନଶୈଳୀ ଏବଂ ଦୃଢ ଚରିତ୍ର ଦେଇଥାଏ।",
       "jupiter_first_house_wisdom": "ପ୍ରଥମ ଭାବରେ ବୃହସ୍ପତି ଜ୍ଞାନ, ଆଶାବାଦ ଏବଂ ସୁରକ୍ଷାଦାୟକ ଆଭା ପ୍ରଦାନ କରେ।"
+    }
+  },
+  "report": {
+    "meta": {
+      "document_title": "କୁଣ୍ଡଳୀ ରିପୋର୍ଟ",
+      "document_author": "ଅଫଲାଇନ କୁଣ୍ଡଳୀ ଇଞ୍ଜିନ"
+    },
+    "sections": {
+      "offline_horoscope_report": "ଅଫଲାଇନ କୁଣ୍ଡଳୀ ରିପୋର୍ଟ",
+      "subtitle": "ଚାର୍ଟ ଅନୁଭୂତି, ଭବିଷ୍ୟବାଣୀ ସ୍କୋର ଏବଂ ଜୀବନ ସମୟ ସୂଚନାର ଗଠିତ ସାରାଂଶ।",
+      "kundli_chart": "କୁଣ୍ଡଳୀ ଚାର୍ଟ",
+      "top_insights": "ମୁଖ୍ୟ ଅନୁଭୂତି",
+      "predictions": "ଭବିଷ୍ୟବାଣୀ",
+      "timeline_forecast": "ସମୟରେଖା ପୂର୍ବାନୁମାନ",
+      "key_life_events": "ମୁଖ୍ୟ ଜୀବନ ଘଟଣା",
+      "reasoning_summary": "ତର୍କ ସାରାଂଶ",
+      "dasha_timeline": "ଦଶା ସମୟରେଖା"
+    },
+    "labels": {
+      "name": "ନାମ",
+      "date_of_birth": "ଜନ୍ମ ତାରିଖ",
+      "time_of_birth": "ଜନ୍ମ ସମୟ",
+      "place": "ସ୍ଥାନ",
+      "overall_confidence": "ସମୁଦାୟ ବିଶ୍ୱାସ",
+      "top_areas": "ମୁଖ୍ୟ କ୍ଷେତ୍ର",
+      "time_focus": "ସମୟ ଫୋକସ୍",
+      "strength": "ଶକ୍ତି",
+      "score": "ସ୍କୋର",
+      "timing": "ସମୟ",
+      "summary": "ସାରାଂଶ",
+      "period": "ଅବଧି",
+      "area": "କ୍ଷେତ୍ର",
+      "event": "ଘଟଣା",
+      "confidence": "ବିଶ୍ୱାସ",
+      "planet": "ଗ୍ରହ",
+      "start": "ଆରମ୍ଭ",
+      "end": "ଶେଷ",
+      "window": "ସମୟ-ଖିଡ଼କି",
+      "supporting_factors": "ସମର୍ଥନ କାରକ"
+    },
+    "messages": {
+      "chart_unavailable": "ଏହି ପରିବେଶରେ ଚାର୍ଟ ଛବି ରେଣ୍ଡର ହୋଇପାରିଲା ନାହିଁ। ରିପୋର୍ଟର ଅନ୍ୟ ଅଂଶ ଉପଲବ୍ଧ ଅଛି।",
+      "no_forecast_rows": "ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ସମୟରେଖା ପୂର୍ବାନୁମାନ ଧାଡ଼ି ନାହିଁ।",
+      "reasoning_unavailable": "ଏପର୍ଯ୍ୟନ୍ତ ତର୍କ ବିବରଣୀ ଉପଲବ୍ଧ ନାହିଁ।"
+    },
+    "values": {
+      "confidence_high": "ଉଚ୍ଚ",
+      "confidence_medium": "ମଧ୍ୟମ",
+      "confidence_low": "ନିମ୍ନ",
+      "career": "କ୍ୟାରିଅର",
+      "marriage": "ବିବାହ",
+      "finance": "ଆର୍ଥିକ",
+      "medium": "ମଧ୍ୟମ",
+      "low": "ନିମ୍ନ",
+      "mahadasha": "ମହାଦଶା",
+      "antardasha": "ଅନ୍ତରଦଶା",
+      "not_enough_data_yet": "ଏପର୍ଯ୍ୟନ୍ତ ପର୍ଯ୍ୟାପ୍ତ ତଥ୍ୟ ନାହିଁ",
+      "no_immediate_timing_hotspot": "ତୁରନ୍ତ କୌଣସି ସମୟ ସଙ୍କେତ ନାହିଁ",
+      "no_specific_dasha_activation": "ନିର୍ଦ୍ଦିଷ୍ଟ ଦଶା ସକ୍ରିୟତା ନାହିଁ।",
+      "no_summary_available": "କୌଣସି ସାରାଂଶ ଉପଲବ୍ଧ ନାହିଁ।",
+      "no_event_summary": "ଘଟଣା ସାରାଂଶ ନାହିଁ",
+      "no_strong_indication": "କୌଣସି ଶକ୍ତିଶାଳୀ ସଙ୍କେତ ନାହିଁ।",
+      "no_explanation_available": "କୌଣସି ବ୍ୟାଖ୍ୟା ଉପଲବ୍ଧ ନାହିଁ।",
+      "notable_development": "ଲକ୍ଷଣୀୟ ଉନ୍ନତି",
+      "upcoming": "ଆସନ୍ତା",
+      "unknown": "ଅଜଣା",
+      "no_strong_period": "କୌଣସି ଶକ୍ତିଶାଳୀ ଅବଧି ଚିହ୍ନଟ ହୋଇନାହିଁ।"
     }
   }
 }

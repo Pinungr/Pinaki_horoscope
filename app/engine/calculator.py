@@ -18,6 +18,16 @@ class AstrologyEngine:
         "krishnamurti": getattr(swe, "SIDM_KRISHNAMURTI", swe.SIDM_LAHIRI),
     }
 
+    HOUSE_SYSTEMS_MAP = {
+        "whole_sign": b'W',
+        "placidus": b'P',
+        "koch": b'K',
+        "equal": b'E',
+        "porphyrius": b'O',
+        "regiomontanus": b'R',
+        "campanus": b'C',
+    }
+
     def __init__(self):
         # Set ephemeris path if data is external, but we use internal for now
         self.config_loader = get_astrology_config_loader()
@@ -44,12 +54,16 @@ class AstrologyEngine:
             "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
         ]
 
-        configured_house_system = str(self.config.get("house_system", "whole_sign")).strip().lower()
-        if configured_house_system != "whole_sign":
+        self.house_system_key = str(self.config.get("house_system", "whole_sign")).strip().lower()
+        self.house_system_code = self.HOUSE_SYSTEMS_MAP.get(self.house_system_key, b'W')
+        
+        if self.house_system_key not in self.HOUSE_SYSTEMS_MAP:
             logger.warning(
-                "Configured house_system '%s' is not implemented yet. Falling back to whole_sign.",
-                configured_house_system,
+                "Configured house_system '%s' is not supported. Falling back to whole_sign.",
+                self.house_system_key,
             )
+            self.house_system_key = "whole_sign"
+            self.house_system_code = b'W'
 
     def _configure_ephemeris_path(self) -> None:
         """Configures Swiss Ephemeris to use bundled offline ephemeris files when present."""
@@ -138,13 +152,13 @@ class AstrologyEngine:
         )
         log_calculation_step("julian_day_computed", jd_ut=jd_ut)
                                      
-        # Calculate Ascendant (Lagna)
-        # swe.houses returns (cusps, ascmc)
-        cusps, ascmc = swe.houses_ex(jd_ut, user.latitude, user.longitude, b'P', swe.FLG_SIDEREAL)
+        # Calculate Ascendant (Lagna) and Houses
+        # swe.houses_ex returns (cusps, ascmc)
+        cusps, ascmc = swe.houses_ex(jd_ut, user.latitude, user.longitude, self.house_system_code, swe.FLG_SIDEREAL)
         asc_long = ascmc[0] # Ascendant is the 1st element of ascmc list
         
         asc_sign_idx, asc_sign_name, asc_deg = self._get_sign_and_degree(asc_long)
-        log_calculation_step("ascendant_computed", sign=asc_sign_name, degree=round(asc_deg, 4))
+        log_calculation_step("ascendant_computed", sign=asc_sign_name, degree=round(asc_deg, 4), house_system=self.house_system_key)
         
         chart_data_list = []
         
@@ -154,7 +168,9 @@ class AstrologyEngine:
             planet_name="Ascendant",
             sign=asc_sign_name,
             house=1, # Whole sign system uses ascendant sign as 1st house
-            degree=round(asc_deg, 4)
+            degree=round(asc_deg, 4),
+            absolute_longitude=round(asc_long, 6),
+            is_retrograde=False
         ))
         
         # Calculate Planets
@@ -167,15 +183,23 @@ class AstrologyEngine:
             
             p_sign_idx, p_sign_name, p_deg = self._get_sign_and_degree(p_long)
             
-            # House logic (Whole Sign System: 1st house is ascendant sign)
-            house_num = (p_sign_idx - asc_sign_idx) % 12 + 1
+            # House logic
+            if self.house_system_key == "whole_sign":
+                # Whole Sign System: 1st house is the entire ascendant sign
+                house_num = (p_sign_idx - asc_sign_idx) % 12 + 1
+            else:
+                # Cusp-based systems (Placidus, Koch, etc.)
+                # swe.house_pos determines which house a longitude falls into
+                house_num = int(swe.house_pos(asc_long, user.latitude, user.longitude, self.house_system_code, p_long))
             
             chart_data_list.append(ChartData(
                 user_id=user.id or 0,
                 planet_name=planet_name,
                 sign=p_sign_name,
                 house=house_num,
-                degree=round(p_deg, 4)
+                degree=round(p_deg, 4),
+                absolute_longitude=round(p_long, 6),
+                is_retrograde=(planet_name == "Rahu") or (res[3] < 0)
             ))
             log_calculation_step(
                 "planet_computed",
@@ -189,14 +213,20 @@ class AstrologyEngine:
             if planet_name == "Rahu":
                 ketu_long = (p_long + 180.0) % 360.0
                 k_sign_idx, k_sign_name, k_deg = self._get_sign_and_degree(ketu_long)
-                k_house_num = (k_sign_idx - asc_sign_idx) % 12 + 1
+                
+                if self.house_system_key == "whole_sign":
+                    k_house_num = (k_sign_idx - asc_sign_idx) % 12 + 1
+                else:
+                    k_house_num = int(swe.house_pos(asc_long, user.latitude, user.longitude, self.house_system_code, ketu_long))
                 
                 chart_data_list.append(ChartData(
                     user_id=user.id or 0,
                     planet_name="Ketu",
                     sign=k_sign_name,
                     house=k_house_num,
-                    degree=round(k_deg, 4)
+                    degree=round(k_deg, 4),
+                    absolute_longitude=round(ketu_long, 6),
+                    is_retrograde=True
                 ))
                 log_calculation_step(
                     "planet_computed",

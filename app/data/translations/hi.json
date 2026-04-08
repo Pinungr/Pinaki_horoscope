@@ -57,7 +57,16 @@
     "settings_saved_title": "सेटिंग्स सहेजी गईं",
     "settings_saved_message": "सेटिंग्स सफलतापूर्वक सहेजी गईं।\nमोड: {mode}",
     "mode_openai": "OpenAI enhancement सक्षम",
-    "mode_local": "केवल स्थानीय चैट"
+    "mode_local": "केवल स्थानीय चैट",
+    "all": "सभी",
+    "chart_subtitle": "अपनी मुख्य शक्तियां, समय और व्यावहारिक भविष्यवाणियां देखें।",
+    "top_insights": "मुख्य अंतर्दृष्टि",
+    "overall_confidence": "समग्र भरोसा",
+    "generating_pdf": "PDF बनाया जा रहा है...",
+    "no_area_predictions": "{area} के लिए अभी कोई भविष्यवाणी उपलब्ध नहीं है।",
+    "top_focus_rank": "शीर्ष फोकस #{rank}",
+    "timing_active": "समय सक्रिय",
+    "no_major_signal": "अभी कोई प्रमुख संकेत नहीं"
   },
   "chart": {
     "house": "भाव",
@@ -93,6 +102,73 @@
       "moon_cancer_intuition": "कर्क राशि में चंद्रमा गहरी भावनात्मक बुद्धि और मजबूत अंतर्ज्ञान देता है।",
       "budhaditya_yoga_first_house": "प्रथम भाव में बुधादित्य योग उच्च बुद्धिमत्ता, प्रभावशाली वाणी और मजबूत व्यक्तित्व देता है।",
       "jupiter_first_house_wisdom": "प्रथम भाव में बृहस्पति ज्ञान, आशावाद और संरक्षणकारी आभा प्रदान करता है।"
+    }
+  },
+  "report": {
+    "meta": {
+      "document_title": "कुंडली रिपोर्ट",
+      "document_author": "ऑफलाइन कुंडली इंजन"
+    },
+    "sections": {
+      "offline_horoscope_report": "ऑफलाइन कुंडली रिपोर्ट",
+      "subtitle": "चार्ट अंतर्दृष्टि, भविष्यवाणी स्कोर और जीवन-समय संकेतकों का संरचित सारांश।",
+      "kundli_chart": "कुंडली चार्ट",
+      "top_insights": "मुख्य अंतर्दृष्टि",
+      "predictions": "भविष्यवाणियां",
+      "timeline_forecast": "समयरेखा पूर्वानुमान",
+      "key_life_events": "मुख्य जीवन घटनाएं",
+      "reasoning_summary": "तर्क सारांश",
+      "dasha_timeline": "दशा समयरेखा"
+    },
+    "labels": {
+      "name": "नाम",
+      "date_of_birth": "जन्म तिथि",
+      "time_of_birth": "जन्म समय",
+      "place": "स्थान",
+      "overall_confidence": "समग्र भरोसा",
+      "top_areas": "मुख्य क्षेत्र",
+      "time_focus": "समय फोकस",
+      "strength": "शक्ति",
+      "score": "स्कोर",
+      "timing": "समय",
+      "summary": "सारांश",
+      "period": "अवधि",
+      "area": "क्षेत्र",
+      "event": "घटना",
+      "confidence": "भरोसा",
+      "planet": "ग्रह",
+      "start": "प्रारंभ",
+      "end": "समाप्ति",
+      "window": "समय-विंडो",
+      "supporting_factors": "सहायक कारक"
+    },
+    "messages": {
+      "chart_unavailable": "इस वातावरण में चार्ट चित्र रेंडर नहीं हो सका। रिपोर्ट के बाकी भाग उपलब्ध हैं।",
+      "no_forecast_rows": "अभी कोई समयरेखा पूर्वानुमान पंक्तियां उपलब्ध नहीं हैं।",
+      "reasoning_unavailable": "अभी तर्क विवरण उपलब्ध नहीं हैं।"
+    },
+    "values": {
+      "confidence_high": "उच्च",
+      "confidence_medium": "मध्यम",
+      "confidence_low": "निम्न",
+      "career": "करियर",
+      "marriage": "विवाह",
+      "finance": "वित्त",
+      "medium": "मध्यम",
+      "low": "निम्न",
+      "mahadasha": "महादशा",
+      "antardasha": "अंतरदशा",
+      "not_enough_data_yet": "अभी पर्याप्त डेटा नहीं",
+      "no_immediate_timing_hotspot": "अभी कोई प्रमुख समय संकेत नहीं",
+      "no_specific_dasha_activation": "कोई विशिष्ट दशा सक्रियता नहीं।",
+      "no_summary_available": "कोई सारांश उपलब्ध नहीं।",
+      "no_event_summary": "घटना सारांश उपलब्ध नहीं",
+      "no_strong_indication": "कोई मजबूत संकेत उपलब्ध नहीं।",
+      "no_explanation_available": "कोई स्पष्टीकरण उपलब्ध नहीं।",
+      "notable_development": "उल्लेखनीय विकास",
+      "upcoming": "आगामी",
+      "unknown": "अज्ञात",
+      "no_strong_period": "कोई मजबूत अवधि पहचानी नहीं गई।"
     }
   }
 }

@@ -1,0 +1,360 @@
+python : ..................
+...Invalid DOB 
+'invalid-date' received 
+for dasha calculation. 
+Falling back to UTC now.
+At line:1 char:1
++ python -m unittest 
+discover tests 2>&1 | 
+Out-File -FilePath 
+full_test ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (...  
+  ...............ack to    
+ UTC now.:String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+.........................C:
+\Users\pinun\AppData\Local\
+Python\pythoncore-3.14-64\L
+ib\json\decoder.py:361: 
+ResourceWarning: unclosed 
+database in 
+<sqlite3.Connection object 
+at 0x000001E5F78355D0>
+  obj, end = 
+self.scan_once(s, idx)
+ResourceWarning: Enable 
+tracemalloc to get the 
+object allocation traceback
+...........C:\Users\pinun\A
+ppData\Local\Python\pythonc
+ore-3.14-64\Lib\enum.py:676
+: ResourceWarning: 
+unclosed database in 
+<sqlite3.Connection object 
+at 0x000001E5F78355D0>
+  def __call__(cls, value, 
+names=_not_given, *values, 
+module=None, 
+qualname=None, type=None, 
+start=1, boundary=None):
+ResourceWarning: Enable 
+tracemalloc to get the 
+object allocation traceback
+C:\Users\pinun\AppData\Loca
+l\Python\pythoncore-3.14-64
+\Lib\enum.py:676: 
+ResourceWarning: unclosed 
+database in 
+<sqlite3.Connection object 
+at 0x000001E5F7834220>
+  def __call__(cls, value, 
+names=_not_given, *values, 
+module=None, 
+qualname=None, type=None, 
+start=1, boundary=None):
+ResourceWarning: Enable 
+tracemalloc to get the 
+object allocation traceback
+........Skipping invalid 
+rule JSON for rule_id=None.
+...................Shadbala
+ calculation requires Sun 
+and Ascendant placements.
+FShadbala calculation 
+requires Sun and Ascendant 
+placements.
+...F......F....F........Yog
+aEngine: config directory 
+'\\nonexistent' does not 
+exist. No yogas loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+................Shadbala 
+calculation requires Sun 
+and Ascendant placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+..Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.....Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+..Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+F.Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+..Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+Shadbala calculation 
+requires Sun and Ascendant 
+placements.
+.YogaEngine: config 
+directory '\\nonexistent' 
+does not exist. No yogas 
+loaded.
+..YogaEngine: config 
+directory 
+'\\no\\such\\dir' does not 
+exist. No yogas loaded.
+...
+===========================
+===========================
+================
+FAIL: test_combustion_appli
+es_within_orb (test_strengt
+h_engine.StrengthEngineTest
+s.test_combustion_applies_w
+ithin_orb)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_stre
+ngth_engine.py", line 97, 
+in test_combustion_applies_
+within_orb
+    self.assertIn("combusti
+on", result.breakdown)
+    ~~~~~~~~~~~~~^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 
+'combustion' not found in 
+{}
+
+===========================
+===========================
+================
+FAIL: test_direct_planet_ha
+s_no_retrograde_bonus (test
+_strength_engine.StrengthEn
+gineTests.test_direct_plane
+t_has_no_retrograde_bonus)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_stre
+ngth_engine.py", line 82, 
+in test_direct_planet_has_n
+o_retrograde_bonus
+    self.assertNotIn("chest
+ha", result.breakdown)
+    ~~~~~~~~~~~~~~~~^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'chestha' 
+unexpectedly found in 
+{'sthana': 21.7, 'dik': 
+0.0, 'kala': 0.0, 
+'chestha': 0.0, 
+'naisargika': 8.6, 
+'total_virupas': 30.2}
+
+===========================
+===========================
+================
+FAIL: test_own_sign_planet_
+scores_medium_or_above (tes
+t_strength_engine.StrengthE
+ngineTests.test_own_sign_pl
+anet_scores_medium_or_above
+)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_stre
+ngth_engine.py", line 56, 
+in test_own_sign_planet_sco
+res_medium_or_above
+    self.assertGreaterEqual
+(result.score, 40)
+    ~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
+AssertionError: 23 not 
+greater than or equal to 40
+
+===========================
+===========================
+================
+FAIL: test_score_chart_retu
+rns_entry_for_every_planet 
+(test_strength_engine.Stren
+gthEngineTests.test_score_c
+hart_returns_entry_for_ever
+y_planet)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_stre
+ngth_engine.py", line 188, 
+in test_score_chart_returns
+_entry_for_every_planet
+    self.assertEqual(len(re
+sults), 3)
+    ~~~~~~~~~~~~~~~~^^^^^^^
+^^^^^^^^^^
+AssertionError: 2 != 3
+
+===========================
+===========================
+================
+FAIL: test_hamsa_detected_j
+upiter_exalted_kendra (test
+_yoga_engine.HamsaYogaTests
+.test_hamsa_detected_jupite
+r_exalted_kendra)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_yoga
+_engine.py", line 94, in te
+st_hamsa_detected_jupiter_e
+xalted_kendra
+    self.assertIn(result.st
+rength_level, ("medium", 
+"strong"))
+    ~~~~~~~~~~~~~^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^
+AssertionError: 'weak' not 
+found in ('medium', 
+'strong')
+
+---------------------------
+---------------------------
+----------------
+Ran 155 tests in 0.294s
+
+FAILED (failures=5)

@@ -1,0 +1,59 @@
+python : E
+At line:1 char:1
++ python -m unittest tests/
+test_transit_engine.py 
+2>&1 | Out-File -File ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (E:S  
+  tring) [], RemoteExcep   
+ tion
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+===========================
+===========================
+================
+ERROR: test_transit_engine 
+(unittest.loader._FailedTes
+t.test_transit_engine)
+---------------------------
+---------------------------
+----------------
+ImportError: Failed to 
+import test module: 
+test_transit_engine
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\AppD
+ata\Local\Python\pythoncore
+-3.14-64\Lib\unittest\loade
+r.py", line 137, in 
+loadTestsFromName
+    module = 
+__import__(module_name)
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_tran
+sit_engine.py", line 3, in 
+<module>
+    from 
+app.engine.transit_engine 
+import TransitEngine
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\app\engine\tran
+sit_engine.py", line 6, in 
+<module>
+    import swisseph as swe
+ModuleNotFoundError: No 
+module named 'swisseph'
+
+
+---------------------------
+---------------------------
+----------------
+Ran 1 test in 0.000s
+
+FAILED (errors=1)

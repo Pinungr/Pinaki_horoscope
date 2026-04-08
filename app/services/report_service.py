@@ -15,9 +15,11 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from app.repositories.chart_repo import ChartRepository
 from app.repositories.database_manager import DatabaseManager
 from app.repositories.user_repo import UserRepository
+from app.services.app_settings_service import AppSettingsService
 from app.services.astrology_advanced_service import AstrologyAdvancedService
 from app.services.event_service import EventService
 from app.services.horoscope_service import HoroscopeService
+from app.services.language_manager import LanguageManager
 from app.services.reasoning_service import ReasoningService
 from app.services.timeline_service import TimelineService
 
@@ -30,15 +32,19 @@ class ReportService:
         self.user_repo = UserRepository(db_manager)
         self.chart_repo = ChartRepository(db_manager)
         self.horoscope_service = HoroscopeService(db_manager)
+        self.settings_service = AppSettingsService()
         self.advanced_service = AstrologyAdvancedService()
         self.timeline_service = TimelineService()
         self.reasoning_service = ReasoningService()
         self.event_service = EventService()
         self.styles = self._build_styles()
+        self._language_manager = LanguageManager("en")
 
-    def generate_pdf(self, user_id: int, output_path: str) -> str:
+    def generate_pdf(self, user_id: int, output_path: str, *, language: str = "en") -> str:
         """Builds a structured horoscope PDF for the given user and returns the saved path."""
-        report_data = self._fetch_report_data(user_id)
+        normalized_language = self._normalize_language(language)
+        self._language_manager = LanguageManager(normalized_language)
+        report_data = self._fetch_report_data(user_id, language=normalized_language)
         destination = Path(output_path).expanduser().resolve()
         destination.parent.mkdir(parents=True, exist_ok=True)
         chart_image_path = self._render_chart_to_png(report_data)
@@ -51,8 +57,8 @@ class ReportService:
                 rightMargin=18 * mm,
                 topMargin=18 * mm,
                 bottomMargin=18 * mm,
-                title="Horoscope Report",
-                author="Offline Horoscope (Kundli) Engine",
+                title=self._tr("report.meta.document_title", "Horoscope Report"),
+                author=self._tr("report.meta.document_author", "Offline Horoscope (Kundli) Engine"),
             )
             story = []
 
@@ -74,7 +80,7 @@ class ReportService:
                     pass
         return str(destination)
 
-    def _fetch_report_data(self, user_id: int) -> Dict[str, Any]:
+    def _fetch_report_data(self, user_id: int, *, language: str = "en") -> Dict[str, Any]:
         """Collects reusable report data from existing repositories and services."""
         user = self.user_repo.get_by_id(user_id)
         if not user:
@@ -85,7 +91,7 @@ class ReportService:
             raise ValueError("No chart data found for this user.")
 
         _, predictions = self.horoscope_service.load_chart_for_user(user_id)
-        timeline_data = self.horoscope_service.get_timeline_data(user_id)
+        timeline_data = self.horoscope_service.get_timeline_data(user_id, language=language)
 
         unified_summary: Dict[str, Any] = {}
         unified_predictions: list[dict[str, Any]] = []
@@ -99,7 +105,11 @@ class ReportService:
         # ── 1. Advanced data ──────────────────────────────────────────────────
         advanced_data: Dict[str, Any] = {}
         try:
-            advanced_data = self.advanced_service.generate_advanced_data(chart_data, user.dob)
+            advanced_data = self.advanced_service.generate_advanced_data(
+                chart_data,
+                user.dob,
+                language=language,
+            )
             unified_payload = advanced_data.get("unified", {}) if isinstance(advanced_data, dict) else {}
             if isinstance(unified_payload, dict):
                 unified_summary = dict(unified_payload.get("summary", {}) or {})
@@ -115,13 +125,17 @@ class ReportService:
             timeline_forecast = self.timeline_service.build_timeline_forecast(
                 unified_predictions,
                 dasha_timeline,
+                language=language,
             )
         except Exception as exc:
             _rlog.warning("ReportService: timeline forecast failed — timeline section will be empty: %s", exc)
 
         # ── 3. Reasoning ──────────────────────────────────────────────────────
         try:
-            reasoning_rows = self.reasoning_service.generate_explanations(unified_predictions)
+            reasoning_rows = self.reasoning_service.generate_explanations(
+                unified_predictions,
+                language=language,
+            )
         except Exception as exc:
             _rlog.warning("ReportService: reasoning generation failed — reasoning section will be empty: %s", exc)
 
@@ -133,6 +147,7 @@ class ReportService:
                     predictions=unified_predictions,
                     timeline_data=timeline_forecast,
                     reasoning_data=reasoning_rows,
+                    language=language,
                 )
                 if isinstance(event_result, dict):
                     key_events[area] = event_result
@@ -254,16 +269,19 @@ class ReportService:
         user = report_data["user"]
 
         user_details = (
-            f"<b>Name:</b> {escape(str(user['name']))}<br/>"
-            f"<b>Date of Birth:</b> {escape(str(user['dob']))}<br/>"
-            f"<b>Time of Birth:</b> {escape(str(user['tob']))}<br/>"
-            f"<b>Place:</b> {escape(str(user['place']))}"
+            f"<b>{escape(self._tr('report.labels.name', 'Name'))}:</b> {escape(str(user['name']))}<br/>"
+            f"<b>{escape(self._tr('report.labels.date_of_birth', 'Date of Birth'))}:</b> {escape(str(user['dob']))}<br/>"
+            f"<b>{escape(self._tr('report.labels.time_of_birth', 'Time of Birth'))}:</b> {escape(str(user['tob']))}<br/>"
+            f"<b>{escape(self._tr('report.labels.place', 'Place'))}:</b> {escape(str(user['place']))}"
         )
 
         return [
-            Paragraph("Offline Horoscope Report", self.styles["Title"]),
+            Paragraph(self._tr("report.sections.offline_horoscope_report", "Offline Horoscope Report"), self.styles["Title"]),
             Paragraph(
-                "A structured summary of chart insights, prediction scores, and life timing indicators.",
+                self._tr(
+                    "report.sections.subtitle",
+                    "A structured summary of chart insights, prediction scores, and life timing indicators.",
+                ),
                 self.styles["ReportSubtitle"],
             ),
             Paragraph(user_details, self.styles["SectionBody"]),
@@ -272,7 +290,10 @@ class ReportService:
 
     def _build_chart_section(self, chart_image_path: str | None) -> list:
         """Builds the Kundli chart section using a rendered PNG when available."""
-        story = [Paragraph("Kundli Chart", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
+        story = [
+            Paragraph(self._tr("report.sections.kundli_chart", "Kundli Chart"), self.styles["SectionTitle"]),
+            Spacer(1, 2 * mm),
+        ]
 
         if chart_image_path and Path(chart_image_path).exists():
             chart_image = RLImage(chart_image_path, width=90 * mm, height=90 * mm)
@@ -281,8 +302,10 @@ class ReportService:
         else:
             story.append(
                 Paragraph(
-                    "Chart image could not be rendered in this environment. "
-                    "The rest of the report remains available offline.",
+                    self._tr(
+                        "report.messages.chart_unavailable",
+                        "Chart image could not be rendered in this environment. The rest of the report remains available offline.",
+                    ),
                     self.styles["MutedBody"],
                 )
             )
@@ -303,14 +326,29 @@ class ReportService:
         time_focus = [self._normalize_area(area) for area in time_focus if str(area or "").strip()]
 
         confidence_score = self._safe_int(summary.get("confidence_score"))
-        confidence_band = "High" if confidence_score >= 80 else "Medium" if confidence_score >= 50 else "Low"
+        confidence_band = (
+            self._tr("report.values.confidence_high", "High")
+            if confidence_score >= 80
+            else self._tr("report.values.confidence_medium", "Medium")
+            if confidence_score >= 50
+            else self._tr("report.values.confidence_low", "Low")
+        )
 
-        story = [Paragraph("Top Insights", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
+        story = [
+            Paragraph(self._tr("report.sections.top_insights", "Top Insights"), self.styles["SectionTitle"]),
+            Spacer(1, 2 * mm),
+        ]
+
+        no_data = self._tr("report.values.not_enough_data_yet", "Not enough data yet")
+        no_timing = self._tr("report.values.no_immediate_timing_hotspot", "No immediate timing hotspot")
+        overall_confidence_label = self._tr("report.labels.overall_confidence", "Overall Confidence")
+        top_areas_label = self._tr("report.labels.top_areas", "Top Areas")
+        time_focus_label = self._tr("report.labels.time_focus", "Time Focus")
 
         body = (
-            f"<b>Overall Confidence:</b> {confidence_score}% ({confidence_band})<br/>"
-            f"<b>Top Areas:</b> {', '.join(area.title() for area in top_areas) if top_areas else 'Not enough data yet'}<br/>"
-            f"<b>Time Focus:</b> {', '.join(area.title() for area in time_focus) if time_focus else 'No immediate timing hotspot'}"
+            f"<b>{escape(overall_confidence_label)}:</b> {confidence_score}% ({escape(confidence_band)})<br/>"
+            f"<b>{escape(top_areas_label)}:</b> {', '.join(area.title() for area in top_areas) if top_areas else escape(no_data)}<br/>"
+            f"<b>{escape(time_focus_label)}:</b> {', '.join(area.title() for area in time_focus) if time_focus else escape(no_timing)}"
         )
         story.append(Paragraph(body, self.styles["InsightCard"]))
         story.append(Spacer(1, 4 * mm))
@@ -318,7 +356,10 @@ class ReportService:
 
     def _build_predictions_section(self, report_data: Dict[str, Any]) -> list:
         """Builds the prediction section using unified predictions when available."""
-        story = [Paragraph("Predictions", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
+        story = [
+            Paragraph(self._tr("report.sections.predictions", "Predictions"), self.styles["SectionTitle"]),
+            Spacer(1, 2 * mm),
+        ]
 
         unified_predictions = report_data.get("unified_predictions", [])
         if isinstance(unified_predictions, list) and unified_predictions:
@@ -330,24 +371,35 @@ class ReportService:
             for row in sorted_predictions[:6]:
                 area = self._normalize_area(row.get("area", "general")).title()
                 yoga = escape(str(row.get("yoga", "Yoga")))
-                strength = escape(str(row.get("strength", "medium")).title())
+                strength = escape(str(row.get("strength", self._tr("report.values.medium", "medium"))).title())
                 score = self._safe_int(row.get("score"))
-                text = escape(str(row.get("refined_text") or row.get("text") or "No summary available."))
+                text = escape(
+                    str(
+                        row.get("refined_text")
+                        or row.get("text")
+                        or self._tr("report.values.no_summary_available", "No summary available.")
+                    )
+                )
 
                 timing = row.get("timing", {}) if isinstance(row.get("timing"), dict) else {}
                 maha = escape(str(timing.get("mahadasha", "")))
                 antar = escape(str(timing.get("antardasha", "")))
-                relevance = escape(str(timing.get("relevance", "low")).title())
+                relevance = escape(str(timing.get("relevance", self._tr("report.values.low", "low"))).title())
 
-                timing_line = "Timing: No specific dasha activation."
+                timing_label = self._tr("report.labels.timing", "Timing")
+                timing_line = f"{timing_label}: {self._tr('report.values.no_specific_dasha_activation', 'No specific dasha activation.')}"
                 if maha and antar:
-                    timing_line = f"Timing: {maha} Mahadasha / {antar} Antardasha ({relevance})."
+                    timing_line = (
+                        f"{timing_label}: {maha} {self._tr('report.values.mahadasha', 'Mahadasha')} / "
+                        f"{antar} {self._tr('report.values.antardasha', 'Antardasha')} ({relevance})."
+                    )
                 elif maha:
-                    timing_line = f"Timing: {maha} Mahadasha ({relevance})."
+                    timing_line = f"{timing_label}: {maha} {self._tr('report.values.mahadasha', 'Mahadasha')} ({relevance})."
 
                 card_text = (
                     f"<b>{area} | {yoga}</b><br/>"
-                    f"Strength: {strength} | Score: {score}<br/>"
+                    f"{escape(self._tr('report.labels.strength', 'Strength'))}: {strength} | "
+                    f"{escape(self._tr('report.labels.score', 'Score'))}: {score}<br/>"
                     f"{text}<br/>"
                     f"<i>{timing_line}</i>"
                 )
@@ -361,14 +413,16 @@ class ReportService:
             details = predictions.get(
                 category,
                 {
-                    "summary": "No strong indication available.",
-                    "confidence": "low",
+                    "summary": self._tr("report.values.no_strong_indication", "No strong indication available."),
+                    "confidence": self._tr("report.values.low", "low"),
                 },
             )
             text = (
                 f"<b>{escape(category.title())}</b><br/>"
-                f"Summary: {escape(str(details.get('summary', 'No summary available.')))}<br/>"
-                f"Confidence: {escape(str(details.get('confidence', 'low')).title())}"
+                f"{escape(self._tr('report.labels.summary', 'Summary'))}: "
+                f"{escape(str(details.get('summary', self._tr('report.values.no_summary_available', 'No summary available.'))))}<br/>"
+                f"{escape(self._tr('report.labels.confidence', 'Confidence'))}: "
+                f"{escape(str(details.get('confidence', self._tr('report.values.low', 'low'))).title())}"
             )
             story.append(Paragraph(text, self.styles["PredictionCard"]))
 
@@ -377,17 +431,30 @@ class ReportService:
 
     def _build_timeline_forecast_section(self, report_data: Dict[str, Any]) -> list:
         """Builds a year-wise timeline table from forecast rows."""
-        story = [Paragraph("Timeline Forecast", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
+        story = [
+            Paragraph(self._tr("report.sections.timeline_forecast", "Timeline Forecast"), self.styles["SectionTitle"]),
+            Spacer(1, 2 * mm),
+        ]
 
         forecast_rows = report_data.get("timeline_forecast", {}).get("timeline", [])
         if not isinstance(forecast_rows, list) or not forecast_rows:
-            story.append(Paragraph("No forecast timeline rows are available yet.", self.styles["MutedBody"]))
+            story.append(
+                Paragraph(
+                    self._tr("report.messages.no_forecast_rows", "No forecast timeline rows are available yet."),
+                    self.styles["MutedBody"],
+                )
+            )
             story.append(Spacer(1, 4 * mm))
             return story
 
-        table_data = [["Period", "Area", "Event", "Confidence"]]
+        table_data = [[
+            self._tr("report.labels.period", "Period"),
+            self._tr("report.labels.area", "Area"),
+            self._tr("report.labels.event", "Event"),
+            self._tr("report.labels.confidence", "Confidence"),
+        ]]
         for row in forecast_rows[:12]:
-            event_text = str(row.get("event", "")).strip() or "No event summary"
+            event_text = str(row.get("event", "")).strip() or self._tr("report.values.no_event_summary", "No event summary")
             if len(event_text) > 62:
                 event_text = event_text[:59].rstrip() + "..."
             table_data.append(
@@ -422,11 +489,15 @@ class ReportService:
         if not isinstance(timeline_rows, list):
             timeline_rows = []
 
-        table_data = [["Planet", "Start", "End"]]
+        table_data = [[
+            self._tr("report.labels.planet", "Planet"),
+            self._tr("report.labels.start", "Start"),
+            self._tr("report.labels.end", "End"),
+        ]]
         for row in timeline_rows[:18]:
             table_data.append(
                 [
-                    str(row.get("planet", "Unknown")),
+                    str(row.get("planet", self._tr("report.values.unknown", "Unknown"))),
                     str(row.get("start", "")),
                     str(row.get("end", "")),
                 ]
@@ -447,7 +518,7 @@ class ReportService:
         )
 
         return [
-            Paragraph("Dasha Timeline", self.styles["SectionTitle"]),
+            Paragraph(self._tr("report.sections.dasha_timeline", "Dasha Timeline"), self.styles["SectionTitle"]),
             Spacer(1, 2 * mm),
             table,
             Spacer(1, 8 * mm),
@@ -455,7 +526,10 @@ class ReportService:
 
     def _build_key_events_section(self, report_data: Dict[str, Any]) -> list:
         """Builds key event highlights for core life areas."""
-        story = [Paragraph("Key Life Events", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
+        story = [
+            Paragraph(self._tr("report.sections.key_life_events", "Key Life Events"), self.styles["SectionTitle"]),
+            Spacer(1, 2 * mm),
+        ]
 
         key_events = report_data.get("key_events", {})
         if not isinstance(key_events, dict):
@@ -466,9 +540,9 @@ class ReportService:
             forecast_rows = []
 
         category_labels = {
-            "career": "Career",
-            "marriage": "Marriage",
-            "finance": "Finance",
+            "career": self._tr("report.values.career", "Career"),
+            "marriage": self._tr("report.values.marriage", "Marriage"),
+            "finance": self._tr("report.values.finance", "Finance"),
         }
 
         for area, label in category_labels.items():
@@ -477,11 +551,12 @@ class ReportService:
             if area_event.get("answer"):
                 supporting_events = area_event.get("supporting_events", [])
                 first_event = supporting_events[0] if isinstance(supporting_events, list) and supporting_events else {}
-                period = str(first_event.get("period", "Upcoming")).strip() or "Upcoming"
+                period = str(first_event.get("period", self._tr("report.values.upcoming", "Upcoming"))).strip() or self._tr("report.values.upcoming", "Upcoming")
                 confidence = self._safe_int(area_event.get("confidence"))
                 content = (
                     f"{escape(str(area_event.get('answer', '')))}<br/>"
-                    f"Window: {escape(period)} | Confidence: {confidence}"
+                    f"{escape(self._tr('report.labels.window', 'Window'))}: {escape(period)} | "
+                    f"{escape(self._tr('report.labels.confidence', 'Confidence'))}: {confidence}"
                 )
             else:
                 fallback = next(
@@ -493,12 +568,14 @@ class ReportService:
                 )
                 if fallback:
                     content = (
-                        f"{escape(str(fallback.get('event', 'Notable development')))}<br/>"
-                        f"Window: {escape(str(fallback.get('period', 'Upcoming')))} | "
-                        f"Confidence: {self._safe_int(fallback.get('confidence'))}"
+                        f"{escape(str(fallback.get('event', self._tr('report.values.notable_development', 'Notable development'))))}<br/>"
+                        f"{escape(self._tr('report.labels.window', 'Window'))}: "
+                        f"{escape(str(fallback.get('period', self._tr('report.values.upcoming', 'Upcoming'))))} | "
+                        f"{escape(self._tr('report.labels.confidence', 'Confidence'))}: "
+                        f"{self._safe_int(fallback.get('confidence'))}"
                     )
                 else:
-                    content = "No strong period identified."
+                    content = self._tr("report.values.no_strong_period", "No strong period identified.")
 
             story.append(Paragraph(f"<b>{escape(label)}</b><br/>{content}", self.styles["SectionBody"]))
             story.append(Spacer(1, 3 * mm))
@@ -508,11 +585,19 @@ class ReportService:
 
     def _build_reasoning_summary_section(self, report_data: Dict[str, Any]) -> list:
         """Builds concise reasoning cards from the reasoning engine output."""
-        story = [Paragraph("Reasoning Summary", self.styles["SectionTitle"]), Spacer(1, 2 * mm)]
+        story = [
+            Paragraph(self._tr("report.sections.reasoning_summary", "Reasoning Summary"), self.styles["SectionTitle"]),
+            Spacer(1, 2 * mm),
+        ]
 
         reasoning_rows = report_data.get("reasoning", [])
         if not isinstance(reasoning_rows, list) or not reasoning_rows:
-            story.append(Paragraph("Reasoning details are not available yet.", self.styles["MutedBody"]))
+            story.append(
+                Paragraph(
+                    self._tr("report.messages.reasoning_unavailable", "Reasoning details are not available yet."),
+                    self.styles["MutedBody"],
+                )
+            )
             story.append(Spacer(1, 4 * mm))
             return story
 
@@ -520,7 +605,9 @@ class ReportService:
             if not isinstance(row, dict):
                 continue
             area = self._normalize_area(row.get("area", "general")).title()
-            explanation = escape(str(row.get("explanation", "No explanation available.")))
+            explanation = escape(
+                str(row.get("explanation", self._tr("report.values.no_explanation_available", "No explanation available.")))
+            )
             factors = row.get("supporting_factors", [])
             if isinstance(factors, list):
                 factor_text = "; ".join(escape(str(item)) for item in factors[:4] if str(item or "").strip())
@@ -529,7 +616,10 @@ class ReportService:
 
             text = f"<b>{escape(area)}</b><br/>{explanation}"
             if factor_text:
-                text += f"<br/><i>Supporting factors:</i> {factor_text}"
+                text += (
+                    f"<br/><i>{escape(self._tr('report.labels.supporting_factors', 'Supporting factors'))}:</i> "
+                    f"{factor_text}"
+                )
             story.append(Paragraph(text, self.styles["PredictionCard"]))
 
         story.append(Spacer(1, 4 * mm))
@@ -589,6 +679,21 @@ class ReportService:
             }
             for entry in chart_data
         ]
+
+    def _tr(self, key: str, default: str) -> str:
+        value = self._language_manager.get_text(key)
+        if value == key:
+            return default
+        return value
+
+    def _normalize_language(self, language: str) -> str:
+        normalized = str(language or "").strip().lower()
+        if not normalized:
+            settings = self.settings_service.load()
+            normalized = str(settings.get("language_code", "en")).strip().lower() or "en"
+        if normalized not in {"en", "hi", "or"}:
+            return "en"
+        return normalized
 
     @staticmethod
     def _normalize_area(area: Any) -> str:

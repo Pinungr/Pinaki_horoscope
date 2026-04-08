@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from core.engines.aspect_engine import calculate_aspects
+from core.engines.functional_nature import FunctionalNatureEngine
 from core.yoga.models import ChartSnapshot, YogaCondition, normalize_planet_id
 
 
@@ -86,7 +87,12 @@ class ConditionEngine:
             "any_planet_in_relative_house": self._handle_any_planet_in_relative_house,
             "no_planet_in_relative_house": self._handle_no_planet_in_relative_house,
             "benefics_in_relative_houses": self._handle_benefics_in_relative_houses,
+            # Functional
+            "planet_is_functional_benefic": self._handle_planet_functional_status,
+            "planet_is_functional_malefic": self._handle_planet_functional_status,
+            "planet_is_yogakaraka": self._handle_planet_functional_status,
         }
+        self.functional_engine = FunctionalNatureEngine()
 
     def evaluate_condition(
         self,
@@ -210,11 +216,15 @@ class ConditionEngine:
     @staticmethod
     def _normalize_condition(condition: YogaCondition | dict[str, Any]) -> tuple[str, dict[str, Any]]:
         if isinstance(condition, YogaCondition):
-            return str(condition.type or "").strip().lower(), dict(condition.params or {})
+            c_type = str(condition.type or "").strip().lower()
+            params = dict(condition.params or {})
+            params["__type__"] = c_type
+            return c_type, params
         if isinstance(condition, dict):
-            condition_type = str(condition.get("type", "")).strip().lower()
+            c_type = str(condition.get("type", "")).strip().lower()
             params = {str(key): value for key, value in condition.items() if str(key) != "type"}
-            return condition_type, params
+            params["__type__"] = c_type
+            return c_type, params
         return "", {}
 
     @staticmethod
@@ -597,3 +607,35 @@ class ConditionEngine:
         if require_all:
             return len(matches) == len(benefic_ids)
         return len(matches) >= 1
+
+    def _handle_planet_functional_status(
+        self, params: dict[str, Any], chart: ChartSnapshot, _: ConditionContext
+    ) -> bool:
+        """
+        Validates if a planet has a specific functional role for the chart's Lagna.
+        Config examples:
+            { "type": "planet_is_functional_benefic", "planet": "jupiter" }
+            { "type": "planet_is_yogakaraka", "planet": "saturn" }
+        """
+        planet_id = normalize_planet_id(params.get("planet"))
+        condition_type = params.get("__type__") # The engine passes this in normalize_condition
+        
+        # We need the Lagna sign
+        lagna = chart.get("ascendant") or chart.get("lagna")
+        if not lagna:
+            return False
+            
+        roles = self.functional_engine.get_planet_roles(lagna.sign)
+        status = roles.get(planet_id)
+        
+        if not status:
+            return False
+            
+        if "benefic" in condition_type:
+            return status == "benefic" or status == "yogakaraka"
+        if "malefic" in condition_type:
+            return status == "malefic"
+        if "yogakaraka" in condition_type:
+            return status == "yogakaraka"
+            
+        return False

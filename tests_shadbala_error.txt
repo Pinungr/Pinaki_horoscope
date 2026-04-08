@@ -1,0 +1,64 @@
+python : E..
+At line:1 char:1
++ python -m unittest 
+tests/test_shadbala.py 
+2>&1 | Out-File -FilePath 
+t ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (E..  
+  :String) [], RemoteExc   
+ eption
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+===========================
+===========================
+================
+ERROR: test_dik_bala_jupite
+r_in_1st (tests.test_shadba
+la.TestShadbala.test_dik_ba
+la_jupiter_in_1st)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_shad
+bala.py", line 28, in test_
+dik_bala_jupiter_in_1st
+    result = self.engine.ca
+lculate(chart)
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\core\engines\sh
+adbala\shadbala_aggregator.
+py", line 49, in calculate
+    chestha = calculate_che
+stha_bala(planet_id, 
+placement)
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\core\engines\sh
+adbala\chestha_bala.py", 
+line 20, in 
+calculate_chestha_bala
+    if 
+placement.is_retrograde:
+       
+^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 
+'PlanetPlacement' object 
+has no attribute 
+'is_retrograde'. Did you 
+mean: 'retrograde'?
+
+---------------------------
+---------------------------
+----------------
+Ran 3 tests in 0.001s
+
+FAILED (errors=1)

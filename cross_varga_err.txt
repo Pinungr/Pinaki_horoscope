@@ -1,0 +1,49 @@
+.venv/Scripts/python.exe : 
+.F.
+At line:1 char:1
++ .venv/Scripts/python.exe 
+-m unittest 
+tests/test_cross_varga.py 
+2>&1 | ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (.F.  
+  :String) [], RemoteExc   
+ eption
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+===========================
+===========================
+================
+FAIL: 
+test_vargottama_bonus (test
+s.test_cross_varga.CrossVar
+gaSynthesisTests.test_vargo
+ttama_bonus)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_cros
+s_varga.py", line 24, in 
+test_vargottama_bonus
+    
+self.assertEqual(sthana, 
+177.0)
+    ~~~~~~~~~~~~~~~~^^^^^^^
+^^^^^^^^
+AssertionError: 207.0 != 
+177.0
+
+---------------------------
+---------------------------
+----------------
+Ran 3 tests in 0.001s
+
+FAILED (failures=1)

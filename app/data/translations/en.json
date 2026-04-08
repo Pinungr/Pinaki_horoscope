@@ -57,7 +57,16 @@
     "settings_saved_title": "Settings Saved",
     "settings_saved_message": "Settings saved successfully.\nMode: {mode}",
     "mode_openai": "OpenAI enhancement enabled",
-    "mode_local": "Local chat only"
+    "mode_local": "Local chat only",
+    "all": "All",
+    "chart_subtitle": "Explore your core strengths, timing, and practical predictions.",
+    "top_insights": "Top Insights",
+    "overall_confidence": "Overall Confidence",
+    "generating_pdf": "Generating PDF...",
+    "no_area_predictions": "No {area} predictions available yet.",
+    "top_focus_rank": "Top focus #{rank}",
+    "timing_active": "Timing active",
+    "no_major_signal": "No major signal yet"
   },
   "chart": {
     "house": "House",
@@ -94,6 +103,73 @@
       "budhaditya_yoga_first_house": "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.",
       "jupiter_first_house_wisdom": "Jupiter in the 1st House grants wisdom, optimism, and a protective aura.",
       "gajakesari_yoga": "Gajakesari Yoga is present: Moon and Jupiter combine in a kendra, supporting wisdom, recognition, and emotional strength."
+    }
+  },
+  "report": {
+    "meta": {
+      "document_title": "Horoscope Report",
+      "document_author": "Offline Horoscope (Kundli) Engine"
+    },
+    "sections": {
+      "offline_horoscope_report": "Offline Horoscope Report",
+      "subtitle": "A structured summary of chart insights, prediction scores, and life timing indicators.",
+      "kundli_chart": "Kundli Chart",
+      "top_insights": "Top Insights",
+      "predictions": "Predictions",
+      "timeline_forecast": "Timeline Forecast",
+      "key_life_events": "Key Life Events",
+      "reasoning_summary": "Reasoning Summary",
+      "dasha_timeline": "Dasha Timeline"
+    },
+    "labels": {
+      "name": "Name",
+      "date_of_birth": "Date of Birth",
+      "time_of_birth": "Time of Birth",
+      "place": "Place",
+      "overall_confidence": "Overall Confidence",
+      "top_areas": "Top Areas",
+      "time_focus": "Time Focus",
+      "strength": "Strength",
+      "score": "Score",
+      "timing": "Timing",
+      "summary": "Summary",
+      "period": "Period",
+      "area": "Area",
+      "event": "Event",
+      "confidence": "Confidence",
+      "planet": "Planet",
+      "start": "Start",
+      "end": "End",
+      "window": "Window",
+      "supporting_factors": "Supporting factors"
+    },
+    "messages": {
+      "chart_unavailable": "Chart image could not be rendered in this environment. The rest of the report remains available offline.",
+      "no_forecast_rows": "No forecast timeline rows are available yet.",
+      "reasoning_unavailable": "Reasoning details are not available yet."
+    },
+    "values": {
+      "confidence_high": "High",
+      "confidence_medium": "Medium",
+      "confidence_low": "Low",
+      "career": "Career",
+      "marriage": "Marriage",
+      "finance": "Finance",
+      "medium": "medium",
+      "low": "low",
+      "mahadasha": "Mahadasha",
+      "antardasha": "Antardasha",
+      "not_enough_data_yet": "Not enough data yet",
+      "no_immediate_timing_hotspot": "No immediate timing hotspot",
+      "no_specific_dasha_activation": "No specific dasha activation.",
+      "no_summary_available": "No summary available.",
+      "no_event_summary": "No event summary",
+      "no_strong_indication": "No strong indication available.",
+      "no_explanation_available": "No explanation available.",
+      "notable_development": "Notable development",
+      "upcoming": "Upcoming",
+      "unknown": "Unknown",
+      "no_strong_period": "No strong period identified."
     }
   }
 }

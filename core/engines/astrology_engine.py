@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import logging
+from datetime import datetime
 from typing import Any, Iterable
 
 from app.engine.dasha import DashaEngine
@@ -9,6 +11,9 @@ from core.predictions.aggregation_service import aggregate_context_predictions, 
 from core.predictions.prediction_service import PredictionService
 from core.yoga.models import ChartSnapshot
 from core.yoga.yoga_engine import YogaEngine, YogaResult
+from app.engine.transit_engine import TransitEngine
+
+logger = logging.getLogger(__name__)
 
 
 _ZODIAC_SIGNS = [
@@ -48,6 +53,7 @@ class UnifiedAstrologyEngine:
         self.strength_engine = strength_engine or StrengthEngine()
         self.dasha_engine = dasha_engine or DashaEngine()
         self.prediction_service = prediction_service or PredictionService()
+        self.transit_engine = TransitEngine()
         self.ai_refiner = ai_refiner
 
     def analyze(
@@ -57,6 +63,7 @@ class UnifiedAstrologyEngine:
         dob: str | None = None,
         language: str = "en",
         include_trace: bool = False,
+        transit_date: str | None = None,
     ) -> dict[str, Any]:
         chart_snapshot = self._build_chart_snapshot(chart_data)
         normalized_language = str(language or "en").strip().lower() or "en"
@@ -72,13 +79,16 @@ class UnifiedAstrologyEngine:
 
         chart_strength = self._score_chart_strength(chart_snapshot)
         dasha_payload = self._get_dasha_information(chart_snapshot, dob)
+        transit_payload = self._analyze_current_transits(chart_snapshot, transit_date)
         final_predictions = self._build_final_predictions(yoga_results, normalized_language)
 
         return {
             "yogas": yoga_payload,
+            "ui_yogas": self._format_yoga_ui_payload(yoga_results, normalized_language),
             "strong_yogas": strong_yogas,
             "weak_yogas": weak_yogas,
             "dasha": dasha_payload,
+            "transits": transit_payload,
             "final_predictions": final_predictions,
             "confidence_score": self._compute_confidence_score(yoga_results, chart_strength),
         }
@@ -130,7 +140,7 @@ class UnifiedAstrologyEngine:
                 strength={**base_strength, "score": boosted_score},
                 language=normalized_language,
             )
-            timing_text = self.prediction_service.build_timing_text(timing)
+            timing_text = self.prediction_service.build_timing_text(timing, language=normalized_language)
             base_text = str(context_prediction.get("text", "")).strip()
             text = " ".join(part for part in [base_text, timing_text] if part).strip()
 
@@ -155,7 +165,9 @@ class UnifiedAstrologyEngine:
             final_output.get("predictions", []),
             final_output.get("summary", {}),
             tone=tone,
+            language=normalized_language,
         )
+        final_output["ui_yogas"] = self._format_yoga_ui_payload(yoga_results, normalized_language)
         return final_output
 
     @staticmethod
@@ -175,6 +187,44 @@ class UnifiedAstrologyEngine:
             detected_only=True,
             include_trace=include_trace,
         )
+
+    def _format_yoga_ui_payload(
+        self,
+        yoga_results: list[YogaResult],
+        language: str,
+    ) -> dict[str, Any]:
+        detected = [r for r in yoga_results if r.detected]
+        if not detected:
+            if language == "hi":
+                return {"summary": "कोई विशिष्ट योग नहीं मिला।", "details": []}
+            if language == "or":
+                return {"summary": "କୌଣସି ବିଶିଷ୍ଟ ଯୋଗ ମିଳିଲା ନାହିଁ।", "details": []}
+            return {"summary": "No specific yogas matched.", "details": []}
+
+        details: list[dict[str, Any]] = []
+        for r in detected:
+            details.append(
+                {
+                    "rule": r.id,
+                    "text": r.prediction,
+                    "explanation": f"Strength Score: {r.strength_score} ({r.strength_level.title()})",
+                    "weight": round(r.strength_score / 10),
+                }
+            )
+
+        details.sort(key=lambda x: x["weight"], reverse=True)
+
+        if language == "hi":
+            summary_text = f"{len(detected)} विशिष्ट योग पाए गए, जिनमें {_humanize_yoga_name(details[0]['rule'])} शामिल है।"
+        elif language == "or":
+            summary_text = f"{len(detected)} ବିଶିଷ୍ଟ ଯୋଗ ମିଳିଲା, ଯେଉଁଥିରେ {_humanize_yoga_name(details[0]['rule'])} ସାମିଲ।"
+        else:
+            summary_text = f"{len(detected)} specific yogas detected, including {_humanize_yoga_name(details[0]['rule'])}."
+
+        return {
+            "summary": summary_text,
+            "details": details,
+        }
 
     def _score_chart_strength(self, chart_snapshot: ChartSnapshot) -> dict[str, int]:
         per_planet = self.strength_engine.score_chart(chart_snapshot)
@@ -245,12 +295,25 @@ class UnifiedAstrologyEngine:
         summary: dict[str, Any],
         *,
         tone: str,
+        language: str,
     ) -> list[dict[str, Any]]:
         if self.ai_refiner is not None and hasattr(self.ai_refiner, "refine_predictions"):
             try:
-                refined = self.ai_refiner.refine_predictions(predictions, summary, tone=tone)
+                refined = self.ai_refiner.refine_predictions(
+                    predictions,
+                    summary,
+                    tone=tone,
+                    language=language,
+                )
                 if isinstance(refined, list):
                     return refined
+            except TypeError:
+                try:
+                    refined = self.ai_refiner.refine_predictions(predictions, summary, tone=tone)
+                    if isinstance(refined, list):
+                        return refined
+                except Exception:
+                    pass
             except Exception:
                 pass
 
@@ -260,6 +323,43 @@ class UnifiedAstrologyEngine:
             row["refined_text"] = str(row.get("text", "")).strip()
             fallback_rows.append(row)
         return fallback_rows
+
+    def _analyze_current_transits(self, chart: ChartSnapshot, target_date_str: str | None) -> dict[str, Any]:
+        """Calculates transits and checks for significant Gochar events."""
+        target_time = None
+        if target_date_str:
+            try:
+                target_time = datetime.fromisoformat(target_date_str)
+            except (ValueError, TypeError):
+                pass
+        
+        # Default to Moon Sign reference for Vedic Gochar
+        transit_data = self.transit_engine.calculate_transits(chart, target_time, reference="moon")
+        
+        # Simple rule matcher for transits (can be expanded into its own engine)
+        import json
+        import os
+        rules_path = os.path.join(os.path.dirname(__file__), "..", "..", "core", "predictions", "transit_rules.json")
+        
+        active_interpretations = []
+        try:
+            with open(rules_path, "r") as f:
+                rules = json.load(f).get("transit_rules", [])
+                
+            for rule in rules:
+                p_id = rule["planet"]
+                matching_transit = transit_data["transits"].get(p_id)
+                if matching_transit and matching_transit["house_from_reference"] in rule["relative_houses"]:
+                    active_interpretations.append({
+                        "id": rule["id"],
+                        "planet": p_id,
+                        "text": rule["prediction"]
+                    })
+        except Exception as e:
+            logger.error("Failed to load or process transit rules: %s", e)
+            
+        transit_data["interpretations"] = active_interpretations
+        return transit_data
 
     @staticmethod
     def _apply_timing_multiplier(base_score: Any, multiplier: Any) -> int:

@@ -175,8 +175,11 @@ class HoroscopeService:
         self,
         raw_events: Any,
         scored_predictions: Dict[str, Dict[str, Any]],
+        *,
+        language: str = "en",
     ) -> List[Dict[str, str]]:
         """Converts raw event detector output into widget-friendly event dictionaries."""
+        normalized_language = self._normalize_language(language)
         if isinstance(raw_events, list):
             raw_event_list = [str(event).strip() for event in raw_events if str(event).strip()]
         else:
@@ -207,7 +210,13 @@ class HoroscopeService:
                 {
                     "type": "general",
                     "confidence": "low",
-                    "summary": "General life phase",
+                    "summary": (
+                        "सामान्य जीवन चरण"
+                        if normalized_language == "hi"
+                        else "ସାଧାରଣ ଜୀବନ ପର୍ଯ୍ୟାୟ"
+                        if normalized_language == "or"
+                        else "General life phase"
+                    ),
                 }
             )
 
@@ -440,7 +449,7 @@ class HoroscopeService:
             )
         )
 
-    def get_timeline_data(self, user_id: int) -> Dict[str, Any]:
+    def get_timeline_data(self, user_id: int, *, language: str = "en") -> Dict[str, Any]:
         """
         Builds unified timeline data from dasha periods, detected events, and prediction scores.
 
@@ -459,8 +468,14 @@ class HoroscopeService:
             "prediction_scores": {...}
         }
         """
+        normalized_language = self._normalize_language(language)
         cached_timeline = self.cache.get("timeline", user_id)
-        if cached_timeline is not None:
+        if isinstance(cached_timeline, dict):
+            cached_language = str(cached_timeline.get("_language", "en")).strip().lower() or "en"
+            if cached_language == normalized_language:
+                logger.info("Timeline cache hit for user %s.", user_id)
+                return cached_timeline
+        elif cached_timeline is not None and normalized_language == "en":
             logger.info("Timeline cache hit for user %s.", user_id)
             return cached_timeline
 
@@ -475,7 +490,11 @@ class HoroscopeService:
         from app.services.astrology_advanced_service import AstrologyAdvancedService
 
         advanced_service = AstrologyAdvancedService()
-        advanced_data = advanced_service.generate_advanced_data(chart_data_models, user.dob)
+        advanced_data = advanced_service.generate_advanced_data(
+            chart_data_models,
+            user.dob,
+            language=normalized_language,
+        )
         scored_predictions = self.cache.get("predictions", user_id)
         if scored_predictions is None:
             scored_predictions = self._evaluate_chart_predictions(chart_data_models)
@@ -492,6 +511,7 @@ class HoroscopeService:
                     "events": self._build_timeline_events(
                         dasha.get("events", ""),
                         scored_predictions,
+                        language=normalized_language,
                     ),
                 }
             )
@@ -505,9 +525,17 @@ class HoroscopeService:
         timeline_payload = {
             "timeline": timeline_rows,
             "prediction_scores": scored_predictions,
+            "_language": normalized_language,
         }
         self.cache.set("timeline", user_id, timeline_payload)
         return timeline_payload
+
+    @staticmethod
+    def _normalize_language(language: str) -> str:
+        normalized = str(language or "en").strip().lower() or "en"
+        if normalized not in {"en", "hi", "or"}:
+            return "en"
+        return normalized
 
     def load_chart_for_user(self, user_id: int) -> Tuple[List[Dict], Dict[str, Dict[str, Any]]]:
         """Loads a previously calculated chart for a user and re-evaluates rules."""

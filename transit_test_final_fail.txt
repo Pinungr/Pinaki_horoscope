@@ -1,0 +1,91 @@
+.venv/Scripts/python.exe : 
+C:\Users\pinun\OneDrive\Doc
+uments\GitHub\Pinaki_horosc
+ope\tests\test_transit_engi
+ne.py:47: 
+DeprecationWarning: 
+datetime.datetime.utcnow() 
+is deprecated and 
+scheduled for removal in a 
+future version. Use 
+timezone-aware objects to 
+represent datetimes in 
+UTC: datetime.datetime.now(
+datetime.UTC).
+At line:1 char:1
++ .venv/Scripts/python.exe 
+-m unittest tests/test_tran
+sit_engine.py 2>& ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (C:\  
+  Users\pinun\...(dateti   
+ me.UTC).:String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+  results = self.engine._ge
+t_current_positions(datetim
+e.utcnow())
+EF.
+===========================
+===========================
+================
+ERROR: 
+test_rahu_ketu_opposite (te
+sts.test_transit_engine.Tra
+nsitEngineTests.test_rahu_k
+etu_opposite)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_tran
+sit_engine.py", line 52, 
+in test_rahu_ketu_opposite
+    diff = abs(rahu - ketu)
+               ~~~~~^~~~~~
+TypeError: unsupported 
+operand type(s) for -: 
+'dict' and 'dict'
+
+===========================
+===========================
+================
+FAIL: test_relative_house_c
+alculation (tests.test_tran
+sit_engine.TransitEngineTes
+ts.test_relative_house_calc
+ulation)
+---------------------------
+---------------------------
+----------------
+Traceback (most recent 
+call last):
+  File "C:\Users\pinun\OneD
+rive\Documents\GitHub\Pinak
+i_horoscope\tests\test_tran
+sit_engine.py", line 26, 
+in test_relative_house_calc
+ulation
+    self.assertEqual(saturn
+_transit["house_from_refere
+nce"], 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^
+AssertionError: 12 != 1
+
+---------------------------
+---------------------------
+----------------
+Ran 3 tests in 0.001s
+
+FAILED (failures=1, 
+errors=1)

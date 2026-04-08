@@ -40,7 +40,7 @@ class ChartDisplay(QWidget):
 
         self.title_label = QLabel()
         self.title_label.setProperty("role", "title")
-        self.subtitle_label = QLabel("Explore your core strengths, timing, and practical predictions.")
+        self.subtitle_label = QLabel()
         self.subtitle_label.setProperty("role", "subtitle")
         self.subtitle_label.setWordWrap(True)
         
@@ -75,10 +75,10 @@ class ChartDisplay(QWidget):
             "border-radius: 10px; padding: 4px 10px;"
         )
 
-        self.top_insights_label = QLabel("Top Insights")
+        self.top_insights_label = QLabel()
         self.top_insights_label.setStyleSheet("font-size: 13px; font-weight: bold; margin-top: 4px;")
 
-        self.confidence_label = QLabel("Overall Confidence")
+        self.confidence_label = QLabel()
         self.confidence_label.setStyleSheet("font-size: 12px; font-weight: bold; margin-top: 4px;")
         self.confidence_value_label = QLabel("0%")
         self.confidence_value_label.setStyleSheet("font-size: 11px; color: #475569;")
@@ -97,15 +97,15 @@ class ChartDisplay(QWidget):
         self._insight_cards: Dict[str, Dict[str, QLabel]] = {}
         insights_row = QHBoxLayout()
         insights_row.setSpacing(SPACE_8)
-        for area, title in (("career", "Career"), ("marriage", "Marriage"), ("finance", "Finance")):
+        for area, _title in (("career", "Career"), ("marriage", "Marriage"), ("finance", "Finance")):
             card = QFrame()
             card.setProperty("role", "insight-card")
             card_layout = QVBoxLayout()
             card_layout.setContentsMargins(8, 6, 8, 6)
             card_layout.setSpacing(2)
-            title_label = QLabel(title)
+            title_label = QLabel()
             title_label.setStyleSheet("font-size: 11px; font-weight: bold; color: #334155;")
-            value_label = QLabel("No major signal yet")
+            value_label = QLabel()
             value_label.setWordWrap(True)
             value_label.setStyleSheet("font-size: 11px; color: #475569;")
             card_layout.addWidget(title_label)
@@ -124,8 +124,8 @@ class ChartDisplay(QWidget):
         filter_row = QHBoxLayout()
         filter_row.setSpacing(SPACE_8)
         self._area_filter_buttons: Dict[str, QPushButton] = {}
-        for area, label in (("all", "All"), ("career", "Career"), ("marriage", "Marriage"), ("finance", "Finance")):
-            button = QPushButton(label)
+        for area, _label in (("all", "All"), ("career", "Career"), ("marriage", "Marriage"), ("finance", "Finance")):
+            button = QPushButton()
             button.setCheckable(True)
             button.setProperty("chip", "true")
             button.clicked.connect(lambda checked=False, value=area: self._set_area_filter(value))
@@ -170,16 +170,36 @@ class ChartDisplay(QWidget):
 
     def apply_translations(self) -> None:
         self.title_label.setText(self._tr("ui.chart_information"))
+        self.subtitle_label.setText(
+            self._tr("ui.chart_subtitle")
+            if self._tr("ui.chart_subtitle") != "ui.chart_subtitle"
+            else "Explore your core strengths, timing, and practical predictions."
+        )
         self.predictions_label.setText(f"{self._tr('ui.predictions')}:")
-        self.top_insights_label.setText("Top Insights")
-        self.confidence_label.setText("Overall Confidence")
+        self.top_insights_label.setText(
+            self._tr("ui.top_insights")
+            if self._tr("ui.top_insights") != "ui.top_insights"
+            else "Top Insights"
+        )
+        self.confidence_label.setText(
+            self._tr("ui.overall_confidence")
+            if self._tr("ui.overall_confidence") != "ui.overall_confidence"
+            else "Overall Confidence"
+        )
+        for area, labels in self._insight_cards.items():
+            labels["title"].setText(self._area_display_label(area))
+        for area, button in self._area_filter_buttons.items():
+            button.setText(self._area_display_label(area))
         self._clear_chart_insight()
         if self._prediction_display_state == "awaiting":
             self.predictions_text.setText(self._tr("ui.awaiting_generation"))
         elif self._prediction_display_state == "empty":
             self.predictions_text.setText(self._tr("ui.no_predictions_found"))
             self.display_top_insights({})
-        self.report_button.setText("Generating PDF..." if self._report_busy else self._tr("ui.generate_report"))
+        generating_pdf_text = self._tr("ui.generating_pdf")
+        if generating_pdf_text == "ui.generating_pdf":
+            generating_pdf_text = "Generating PDF..."
+        self.report_button.setText(generating_pdf_text if self._report_busy else self._tr("ui.generate_report"))
         if self._current_header_payload is not None:
             self.kundli_widget.set_header_data(
                 self._chart_header_type(
@@ -291,7 +311,10 @@ class ChartDisplay(QWidget):
         html += "</ul>"
 
         if rows_rendered == 0 and self._active_area_filter != "all":
-            self.predictions_text.setText(f"No {self._active_area_filter.title()} predictions available yet.")
+            message_template = self._tr("ui.no_area_predictions")
+            if message_template == "ui.no_area_predictions":
+                message_template = "No {area} predictions available yet."
+            self.predictions_text.setText(message_template.format(area=self._area_display_label(self._active_area_filter)))
             return
         self.predictions_text.setText(html)
 
@@ -314,13 +337,18 @@ class ChartDisplay(QWidget):
 
         for area, labels in self._insight_cards.items():
             if area in rank_by_area:
-                labels["value"].setText(f"Top focus #{rank_by_area[area]}")
+                top_focus_template = self._tr("ui.top_focus_rank")
+                if top_focus_template == "ui.top_focus_rank":
+                    top_focus_template = "Top focus #{rank}"
+                labels["value"].setText(top_focus_template.format(rank=rank_by_area[area]))
                 labels["value"].setStyleSheet("font-size: 11px; color: #166534; font-weight: bold;")
             elif area in time_focus_set:
-                labels["value"].setText("Timing active")
+                timing_active = self._tr("ui.timing_active")
+                labels["value"].setText(timing_active if timing_active != "ui.timing_active" else "Timing active")
                 labels["value"].setStyleSheet("font-size: 11px; color: #92400e; font-weight: bold;")
             else:
-                labels["value"].setText("No major signal yet")
+                no_signal = self._tr("ui.no_major_signal")
+                labels["value"].setText(no_signal if no_signal != "ui.no_major_signal" else "No major signal yet")
                 labels["value"].setStyleSheet("font-size: 11px; color: #475569;")
 
     def _handle_planet_hovered(self, payload: Dict[str, Any]) -> None:
@@ -666,8 +694,25 @@ class ChartDisplay(QWidget):
         """Adds visible feedback while PDF generation is in progress."""
         self._report_busy = bool(busy)
         if self._report_busy:
-            self.report_button.setText("Generating PDF...")
+            generating_pdf_text = self._tr("ui.generating_pdf")
+            self.report_button.setText(generating_pdf_text if generating_pdf_text != "ui.generating_pdf" else "Generating PDF...")
             self.report_button.setEnabled(False)
             return
         self.report_button.setText(self._tr("ui.generate_report"))
         self.report_button.setEnabled(bool(self._latest_chart_data))
+
+    def _area_display_label(self, area: str) -> str:
+        normalized = str(area or "").strip().lower()
+        key_map = {
+            "all": "ui.all",
+            "career": "report.values.career",
+            "marriage": "report.values.marriage",
+            "finance": "report.values.finance",
+        }
+        key = key_map.get(normalized, "")
+        if not key:
+            return normalized.title()
+        value = self._tr(key)
+        if value == key:
+            return normalized.title()
+        return value

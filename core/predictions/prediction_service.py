@@ -38,6 +38,7 @@ class PredictionService:
         "rahu",
         "ketu",
     }
+    SUPPORTED_LANGUAGES = {"en", "hi", "or"}
 
     def __init__(self, meanings_path: Path | None = None) -> None:
         self.meanings_path = meanings_path or resolve_resource("core", "predictions", "meanings.json")
@@ -166,7 +167,8 @@ class PredictionService:
             "score_multiplier": multiplier,
         }
 
-    def build_timing_text(self, timing: Any) -> str:
+    def build_timing_text(self, timing: Any, language: str | None = None) -> str:
+        normalized_language = self._normalize_language(language)
         if not isinstance(timing, dict):
             return ""
 
@@ -179,23 +181,51 @@ class PredictionService:
 
         if relevance == "high":
             if mahadasha and antardasha:
+                if normalized_language == "hi":
+                    return f"यह प्रभाव {mahadasha} महादशा में, विशेष रूप से {antardasha} अंतरदशा में सबसे मजबूत रहेगा।"
+                if normalized_language == "or":
+                    return f"ଏହି ପ୍ରଭାବ {mahadasha} ମହାଦଶାରେ, ବିଶେଷକରି {antardasha} ଅନ୍ତରଦଶାରେ ସବୁଠୁ ଶକ୍ତିଶାଳୀ ରହିବ।"
                 return (
                     f"This effect is strongest during {mahadasha} Mahadasha, "
                     f"especially in {antardasha} Antardasha."
                 )
             if mahadasha:
+                if normalized_language == "hi":
+                    return f"यह प्रभाव {mahadasha} महादशा में अधिक मजबूत रहेगा।"
+                if normalized_language == "or":
+                    return f"ଏହି ପ୍ରଭାବ {mahadasha} ମହାଦଶାରେ ଅଧିକ ଶକ୍ତିଶାଳୀ ରହିବ।"
                 return f"This effect is stronger during {mahadasha} Mahadasha."
+            if normalized_language == "hi":
+                return f"यह प्रभाव {antardasha} अंतरदशा में विशेष रूप से सक्रिय रहेगा।"
+            if normalized_language == "or":
+                return f"ଏହି ପ୍ରଭାବ {antardasha} ଅନ୍ତରଦଶାରେ ବିଶେଷ ଭାବେ ସକ୍ରିୟ ରହିବ।"
             return f"This effect is especially active during {antardasha} Antardasha."
 
         if relevance == "medium":
             if antardasha:
+                if normalized_language == "hi":
+                    return f"यह प्रभाव {antardasha} अंतरदशा में बढ़ सकता है।"
+                if normalized_language == "or":
+                    return f"ଏହି ପ୍ରଭାବ {antardasha} ଅନ୍ତରଦଶାରେ ବଢ଼ି ପାରେ।"
                 return f"This effect may rise during {antardasha} Antardasha."
             if mahadasha:
+                if normalized_language == "hi":
+                    return f"यह प्रभाव {mahadasha} महादशा में बढ़ सकता है।"
+                if normalized_language == "or":
+                    return f"ଏହି ପ୍ରଭାବ {mahadasha} ମହାଦଶାରେ ବଢ଼ି ପାରେ।"
                 return f"This effect may rise during {mahadasha} Mahadasha."
             return ""
 
         if mahadasha:
+            if normalized_language == "hi":
+                return f"अभी समय समर्थन सीमित है, {mahadasha} महादशा में हल्का प्रभाव रहेगा।"
+            if normalized_language == "or":
+                return f"ବର୍ତ୍ତମାନ ସମୟ ସମର୍ଥନ ସୀମିତ, {mahadasha} ମହାଦଶାରେ ହାଲୁକା ପ୍ରଭାବ ରହିବ।"
             return f"Timing support is presently limited, with a milder influence in {mahadasha} Mahadasha."
+        if normalized_language == "hi":
+            return f"अभी समय समर्थन सीमित है, {antardasha} अंतरदशा में हल्का प्रभाव रहेगा।"
+        if normalized_language == "or":
+            return f"ବର୍ତ୍ତମାନ ସମୟ ସମର୍ଥନ ସୀମିତ, {antardasha} ଅନ୍ତରଦଶାରେ ହାଲୁକା ପ୍ରଭାବ ରହିବ।"
         return f"Timing support is presently limited, with a milder influence in {antardasha} Antardasha."
 
     def get_current_dasha_context(
@@ -287,14 +317,15 @@ class PredictionService:
         strength: Any,
         language: str | None = None,
     ) -> Dict[str, str]:
+        normalized_language = self._normalize_language(language)
         context = self.extract_prediction_context(yoga, chart)
         yoga_name = str(context.get("yoga", "")).strip()
         area = str(context.get("area", "general")).strip() or "general"
         strength_level = self._normalize_strength_level(strength, fallback=context.get("strength", "medium"))
 
-        area_text = self._build_area_text(area)
-        strength_text = self._build_strength_text(strength_level)
-        base_text = self.get_prediction(yoga_name, language)
+        area_text = self._build_area_text(area, language=normalized_language)
+        strength_text = self._build_strength_text(strength_level, language=normalized_language)
+        base_text = self.get_prediction(yoga_name, normalized_language)
         combined = " ".join(part for part in [area_text, strength_text, base_text] if part).strip()
 
         return {
@@ -406,8 +437,36 @@ class PredictionService:
                 return period
         return sorted_periods[-1] if sorted_periods else None
 
-    @staticmethod
-    def _build_area_text(area: str) -> str:
+    def _build_area_text(self, area: str, *, language: str) -> str:
+        if language == "hi":
+            if area == "career":
+                return "करियर में सफलता के संकेत हैं।"
+            if area == "marriage":
+                return "रिश्तों और साझेदारी में लाभ के संकेत हैं।"
+            if area == "wealth":
+                return "धन और आर्थिक स्थिरता में वृद्धि के संकेत हैं।"
+            if area == "health":
+                return "स्वास्थ्य और दिनचर्या में महत्वपूर्ण परिवर्तन दिखते हैं।"
+            if area == "self":
+                return "व्यक्तिगत विकास के मजबूत संकेत हैं।"
+            if area == "general":
+                return "जीवन में अर्थपूर्ण परिणामों के संकेत हैं।"
+            return f"{area} में उल्लेखनीय परिणामों के संकेत हैं।"
+        if language == "or":
+            if area == "career":
+                return "କ୍ୟାରିଅରରେ ସଫଳତାର ସୂଚନା ମିଳୁଛି।"
+            if area == "marriage":
+                return "ସମ୍ପର୍କ ଏବଂ ସହଭାଗୀତାରେ ଲାଭର ସୂଚନା ମିଳୁଛି।"
+            if area == "wealth":
+                return "ଧନ ଏବଂ ଆର୍ଥିକ ସ୍ଥିରତାର ବୃଦ୍ଧି ସୂଚିତ ହେଉଛି।"
+            if area == "health":
+                return "ସ୍ୱାସ୍ଥ୍ୟ ଏବଂ ଦୈନନ୍ଦିନ ଅଭ୍ୟାସରେ ପରିବର୍ତ୍ତନ ସୂଚିତ ହେଉଛି।"
+            if area == "self":
+                return "ବ୍ୟକ୍ତିଗତ ଉନ୍ନତିର ଶକ୍ତିଶାଳୀ ସୂଚନା ମିଳୁଛି।"
+            if area == "general":
+                return "ଜୀବନରେ ଅର୍ଥପୂର୍ଣ୍ଣ ଫଳର ସୂଚନା ମିଳୁଛି।"
+            return f"{area} ରେ ଲକ୍ଷଣୀୟ ଫଳର ସୂଚନା ମିଳୁଛି।"
+
         if area == "career":
             return "You achieve success in career."
         if area == "marriage":
@@ -422,13 +481,31 @@ class PredictionService:
             return "You receive meaningful results in life."
         return f"You receive notable results in {area}."
 
-    @staticmethod
-    def _build_strength_text(strength: str) -> str:
+    def _build_strength_text(self, strength: str, *, language: str) -> str:
+        if language == "hi":
+            if strength == "strong":
+                return "परिणाम शक्तिशाली और स्पष्ट रूप से दिखाई देंगे।"
+            if strength == "weak":
+                return "परिणाम हल्के रह सकते हैं और देरी महसूस हो सकती है।"
+            return "परिणाम संतुलित और स्थिर रहेंगे।"
+        if language == "or":
+            if strength == "strong":
+                return "ଫଳ ଶକ୍ତିଶାଳୀ ଏବଂ ସ୍ପଷ୍ଟ ଭାବେ ଦେଖାଯିବ।"
+            if strength == "weak":
+                return "ଫଳ ମୃଦୁ ରହିପାରେ ଏବଂ ବିଳମ୍ବ ଲାଗିପାରେ।"
+            return "ଫଳ ସନ୍ତୁଳିତ ଏବଂ ସ୍ଥିର ରହିବ।"
+
         if strength == "strong":
             return "Results are powerful and clearly visible."
         if strength == "weak":
             return "Results are mild and may feel delayed."
         return "Results are moderate and steady."
+
+    def _normalize_language(self, language: str | None) -> str:
+        normalized = str(language or self.DEFAULT_LANGUAGE).strip().lower() or self.DEFAULT_LANGUAGE
+        if normalized not in self.SUPPORTED_LANGUAGES:
+            return self.DEFAULT_LANGUAGE
+        return normalized
 
 
 _default_prediction_service = PredictionService()

@@ -32,7 +32,8 @@ class PlanetPlacement:
     sign: str
     house: int
     degree: float = 0.0
-    retrograde: bool = False
+    is_retrograde: bool = False
+    absolute_longitude: float = 0.0
 
     @classmethod
     def from_row(cls, row: Any) -> PlanetPlacement | None:
@@ -41,13 +42,15 @@ class PlanetPlacement:
             raw_sign = row.get("sign", row.get("Sign", ""))
             raw_house = row.get("house", row.get("House"))
             raw_degree = row.get("degree", row.get("Degree", 0.0))
-            raw_retrograde = row.get("retrograde", row.get("Retrograde", False))
+            raw_retrograde = row.get("retrograde", row.get("is_retrograde", row.get("Retrograde", False)))
+            raw_abs_long = row.get("absolute_longitude", 0.0)
         else:
             raw_planet = getattr(row, "planet_name", getattr(row, "planet", None))
             raw_sign = getattr(row, "sign", "")
             raw_house = getattr(row, "house", None)
             raw_degree = getattr(row, "degree", 0.0)
-            raw_retrograde = getattr(row, "retrograde", False)
+            raw_retrograde = getattr(row, "retrograde", getattr(row, "is_retrograde", False))
+            raw_abs_long = getattr(row, "absolute_longitude", 0.0)
 
         planet = normalize_planet_id(raw_planet)
         sign = str(raw_sign or "").strip()
@@ -65,7 +68,8 @@ class PlanetPlacement:
             sign=sign,
             house=house,
             degree=degree,
-            retrograde=bool(raw_retrograde),
+            is_retrograde=bool(raw_retrograde),
+            absolute_longitude=float(raw_abs_long or 0.0),
         )
 
 

@@ -101,6 +101,22 @@ class OpenAIRefinerServiceTests(unittest.TestCase):
         self.assertEqual(1, len(refined))
         self.assertIn("mahadasha", refined[0]["refined_text"].lower())
 
+    def test_refine_predictions_respects_selected_language_for_fallback(self) -> None:
+        predictions = [
+            {
+                "yoga": "Raj Yoga",
+                "area": "career",
+                "strength": "strong",
+                "score": 85,
+                "text": "करियर में सफलता के संकेत हैं।",
+            }
+        ]
+
+        refined = self.service.refine_predictions(predictions, {"top_areas": ["career"]}, tone="professional", language="hi")
+
+        self.assertEqual(1, len(refined))
+        self.assertIn("ऐसा इसलिए", refined[0]["refined_text"])
+
 
 if __name__ == "__main__":
     unittest.main()

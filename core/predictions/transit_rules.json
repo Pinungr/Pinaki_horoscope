@@ -1,0 +1,34 @@
+{
+  "transit_rules": [
+    {
+      "id": "sade_sati_peak",
+      "planet": "saturn",
+      "relative_houses": [1],
+      "prediction": "Saturn is transiting your Moon sign (Peak of Sade Sati). A period of profound transformation, hard work, and potentially high pressure. Focus on discipline."
+    },
+    {
+      "id": "sade_sati_rising",
+      "planet": "saturn",
+      "relative_houses": [12],
+      "prediction": "Saturn is in the 12th house from your Moon (Beginning of Sade Sati). Increased expenses and a shift toward inner contemplation or withdrawal are likely."
+    },
+    {
+      "id": "sade_sati_setting",
+      "planet": "saturn",
+      "relative_houses": [2],
+      "prediction": "Saturn is in the 2nd house from your Moon (Final phase of Sade Sati). Family matters and financial stabilization will be the core focus."
+    },
+    {
+      "id": "jupiter_favorable_transit",
+      "planet": "jupiter",
+      "relative_houses": [2, 5, 7, 9, 11],
+      "prediction": "Jupiter is in a highly favorable transit from your Moon. This brings expansion, wisdom, and beneficial opportunities in your life."
+    },
+    {
+      "id": "ashtama_shani",
+      "planet": "saturn",
+      "relative_houses": [8],
+      "prediction": "Ashtama Shani: Saturn is transiting the 8th house from your Moon. Caution is advised in health and inherited matters. Avoid major risks."
+    }
+  ]
+}
