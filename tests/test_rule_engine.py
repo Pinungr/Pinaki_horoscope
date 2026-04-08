@@ -202,6 +202,54 @@ class RuleEngineTests(unittest.TestCase):
         self.assertEqual(2, len(predictions))
         self.assertEqual(1, mock_calculate_aspects.call_count)
 
+    def test_evaluate_supports_in_kendra_conditions(self) -> None:
+        rules = [
+            Rule(
+                condition_json='{"type": "in_kendra", "planet": "Moon"}',
+                result_text="Moon is in a kendra house.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(self.chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Moon is in a kendra house.", predictions[0]["text"])
+
+    def test_evaluate_supports_case_insensitive_in_kendra_with_dict_rows(self) -> None:
+        chart = [
+            {"planet_name": "jupiter", "house": 4},
+            {"planet_name": "Moon", "house": 10},
+        ]
+        rules = [
+            Rule(
+                condition_json='{"type": "in_kendra", "planet": "JUPITER"}',
+                result_text="Jupiter is in a kendra house.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Jupiter is in a kendra house.", predictions[0]["text"])
+
+    def test_evaluate_rejects_in_kendra_when_planet_is_missing_or_house_invalid(self) -> None:
+        chart = [
+            {"planet_name": "Jupiter", "house": "not-a-house"},
+        ]
+        rules = [
+            Rule(
+                condition_json='{"type": "in_kendra", "planet": "Jupiter"}',
+                result_text="This kendra rule should not match.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual([], predictions)
+
     def test_evaluate_supports_conjunction_conditions(self) -> None:
         chart = [
             ChartData(user_id=1, planet_name="Moon", sign="Cancer", house=4, degree=12.5),

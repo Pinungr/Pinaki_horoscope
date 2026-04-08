@@ -9,6 +9,12 @@ from core.engines.aspect_engine import calculate_aspects
 
 logger = logging.getLogger(__name__)
 
+HOUSE_GROUPS = {
+    "kendra": {1, 4, 7, 10},
+    "trikona": {1, 5, 9},
+    "dusthana": {6, 8, 12},
+}
+
 class RuleEngine:
     def __init__(self, rules: List[Rule]):
         self.rules = sorted(rules, key=lambda r: r.priority, reverse=True)
@@ -88,6 +94,9 @@ class RuleEngine:
                 aspects if aspects is not None else calculate_aspects(chart_data),
             )
 
+        if condition.get("type") == "in_kendra":
+            return self._match_house_group_condition(condition, chart_data, "kendra")
+
         if self._is_aspect_condition(condition):
             return self._match_aspect_condition(
                 condition,
@@ -153,6 +162,19 @@ class RuleEngine:
                 return current_house
 
         return None
+
+    @staticmethod
+    def _match_house_group_condition(
+        condition: Dict[str, Any],
+        chart_data: List[Any],
+        group_name: str,
+    ) -> bool:
+        target_planet = condition.get("planet")
+        target_house = RuleEngine.get_planet_house(chart_data, target_planet)
+        if target_house is None:
+            return False
+
+        return target_house in HOUSE_GROUPS.get(group_name, set())
 
     @staticmethod
     def _normalize_planet_name(planet_name: Any) -> str:
