@@ -38,8 +38,8 @@ class AstrologyAdvancedServiceTests(unittest.TestCase):
         self.assertEqual(
             [
                 {
-                    "from": "Saturn",
-                    "to": "Moon",
+                    "from_planet": "Saturn",
+                    "to_planet": "Moon",
                     "from_house": 3,
                     "to_house": 5,
                     "aspect_type": "drishti",

@@ -19,12 +19,12 @@ class AspectEngineTests(unittest.TestCase):
 
         self.assertEqual(
             [
-                {"from": "Saturn", "to": "Moon", "from_house": 3, "to_house": 5, "aspect_type": "drishti"},
-                {"from": "Saturn", "to": "Jupiter", "from_house": 3, "to_house": 9, "aspect_type": "drishti"},
-                {"from": "Saturn", "to": "Mars", "from_house": 3, "to_house": 12, "aspect_type": "drishti"},
-                {"from": "Jupiter", "to": "Saturn", "from_house": 9, "to_house": 3, "aspect_type": "drishti"},
-                {"from": "Jupiter", "to": "Moon", "from_house": 9, "to_house": 5, "aspect_type": "drishti"},
-                {"from": "Mars", "to": "Saturn", "from_house": 12, "to_house": 3, "aspect_type": "drishti"},
+                {"from_planet": "Saturn", "to_planet": "Moon", "from_house": 3, "to_house": 5, "aspect_type": "drishti"},
+                {"from_planet": "Saturn", "to_planet": "Jupiter", "from_house": 3, "to_house": 9, "aspect_type": "drishti"},
+                {"from_planet": "Saturn", "to_planet": "Mars", "from_house": 3, "to_house": 12, "aspect_type": "drishti"},
+                {"from_planet": "Jupiter", "to_planet": "Saturn", "from_house": 9, "to_house": 3, "aspect_type": "drishti"},
+                {"from_planet": "Jupiter", "to_planet": "Moon", "from_house": 9, "to_house": 5, "aspect_type": "drishti"},
+                {"from_planet": "Mars", "to_planet": "Saturn", "from_house": 12, "to_house": 3, "aspect_type": "drishti"},
             ],
             aspects,
         )
@@ -41,8 +41,8 @@ class AspectEngineTests(unittest.TestCase):
 
         self.assertEqual(
             [
-                {"from": "Sun", "to": "Moon", "from_house": 1, "to_house": 7, "aspect_type": "drishti"},
-                {"from": "Moon", "to": "Sun", "from_house": 7, "to_house": 1, "aspect_type": "drishti"},
+                {"from_planet": "Sun", "to_planet": "Moon", "from_house": 1, "to_house": 7, "aspect_type": "drishti"},
+                {"from_planet": "Moon", "to_planet": "Sun", "from_house": 7, "to_house": 1, "aspect_type": "drishti"},
             ],
             aspects,
         )

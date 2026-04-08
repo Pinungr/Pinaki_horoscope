@@ -21,8 +21,8 @@ def run_tests():
     output = calculate_aspects(sample_chart)
     print(f"Output Aspects:\n{json.dumps(output, indent=2)}\n")
 
-    assert {"from": "Saturn", "to": "Moon", "from_house": 3, "to_house": 5, "aspect_type": "drishti"} in output, "Saturn to Moon aspect missing!"
-    assert {"from": "Jupiter", "to": "Saturn", "from_house": 9, "to_house": 3, "aspect_type": "drishti"} in output, "Jupiter to Saturn aspect missing!"
+    assert {"from_planet": "Saturn", "to_planet": "Moon", "from_house": 3, "to_house": 5, "aspect_type": "drishti"} in output, "Saturn to Moon aspect missing!"
+    assert {"from_planet": "Jupiter", "to_planet": "Saturn", "from_house": 9, "to_house": 3, "aspect_type": "drishti"} in output, "Jupiter to Saturn aspect missing!"
     
     print("--- Tests Passed Successfully ---")
 

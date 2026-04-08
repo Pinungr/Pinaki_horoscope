@@ -74,6 +74,42 @@ class RuleEngineTests(unittest.TestCase):
 
         self.assertEqual([], predictions)
 
+    def test_evaluate_supports_aspect_conditions(self) -> None:
+        chart = [
+            ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
+            ChartData(user_id=1, planet_name="Moon", sign="Leo", house=5, degree=12.0),
+        ]
+        rules = [
+            Rule(
+                condition_json='{"from_planet": "Saturn", "to_planet": "Moon", "aspect_type": "drishti"}',
+                result_text="Saturn aspects Moon.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Saturn aspects Moon.", predictions[0]["text"])
+
+    def test_evaluate_supports_mixed_chart_and_aspect_conditions(self) -> None:
+        chart = [
+            ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
+            ChartData(user_id=1, planet_name="Moon", sign="Leo", house=5, degree=12.0),
+        ]
+        rules = [
+            Rule(
+                condition_json='{"AND": [{"planet": "Saturn", "house": 3}, {"from_planet": "Saturn", "to_planet": "Moon", "to_house": 5, "aspect_type": "drishti"}]}',
+                result_text="Saturn in 3rd aspects Moon in 5th.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Saturn in 3rd aspects Moon in 5th.", predictions[0]["text"])
+
 
 if __name__ == "__main__":
     unittest.main()
