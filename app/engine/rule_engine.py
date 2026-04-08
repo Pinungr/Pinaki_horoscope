@@ -78,6 +78,15 @@ class RuleEngine:
         chart_data: List[ChartData],
         aspects: Optional[List[Dict[str, Any]]] = None,
     ) -> bool:
+        if condition.get("type") == "conjunction":
+            return self._match_conjunction_condition(condition, chart_data)
+
+        if condition.get("type") == "aspect":
+            return self._match_aspect_condition(
+                condition,
+                aspects if aspects is not None else calculate_aspects(chart_data),
+            )
+
         if self._is_aspect_condition(condition):
             return self._match_aspect_condition(
                 condition,
@@ -98,10 +107,43 @@ class RuleEngine:
                 continue
             
             # If we reach here, it means all specified criteria matched this ChartData
-            # For a simple condition, we only need ONE matching entity in the chart.
+        # For a simple condition, we only need ONE matching entity in the chart.
             return True
             
         return False
+
+    @staticmethod
+    def _match_conjunction_condition(
+        condition: Dict[str, Any],
+        chart_data: List[ChartData],
+    ) -> bool:
+        target_planets = condition.get("planets", [])
+        if not isinstance(target_planets, list):
+            return False
+
+        normalized_targets = []
+        for planet in target_planets:
+            planet_name = str(planet or "").strip()
+            if planet_name and planet_name not in normalized_targets:
+                normalized_targets.append(planet_name)
+
+        if len(normalized_targets) < 2:
+            return False
+
+        houses_by_planet = {
+            cd.planet_name: cd.house
+            for cd in chart_data
+            if getattr(cd, "planet_name", None) and getattr(cd, "house", None) is not None
+        }
+
+        target_houses = []
+        for planet_name in normalized_targets:
+            house = houses_by_planet.get(planet_name)
+            if house is None:
+                return False
+            target_houses.append(house)
+
+        return len(set(target_houses)) == 1
 
     @staticmethod
     def _is_aspect_condition(condition: Dict[str, Any]) -> bool:
@@ -122,11 +164,11 @@ class RuleEngine:
         condition: Dict[str, Any],
         aspects: List[Dict[str, Any]],
     ) -> bool:
-        target_from_planet = condition.get("from_planet")
-        target_to_planet = condition.get("to_planet")
+        target_from_planet = condition.get("from_planet", condition.get("from"))
+        target_to_planet = condition.get("to_planet", condition.get("to"))
         target_from_house = condition.get("from_house")
         target_to_house = condition.get("to_house")
-        target_aspect_type = condition.get("aspect_type")
+        target_aspect_type = condition.get("aspect_type", "drishti" if condition.get("type") == "aspect" else None)
 
         for aspect in aspects:
             if target_from_planet and aspect.get("from_planet") != target_from_planet:

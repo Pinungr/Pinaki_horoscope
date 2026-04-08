@@ -92,6 +92,24 @@ class RuleEngineTests(unittest.TestCase):
         self.assertEqual(1, len(predictions))
         self.assertEqual("Saturn aspects Moon.", predictions[0]["text"])
 
+    def test_evaluate_supports_typed_aspect_conditions(self) -> None:
+        chart = [
+            ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
+            ChartData(user_id=1, planet_name="Moon", sign="Leo", house=5, degree=12.0),
+        ]
+        rules = [
+            Rule(
+                condition_json='{"type": "aspect", "from": "Saturn", "to": "Moon"}',
+                result_text="Typed aspect match succeeded.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Typed aspect match succeeded.", predictions[0]["text"])
+
     def test_evaluate_supports_mixed_chart_and_aspect_conditions(self) -> None:
         chart = [
             ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
@@ -109,6 +127,56 @@ class RuleEngineTests(unittest.TestCase):
 
         self.assertEqual(1, len(predictions))
         self.assertEqual("Saturn in 3rd aspects Moon in 5th.", predictions[0]["text"])
+
+    def test_evaluate_supports_nested_typed_aspect_conditions(self) -> None:
+        chart = [
+            ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
+            ChartData(user_id=1, planet_name="Moon", sign="Leo", house=5, degree=12.0),
+        ]
+        rules = [
+            Rule(
+                condition_json='{"AND": [{"planet": "Saturn", "house": 3}, {"type": "aspect", "from": "Saturn", "to": "Moon"}]}',
+                result_text="Nested typed aspect condition matched.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Nested typed aspect condition matched.", predictions[0]["text"])
+
+    def test_evaluate_supports_conjunction_conditions(self) -> None:
+        chart = [
+            ChartData(user_id=1, planet_name="Moon", sign="Cancer", house=4, degree=12.5),
+            ChartData(user_id=1, planet_name="Jupiter", sign="Cancer", house=4, degree=5.0),
+            ChartData(user_id=1, planet_name="Venus", sign="Libra", house=7, degree=18.0),
+        ]
+        rules = [
+            Rule(
+                condition_json='{"type": "conjunction", "planets": ["Moon", "Jupiter"]}',
+                result_text="Moon and Jupiter are conjunct.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Moon and Jupiter are conjunct.", predictions[0]["text"])
+
+    def test_evaluate_rejects_conjunction_when_planets_are_not_in_same_house(self) -> None:
+        rules = [
+            Rule(
+                condition_json='{"type": "conjunction", "planets": ["Moon", "Jupiter"]}',
+                result_text="This conjunction should not match.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(self.chart)
+
+        self.assertEqual([], predictions)
 
 
 if __name__ == "__main__":
