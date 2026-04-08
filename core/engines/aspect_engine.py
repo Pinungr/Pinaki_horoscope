@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable, Mapping
+
+logger = logging.getLogger(__name__)
 
 
 ASPECT_RULES = {
@@ -39,7 +42,12 @@ def calculate_aspects(chart_data: Iterable[object]) -> list[dict[str, object]]:
     if chart_data is None:
         return []
 
-    planets = _normalize_chart_data(chart_data)
+    try:
+        planets = _normalize_chart_data(chart_data)
+    except TypeError:
+        logger.debug("Aspect calculation skipped because chart_data is not iterable: %r", chart_data)
+        return []
+
     aspects: list[dict[str, object]] = []
     planets_by_house = _group_planets_by_house(planets)
 
@@ -67,6 +75,7 @@ def calculate_aspects(chart_data: Iterable[object]) -> list[dict[str, object]]:
                         "aspect_type": "drishti",
                     }
                 )
+                logger.debug("%s (%s) -> %s (%s)", from_planet, from_house, to_planet, to_house)
 
     return aspects
 
@@ -100,7 +109,12 @@ def _normalize_chart_data(chart_data: Iterable[object]) -> list[dict[str, int | 
         planet_name = _extract_planet_name(item)
         house = _extract_house(item)
 
-        if not planet_name or house is None or planet_name not in VALID_PLANETS:
+        if not planet_name or house is None:
+            logger.debug("Skipping chart row with missing planet or house: %r", item)
+            continue
+
+        if planet_name not in VALID_PLANETS:
+            logger.debug("Skipping unsupported chart row: %r", item)
             continue
 
         normalized.append({"planet_name": planet_name, "house": house})

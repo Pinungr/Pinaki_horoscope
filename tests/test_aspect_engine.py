@@ -10,6 +10,9 @@ class AspectEngineTests(unittest.TestCase):
     def test_calculate_aspects_returns_empty_list_for_none_input(self) -> None:
         self.assertEqual([], calculate_aspects(None))
 
+    def test_calculate_aspects_returns_empty_list_for_invalid_non_iterable_input(self) -> None:
+        self.assertEqual([], calculate_aspects(42))
+
     def test_calculate_aspects_returns_parashara_drishti_records(self) -> None:
         chart_data = [
             ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
@@ -31,6 +34,23 @@ class AspectEngineTests(unittest.TestCase):
             ],
             aspects,
         )
+
+    def test_calculate_aspects_emits_debug_log_for_detected_aspect(self) -> None:
+        chart_data = [
+            ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
+            ChartData(user_id=1, planet_name="Moon", sign="Leo", house=5, degree=12.0),
+        ]
+
+        with self.assertLogs("core.engines.aspect_engine", level="DEBUG") as captured:
+            aspects = calculate_aspects(chart_data)
+
+        self.assertEqual(
+            [
+                {"from_planet": "Saturn", "to_planet": "Moon", "from_house": 3, "to_house": 5, "aspect_type": "drishti"},
+            ],
+            aspects,
+        )
+        self.assertTrue(any("Saturn (3) -> Moon (5)" in line for line in captured.output))
 
     def test_calculate_aspects_supports_multiple_planets_in_same_target_house(self) -> None:
         chart_data = [
