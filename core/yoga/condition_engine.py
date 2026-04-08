@@ -78,6 +78,13 @@ class ConditionEngine:
             "planet_in_house": self._handle_planet_in_house,
             "mutual_exchange": self._handle_mutual_exchange,
             "aspect_relation": self._handle_aspect_relation,
+            "house_lord_relation": self._handle_house_lord_relation,
+            # Dignity
+            "planet_in_dignity": self._handle_planet_in_dignity,
+            # Relative-house (from a reference planet)
+            "any_planet_in_relative_house": self._handle_any_planet_in_relative_house,
+            "no_planet_in_relative_house": self._handle_no_planet_in_relative_house,
+            "benefics_in_relative_houses": self._handle_benefics_in_relative_houses,
         }
 
     def evaluate_condition(
@@ -109,15 +116,19 @@ class ConditionEngine:
         chart: ChartSnapshot,
         *,
         mode: str = "all",
+        context: ConditionContext | None = None,
     ) -> bool:
         if not conditions:
             return False
 
         normalized_mode = str(mode or "all").strip().lower()
         use_any = normalized_mode == "any"
-        context = ConditionContext(chart)
+        evaluation_context = context or ConditionContext(chart)
 
-        results = [self.evaluate_condition(condition, chart, context=context) for condition in conditions]
+        results = [
+            self.evaluate_condition(condition, chart, context=evaluation_context)
+            for condition in conditions
+        ]
         return any(results) if use_any else all(results)
 
     @staticmethod
@@ -250,3 +261,263 @@ class ConditionEngine:
                 return True
 
         return False
+
+    @staticmethod
+    def _handle_house_lord_relation(
+        params: dict[str, Any], chart: ChartSnapshot, _: ConditionContext
+    ) -> bool:
+        """
+        Checks that the lord of a given house resides in one or more target houses.
+
+        Config example:
+            {"type": "house_lord_relation", "of_house": 7, "in_houses": [1, 4, 7, 10]}
+
+        Resolution order:
+          1. Find the sign occupying the given house via the Ascendant offset.
+          2. Determine the lord of that sign using SIGN_LORDS.
+          3. Confirm the lord is placed in one of the target houses.
+        """
+        raw_of_house = params.get("of_house")
+        try:
+            of_house = int(raw_of_house)
+        except (TypeError, ValueError):
+            logger.debug("house_lord_relation: invalid of_house %r", raw_of_house)
+            return False
+
+        if not 1 <= of_house <= 12:
+            return False
+
+        target_houses = ConditionEngine._normalize_house_set(
+            params.get("in_houses", params.get("in_house"))
+        )
+        if not target_houses:
+            return False
+
+        # Resolve the sign that occupies the requested house.
+        # In whole-sign system the ascendant sign is house 1; each subsequent
+        # house is the next sign in zodiac order.
+        ascendant_placement = chart.get("ascendant") or chart.get("lagna")
+        if ascendant_placement is None:
+            logger.debug("house_lord_relation: no ascendant found in chart")
+            return False
+
+        asc_sign = str(ascendant_placement.sign or "").strip().lower()
+        if not asc_sign:
+            return False
+
+        zodiac = [
+            "aries", "taurus", "gemini", "cancer", "leo", "virgo",
+            "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces",
+        ]
+        try:
+            asc_index = zodiac.index(asc_sign)
+        except ValueError:
+            logger.debug("house_lord_relation: unrecognised ascendant sign %r", asc_sign)
+            return False
+
+        target_sign = zodiac[(asc_index + of_house - 1) % 12]
+        lord_planet = SIGN_LORDS.get(target_sign)
+        if not lord_planet:
+            logger.debug("house_lord_relation: no lord for sign %r", target_sign)
+            return False
+
+        lord_placement = chart.get(lord_planet)
+        if lord_placement is None:
+            logger.debug("house_lord_relation: lord %r not found in chart", lord_planet)
+            return False
+
+        return lord_placement.house in target_houses
+
+    # ------------------------------------------------------------------
+    # Dignity handler
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _handle_planet_in_dignity(params: dict[str, Any], chart: ChartSnapshot, _: ConditionContext) -> bool:
+        """
+        Checks that a planet is in a specified dignity state.
+
+        Supported dignity values:
+          "exalted"         – planet is in its classical exaltation sign
+          "own"             – planet is in one of its own signs
+          "own_or_exalted"  – either of the above
+
+        Config examples:
+            {"type": "planet_in_dignity", "planet": "jupiter", "dignity": "exalted"}
+            {"type": "planet_in_dignity", "planet": "saturn",  "dignity": "own_or_exalted"}
+        """
+        EXALTATION: dict[str, str] = {
+            "sun": "aries", "moon": "taurus", "mars": "capricorn",
+            "mercury": "virgo", "jupiter": "cancer", "venus": "pisces",
+            "saturn": "libra", "rahu": "gemini", "ketu": "sagittarius",
+        }
+        OWN: dict[str, tuple[str, ...]] = {
+            "sun": ("leo",), "moon": ("cancer",),
+            "mars": ("aries", "scorpio"), "mercury": ("gemini", "virgo"),
+            "jupiter": ("sagittarius", "pisces"), "venus": ("taurus", "libra"),
+            "saturn": ("capricorn", "aquarius"),
+            "rahu": (), "ketu": (),
+        }
+
+        planet_id = normalize_planet_id(params.get("planet"))
+        if not planet_id:
+            return False
+
+        placement = chart.get(planet_id)
+        if placement is None:
+            return False
+
+        sign = str(placement.sign or "").strip().lower()
+        dignity = str(params.get("dignity", "own_or_exalted")).strip().lower()
+
+        is_exalted = (sign == EXALTATION.get(planet_id, ""))
+        is_own = (sign in OWN.get(planet_id, ()))
+
+        if dignity == "exalted":
+            return is_exalted
+        if dignity == "own":
+            return is_own
+        if dignity in ("own_or_exalted", "exalted_or_own"):
+            return is_exalted or is_own
+        return False
+
+    # ------------------------------------------------------------------
+    # Relative-house handlers (e.g. planets from Moon)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_relative_house(reference_house: int, offset: int) -> int:
+        """Returns the house that is <offset> steps ahead in a 1-12 circle."""
+        # Relative-house counting is inclusive:
+        # 1st from reference = same house, 2nd = next house, etc.
+        return (reference_house + offset - 2) % 12 + 1
+
+    @staticmethod
+    def _handle_any_planet_in_relative_house(
+        params: dict[str, Any], chart: ChartSnapshot, _: ConditionContext
+    ) -> bool:
+        """
+        Returns True if any qualifying planet occupies one of the listed
+        houses relative to a reference planet.
+
+        Config example (Sunapha Yoga – planets in 2nd from Moon, excluding Sun):
+            {
+              "type": "any_planet_in_relative_house",
+              "from_planet": "moon",
+              "relative_houses": [2],
+              "exclude": ["sun", "rahu", "ketu"]
+            }
+        """
+        ref_id = normalize_planet_id(params.get("from_planet"))
+        if not ref_id:
+            return False
+
+        ref_placement = chart.get(ref_id)
+        if ref_placement is None:
+            return False
+
+        offsets = ConditionEngine._normalize_house_set(
+            params.get("relative_houses", params.get("relative_house"))
+        )
+        if not offsets:
+            return False
+
+        exclude = {
+            normalize_planet_id(p)
+            for p in (params.get("exclude") or [])
+            if normalize_planet_id(p)
+        }
+        exclude.add(ref_id)  # always exclude the reference planet itself
+
+        target_houses = {
+            ConditionEngine._resolve_relative_house(ref_placement.house, offset)
+            for offset in offsets
+        }
+
+        for planet_id, placement in chart.placements.items():
+            if planet_id in exclude:
+                continue
+            if placement.house in target_houses:
+                return True
+
+        return False
+
+    @staticmethod
+    def _handle_no_planet_in_relative_house(
+        params: dict[str, Any], chart: ChartSnapshot, context: ConditionContext
+    ) -> bool:
+        """
+        Returns True when NO qualifying planet occupies the relative houses
+        (inverse of any_planet_in_relative_house).
+
+        Config example (Kemadruma Yoga – nothing in 2nd or 12th from Moon):
+            {
+              "type": "no_planet_in_relative_house",
+              "from_planet": "moon",
+              "relative_houses": [2, 12],
+              "exclude": ["sun", "rahu", "ketu"]
+            }
+        """
+        return not ConditionEngine._handle_any_planet_in_relative_house(
+            params, chart, context
+        )
+
+    @staticmethod
+    def _handle_benefics_in_relative_houses(
+        params: dict[str, Any], chart: ChartSnapshot, _: ConditionContext
+    ) -> bool:
+        """
+        Returns True if ALL of the specified benefic planets are each found in
+        one of the listed relative houses from a reference planet.
+
+        Config example (Adhi Yoga – Jupiter, Venus, Mercury in 6th/7th/8th from Moon):
+            {
+              "type": "benefics_in_relative_houses",
+              "from_planet": "moon",
+              "planets": ["jupiter", "venus", "mercury"],
+              "relative_houses": [6, 7, 8],
+              "require_all": false
+            }
+
+        When require_all is False (default) at least one of the listed planets
+        must occupy one of the relative houses.
+        When require_all is True every planet in the list must occupy one.
+        """
+        ref_id = normalize_planet_id(params.get("from_planet"))
+        if not ref_id:
+            return False
+
+        ref_placement = chart.get(ref_id)
+        if ref_placement is None:
+            return False
+
+        offsets = ConditionEngine._normalize_house_set(
+            params.get("relative_houses", params.get("relative_house"))
+        )
+        if not offsets:
+            return False
+
+        target_hours = {
+            ConditionEngine._resolve_relative_house(ref_placement.house, offset)
+            for offset in offsets
+        }
+
+        benefic_ids = [
+            normalize_planet_id(p)
+            for p in (params.get("planets") or [])
+            if normalize_planet_id(p)
+        ]
+        if not benefic_ids:
+            return False
+
+        require_all = bool(params.get("require_all", False))
+
+        matches = [
+            planet_id
+            for planet_id in benefic_ids
+            if (pl := chart.get(planet_id)) is not None and pl.house in target_hours
+        ]
+
+        if require_all:
+            return len(matches) == len(benefic_ids)
+        return len(matches) >= 1

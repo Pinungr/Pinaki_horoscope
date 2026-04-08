@@ -20,5 +20,15 @@ __all__ = [
     "StrengthRule",
     "YogaCondition",
     "YogaDefinition",
+    "YogaEngine",
+    "YogaResult",
     "normalize_planet_id",
 ]
+
+
+def __getattr__(name: str):
+    if name in {"YogaEngine", "YogaResult"}:
+        from .yoga_engine import YogaEngine, YogaResult
+
+        return {"YogaEngine": YogaEngine, "YogaResult": YogaResult}[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

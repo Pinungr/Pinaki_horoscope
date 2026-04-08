@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from core.yoga.condition_engine import ConditionEngine
+from core.yoga.condition_engine import ConditionContext, ConditionEngine
 from core.yoga.models import ChartSnapshot
 
 
@@ -168,6 +168,84 @@ class YogaConditionEngineTests(unittest.TestCase):
 
         self.assertTrue(matched)
         self.assertEqual(1, mock_calculate.call_count)
+
+    def test_evaluate_conditions_accepts_explicit_context(self) -> None:
+        chart = ChartSnapshot.from_rows(
+            [
+                {"planet_name": "Saturn", "house": 3, "sign": "Gemini"},
+                {"planet_name": "Moon", "house": 5, "sign": "Leo"},
+            ]
+        )
+        context = ConditionContext(
+            chart=chart,
+            _aspects=[
+                {
+                    "from_planet": "Saturn",
+                    "to_planet": "Moon",
+                    "from_house": 3,
+                    "to_house": 5,
+                    "aspect_type": "drishti",
+                }
+            ],
+        )
+
+        with patch("core.yoga.condition_engine.calculate_aspects") as mock_calculate:
+            matched = self.engine.evaluate_conditions(
+                [{"type": "aspect_relation", "from": "Saturn", "to": "Moon"}],
+                chart,
+                context=context,
+            )
+
+        self.assertTrue(matched)
+        self.assertEqual(0, mock_calculate.call_count)
+
+
+    def test_evaluate_condition_supports_house_lord_relation_match(self) -> None:
+        # Ascendant in Aries → house 7 sign is Libra → lord is Venus.
+        # Venus placed in house 1 → matches in_houses=[1, 4, 7, 10].
+        chart = ChartSnapshot.from_rows(
+            [
+                {"planet_name": "Ascendant", "house": 1, "sign": "Aries"},
+                {"planet_name": "Venus", "house": 1, "sign": "Aries"},
+            ]
+        )
+
+        matched = self.engine.evaluate_condition(
+            {"type": "house_lord_relation", "of_house": 7, "in_houses": [1, 4, 7, 10]},
+            chart,
+        )
+
+        self.assertTrue(matched)
+
+    def test_evaluate_condition_rejects_house_lord_relation_when_lord_elsewhere(self) -> None:
+        # Ascendant in Aries → house 7 sign is Libra → lord is Venus.
+        # Venus placed in house 6 → NOT in [1, 4, 7, 10].
+        chart = ChartSnapshot.from_rows(
+            [
+                {"planet_name": "Ascendant", "house": 1, "sign": "Aries"},
+                {"planet_name": "Venus", "house": 6, "sign": "Virgo"},
+            ]
+        )
+
+        matched = self.engine.evaluate_condition(
+            {"type": "house_lord_relation", "of_house": 7, "in_houses": [1, 4, 7, 10]},
+            chart,
+        )
+
+        self.assertFalse(matched)
+
+    def test_evaluate_condition_rejects_house_lord_relation_without_ascendant(self) -> None:
+        # No ascendant in chart → cannot resolve house sign → must return False, not crash.
+        chart = ChartSnapshot.from_rows(
+            [{"planet_name": "Venus", "house": 1, "sign": "Aries"}]
+        )
+
+        matched = self.engine.evaluate_condition(
+            {"type": "house_lord_relation", "of_house": 7, "in_houses": [1]},
+            chart,
+        )
+
+        self.assertFalse(matched)
 
 
 if __name__ == "__main__":

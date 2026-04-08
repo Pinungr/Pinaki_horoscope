@@ -1,0 +1,67 @@
+[
+  {
+    "id": "hamsa_yoga",
+    "conditions": [
+      {"type": "planet_in_house",   "planet": "jupiter", "houses": [1, 4, 7, 10]},
+      {"type": "planet_in_dignity", "planet": "jupiter", "dignity": "own_or_exalted"}
+    ],
+    "strength_rules": [{"id": "jupiter_str", "planet": "jupiter"}],
+    "prediction": {
+      "en": "Hamsa Yoga (Pancha Mahapurusha): Jupiter in a kendra in own/exalted sign blesses the native with wisdom, dharmic spirit, nobility, and prosperity.",
+      "hi": "हंस योग (पंच महापुरुष): केंद्र में स्वराशि या उच्च का बृहस्पति ज्ञान, धार्मिकता, कुलीनता और समृद्धि प्रदान करता है।",
+      "or": "ହଂସ ଯୋଗ (ପଞ୍ଚ ମହାପୁରୁଷ): କେନ୍ଦ୍ରରେ ସ୍ୱ/ଉଚ୍ଚ ବୃହସ୍ପତି ଜ୍ଞାନ, ଧର୍ମ, କୁଳୀନତା ଏବଂ ସମୃଦ୍ଧି ଦିଏ।"
+    }
+  },
+  {
+    "id": "ruchaka_yoga",
+    "conditions": [
+      {"type": "planet_in_house",   "planet": "mars", "houses": [1, 4, 7, 10]},
+      {"type": "planet_in_dignity", "planet": "mars", "dignity": "own_or_exalted"}
+    ],
+    "strength_rules": [{"id": "mars_str", "planet": "mars"}],
+    "prediction": {
+      "en": "Ruchaka Yoga (Pancha Mahapurusha): Mars in a kendra in own/exalted sign creates a courageous commander — bold, energetic, and victory-oriented.",
+      "hi": "रुचक योग (पंच महापुरुष): केंद्र में स्वराशि या उच्च का मंगल साहसी नेता बनाता है — निडर, ऊर्जावान और विजयी।",
+      "or": "ରୁଚକ ଯୋଗ (ପଞ୍ଚ ମହାପୁରୁଷ): କେନ୍ଦ୍ରରେ ସ୍ୱ/ଉଚ୍ଚ ମଙ୍ଗଳ ଏକ ନିଡ଼ର ନେତା, ଉଦ୍ୟମୀ ଓ ବିଜୟୀ ବ୍ୟକ୍ତି ଗଢ଼ିଥାଏ।"
+    }
+  },
+  {
+    "id": "malavya_yoga",
+    "conditions": [
+      {"type": "planet_in_house",   "planet": "venus", "houses": [1, 4, 7, 10]},
+      {"type": "planet_in_dignity", "planet": "venus", "dignity": "own_or_exalted"}
+    ],
+    "strength_rules": [{"id": "venus_str", "planet": "venus"}],
+    "prediction": {
+      "en": "Malavya Yoga (Pancha Mahapurusha): Venus in a kendra in own/exalted sign endows beauty, luxury, artistic genius, and marital happiness.",
+      "hi": "मालव्य योग (पंच महापुरुष): केंद्र में स्वराशि या उच्च का शुक्र सौंदर्य, विलासिता, कलात्मक प्रतिभा और वैवाहिक सुख देता है।",
+      "or": "ମାଲବ୍ୟ ଯୋଗ (ପଞ୍ଚ ମହାପୁରୁଷ): କେନ୍ଦ୍ରରେ ସ୍ୱ/ଉଚ୍ଚ ଶୁକ୍ର ସୌନ୍ଦର୍ଯ୍ୟ, ବିଳାସ, କଳାଦକ୍ଷତା ଓ ଦାମ୍ପତ୍ୟ ସୁଖ ଦିଏ।"
+    }
+  },
+  {
+    "id": "bhadra_yoga",
+    "conditions": [
+      {"type": "planet_in_house",   "planet": "mercury", "houses": [1, 4, 7, 10]},
+      {"type": "planet_in_dignity", "planet": "mercury", "dignity": "own_or_exalted"}
+    ],
+    "strength_rules": [{"id": "mercury_str", "planet": "mercury"}],
+    "prediction": {
+      "en": "Bhadra Yoga (Pancha Mahapurusha): Mercury in a kendra in own/exalted sign produces an intellectual powerhouse — analytical, eloquent, and business-minded.",
+      "hi": "भद्र योग (पंच महापुरुष): केंद्र में उच्च या स्वराशि का बुध विश्लेषणात्मक, वाक्पटु और व्यवसायिक प्रतिभा देता है।",
+      "or": "ଭଦ୍ର ଯୋଗ (ପଞ୍ଚ ମହାପୁରୁଷ): କେନ୍ଦ୍ରରେ ସ୍ୱ/ଉଚ୍ଚ ବୁଧ ବିଶ୍ଳେଷଣ ଶକ୍ତି, ବ୍ୟୁତ୍ପତ୍ତି ଓ ବ୍ୟବସାୟ-ଦକ୍ଷତା ଦିଏ।"
+    }
+  },
+  {
+    "id": "shasha_yoga",
+    "conditions": [
+      {"type": "planet_in_house",   "planet": "saturn", "houses": [1, 4, 7, 10]},
+      {"type": "planet_in_dignity", "planet": "saturn", "dignity": "own_or_exalted"}
+    ],
+    "strength_rules": [{"id": "saturn_str", "planet": "saturn"}],
+    "prediction": {
+      "en": "Shasha Yoga (Pancha Mahapurusha): Saturn in a kendra in own/exalted sign creates a disciplined administrator — patient, structured, and authority-commanding.",
+      "hi": "शश योग (पंच महापुरुष): केंद्र में स्वराशि या उच्च का शनि अनुशासित प्रशासक बनाता है — धैर्यशील, संगठित और अधिकार-संपन्न।",
+      "or": "ଶଶ ଯୋଗ (ପଞ୍ଚ ମହାପୁରୁଷ): କେନ୍ଦ୍ରରେ ସ୍ୱ/ଉଚ୍ଚ ଶନି ଅନୁଶାସିତ ପ୍ରଶାସକ ଗଢ଼ପ — ଧୈର୍ଯ୍ୟ, ଶୃଙ୍ଖଳ ଓ କ୍ଷମତାଯୁକ୍ତ।"
+    }
+  }
+]

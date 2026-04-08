@@ -1,0 +1,191 @@
+[
+  {
+    "id": "gajakesari_yoga",
+    "conditions": [
+      {"type": "kendra_from_moon", "planet": "jupiter"}
+    ],
+    "strength_rules": [{"id": "jupiter_strength", "planet": "jupiter"}],
+    "prediction": {
+      "en": "Gajakesari Yoga: Jupiter in a kendra from Moon grants wisdom, fame, and emotional strength. The native commands respect in society.",
+      "hi": "गजकेसरी योग: चंद्र से केंद्र में बृहस्पति ज्ञान, यश और भावनात्मक दृढ़ता प्रदान करता है। जातक समाज में सम्मान पाता है।",
+      "or": "ଗଜକେଶରୀ ଯୋଗ: ଚନ୍ଦ୍ରରୁ କେନ୍ଦ୍ରରେ ବୃହସ୍ପତି ଜ୍ଞାନ, ଯଶ ଏବଂ ଭାବନାତ୍ମକ ଶକ୍ତି ଦିଏ। ଜାତକ ସମାଜରେ ସମ୍ମାନ ପାଏ।"
+    }
+  },
+  {
+    "id": "sunapha_yoga",
+    "conditions": [
+      {
+        "type": "any_planet_in_relative_house",
+        "from_planet": "moon",
+        "relative_houses": [2],
+        "exclude": ["sun", "rahu", "ketu"]
+      }
+    ],
+    "strength_rules": [{"id": "moon_strength", "planet": "moon"}],
+    "prediction": {
+      "en": "Sunapha Yoga: A planet occupies the 2nd house from Moon, bestowing wealth, self-reliance, and good social standing.",
+      "hi": "सुनफा योग: चंद्र से दूसरे भाव में ग्रह होने से धन, स्वावलंबन और अच्छी सामाजिक स्थिति मिलती है।",
+      "or": "ସୁନଫା ଯୋଗ: ଚନ୍ଦ୍ରରୁ ଦ୍ୱିତୀୟ ଭାବରେ ଗ୍ରହ ଧନ, ସ୍ୱାବଲମ୍ବନ ଏବଂ ଭଲ ସାମାଜିକ ମର୍ଯ୍ୟାଦା ଦିଏ।"
+    }
+  },
+  {
+    "id": "anapha_yoga",
+    "conditions": [
+      {
+        "type": "any_planet_in_relative_house",
+        "from_planet": "moon",
+        "relative_houses": [12],
+        "exclude": ["sun", "rahu", "ketu"]
+      }
+    ],
+    "strength_rules": [{"id": "moon_strength", "planet": "moon"}],
+    "prediction": {
+      "en": "Anapha Yoga: A planet in the 12th from Moon brings freedom from anxiety, good health, and a life of dignity.",
+      "hi": "अनफा योग: चंद्र से बारहवें भाव में ग्रह चिंता से मुक्ति, अच्छे स्वास्थ्य और सम्मानपूर्ण जीवन का योग बनाता है।",
+      "or": "ଅନଫା ଯୋଗ: ଚନ୍ଦ୍ରରୁ ଦ୍ୱାଦଶ ଭାବରେ ଗ୍ରହ ଚିନ୍ତାରୁ ମୁକ୍ତି, ସୁ-ସ୍ୱାସ୍ଥ୍ୟ ଏବଂ ମର୍ଯ୍ୟାଦାଯୁକ୍ତ ଜୀବନ ଦିଏ।"
+    }
+  },
+  {
+    "id": "durudhara_yoga",
+    "conditions": [
+      {
+        "type": "any_planet_in_relative_house",
+        "from_planet": "moon",
+        "relative_houses": [2],
+        "exclude": ["sun", "rahu", "ketu"]
+      },
+      {
+        "type": "any_planet_in_relative_house",
+        "from_planet": "moon",
+        "relative_houses": [12],
+        "exclude": ["sun", "rahu", "ketu"]
+      }
+    ],
+    "strength_rules": [{"id": "moon_strength", "planet": "moon"}],
+    "prediction": {
+      "en": "Durudhara Yoga: Planets on both sides of Moon create a powerful chart that blends ambition, wealth, and emotional balance.",
+      "hi": "दुरुधरा योग: चंद्र के दोनों ओर ग्रह होने से महत्वाकांक्षा, धन और भावनात्मक संतुलन का शक्तिशाली संयोग बनता है।",
+      "or": "ଦୁରୁଧରା ଯୋଗ: ଚନ୍ଦ୍ରର ଉଭୟ ପାର୍ଶ୍ୱରେ ଗ୍ରହ ଥିଲେ ମହାକାଂକ୍ଷା, ଧନ ଏବଂ ଭାବନାଗତ ସ୍ଥିରତାର ଶକ୍ତିଶାଳୀ ଯୋଗ ହୁଏ।"
+    }
+  },
+  {
+    "id": "kemadruma_yoga",
+    "conditions": [
+      {
+        "type": "no_planet_in_relative_house",
+        "from_planet": "moon",
+        "relative_houses": [2, 12],
+        "exclude": ["sun", "rahu", "ketu"]
+      }
+    ],
+    "strength_rules": [{"id": "moon_strength", "planet": "moon"}],
+    "prediction": {
+      "en": "Kemadruma Yoga: Moon is isolated with no planets in the 2nd or 12th, indicating struggle, emotional volatility, and lack of support.",
+      "hi": "केमद्रुम योग: चंद्र के दूसरे और बारहवें भाव में कोई ग्रह नहीं, जो संघर्ष, भावनात्मक अस्थिरता और समर्थन की कमी को दर्शाता है।",
+      "or": "କେମଦ୍ରୁମ ଯୋଗ: ଚନ୍ଦ୍ରର ଦ୍ୱିତୀୟ ଓ ଦ୍ୱାଦଶ ଭାବରେ କୌଣସି ଗ୍ରହ ନ ଥାଇ ସଂଘର୍ଷ, ଭାବୁକ ଅସ୍ଥିରତା ଏବଂ ସ୍ୱଜନ ସ୍ୱଳ୍ପତା ଦର୍ଶାଏ।"
+    }
+  },
+  {
+    "id": "chandra_mangal_yoga",
+    "conditions": [
+      {"type": "conjunction", "planets": ["moon", "mars"]}
+    ],
+    "strength_rules": [{"id": "moon_mars", "planet": "moon"}, {"id": "moon_mars_2", "planet": "mars"}],
+    "prediction": {
+      "en": "Chandra-Mangal Yoga: Moon and Mars conjoin, producing courage, emotional drive, and strong earning capacity.",
+      "hi": "चंद्र-मंगल योग: चंद्र और मंगल का संयोग साहस, भावनात्मक दृढ़ता और अच्छी आय क्षमता देता है।",
+      "or": "ଚନ୍ଦ୍ର-ମଙ୍ଗଳ ଯୋଗ: ଚନ୍ଦ୍ର ଓ ମଙ୍ଗଳ ଏକତ୍ର ହୋଇ ସାହସ, ଭାବୁକ ଦୃଢ଼ତା ଓ ଉତ୍ତମ ଉପାର୍ଜନ ଦେଇ ଥାଆନ୍ତି।"
+    }
+  },
+  {
+    "id": "chandra_budha_yoga",
+    "conditions": [
+      {"type": "conjunction", "planets": ["moon", "mercury"]}
+    ],
+    "strength_rules": [{"id": "moon_mercury", "planet": "moon"}],
+    "prediction": {
+      "en": "Chandra-Budha Yoga: Moon and Mercury together grant sharp intellect, eloquent communication, and artistic talent.",
+      "hi": "चंद्र-बुध योग: चंद्र और बुध का संयोग तीव्र बुद्धि, वाक्पटुता और कलात्मक प्रतिभा प्रदान करता है।",
+      "or": "ଚନ୍ଦ୍ର-ବୁଧ ଯୋଗ: ଚନ୍ଦ୍ର ଓ ବୁଧ ଏକତ୍ର ହୋଇ ତୀଷ୍ଣ ବୁଦ୍ଧି, ବ୍ୟୁତ୍ପତ୍ତି ଏବଂ କଳାତ୍ମକ ଦକ୍ଷତା ଦିଅନ୍ତି।"
+    }
+  },
+  {
+    "id": "chandra_guru_yoga",
+    "conditions": [
+      {"type": "conjunction", "planets": ["moon", "jupiter"]}
+    ],
+    "strength_rules": [{"id": "moon_jupiter", "planet": "jupiter"}],
+    "prediction": {
+      "en": "Chandra-Guru Yoga: Moon joins Jupiter, creating a deeply spiritual, wise, and compassionate nature with a penchant for learning.",
+      "hi": "चंद्र-गुरु योग: चंद्र और बृहस्पति का संयोग गहरी आध्यात्मिकता, बुद्धि और करुणामय स्वभाव देता है।",
+      "or": "ଚନ୍ଦ୍ର-ଗୁରୁ ଯୋଗ: ଚନ୍ଦ୍ର ଓ ବୃହସ୍ପତି ଏକାଠି ଗଭୀର ଆଧ୍ୟାତ୍ମିକତା, ବୁଦ୍ଧି ଏବଂ କରୁଣା ଦିଅନ୍ତି।"
+    }
+  },
+  {
+    "id": "chandra_shukra_yoga",
+    "conditions": [
+      {"type": "conjunction", "planets": ["moon", "venus"]}
+    ],
+    "strength_rules": [{"id": "moon_venus", "planet": "venus"}],
+    "prediction": {
+      "en": "Chandra-Shukra Yoga: Moon with Venus bestows refined taste, artistic expression, romantic charm, and material comforts.",
+      "hi": "चंद्र-शुक्र योग: चंद्र और शुक्र का संयोग परिष्कृत रुचि, कलात्मक अभिव्यक्ति और भौतिक सुख देता है।",
+      "or": "ଚନ୍ଦ୍ର-ଶୁକ୍ର ଯୋଗ: ଚନ୍ଦ୍ର ଓ ଶୁକ୍ର ଏକତ୍ର ସୁରୁଚି, କଳାତ୍ମକ ଅଭିବ୍ୟକ୍ତି ଏବଂ ଭୌତିକ ସ୍ୱଚ୍ଛଳତା ଦିଅନ୍ତି।"
+    }
+  },
+  {
+    "id": "chandra_shani_yoga",
+    "conditions": [
+      {"type": "conjunction", "planets": ["moon", "saturn"]}
+    ],
+    "strength_rules": [{"id": "moon_saturn", "planet": "saturn"}],
+    "prediction": {
+      "en": "Chandra-Shani Yoga: Moon and Saturn together produce disciplined emotions, perseverance, and slow but steady success.",
+      "hi": "चंद्र-शनि योग: चंद्र और शनि का संयोग अनुशासित भावनाएं, दृढ़ता और धीमी लेकिन स्थिर सफलता देता है।",
+      "or": "ଚନ୍ଦ୍ର-ଶନି ଯୋଗ: ଚନ୍ଦ୍ର ଓ ଶନି ଏକତ୍ର ଅନୁଶାସିତ ଭାବନା, ଦୃଢ଼ ଇଚ୍ଛାଶକ୍ତି ଏବଂ ଧୀରେ ଧୀରେ ସ୍ଥିର ସଫଳତା ଦିଅନ୍ତି।"
+    }
+  },
+  {
+    "id": "adhi_yoga",
+    "conditions": [
+      {
+        "type": "benefics_in_relative_houses",
+        "from_planet": "moon",
+        "planets": ["jupiter", "venus", "mercury"],
+        "relative_houses": [6, 7, 8],
+        "require_all": false
+      }
+    ],
+    "strength_rules": [{"id": "jupiter_str", "planet": "jupiter"}, {"id": "venus_str", "planet": "venus"}],
+    "prediction": {
+      "en": "Adhi Yoga: Natural benefics occupy the 6th, 7th, or 8th from Moon, indicating leadership capacity, political success, and long life.",
+      "hi": "अधि योग: चंद्र से छठे, सातवें या आठवें भाव में शुभ ग्रह नेतृत्व क्षमता, राजनीतिक सफलता और दीर्घायु का योग देते हैं।",
+      "or": "ଅଧି ଯୋଗ: ଚନ୍ଦ୍ରରୁ ଷଷ୍ଠ, ସପ୍ତମ ବା ଅଷ୍ଟମ ଭାବରେ ଶୁଭ ଗ୍ରହ ନେତୃତ୍ୱ, ରାଜନୈତିକ ସଫଳତା ଏବଂ ଦୀର୍ଘ ଜୀବନ ଦିଅନ୍ତି।"
+    }
+  },
+  {
+    "id": "moon_exalted_yoga",
+    "conditions": [
+      {"type": "planet_in_dignity", "planet": "moon", "dignity": "exalted"}
+    ],
+    "strength_rules": [{"id": "moon_str", "planet": "moon"}],
+    "prediction": {
+      "en": "Exalted Moon Yoga: Moon in Taurus reaches its peak power, granting exceptional emotional intelligence, beauty, and comfort in life.",
+      "hi": "चंद्र उच्च योग: वृष राशि में उच्च का चंद्र भावनात्मक बुद्धि, सौंदर्य और जीवन के सुख प्रदान करता है।",
+      "or": "ଚନ୍ଦ୍ର ଉଚ୍ଚ ଯୋଗ: ବୃଷ ରାଶିରେ ଉଚ୍ଚ ଚନ୍ଦ୍ର ଭାବନାତ୍ମକ ବୁଦ୍ଧିମତ୍ତା, ସୌନ୍ଦର୍ଯ୍ୟ ଓ ଜୀବନ ସ୍ୱଚ୍ଛଳତା ଦିଏ।"
+    }
+  },
+  {
+    "id": "moon_in_kendra_yoga",
+    "conditions": [
+      {"type": "planet_in_house", "planet": "moon", "houses": [1, 4, 7, 10]},
+      {"type": "planet_in_dignity", "planet": "moon", "dignity": "own_or_exalted"}
+    ],
+    "strength_rules": [{"id": "moon_str", "planet": "moon"}],
+    "prediction": {
+      "en": "Strong Moon in Kendra: An exalted or own-sign Moon in an angular house creates a formidable chart for emotional resilience and success.",
+      "hi": "केंद्र में बलवान चंद्र: केंद्र भाव में उच्च या स्वराशि का चंद्र भावनात्मक दृढ़ता और सफलता का मजबूत योग बनाता है।",
+      "or": "କେନ୍ଦ୍ରରେ ବଳଶାଳୀ ଚନ୍ଦ୍ର: ଉଚ୍ଚ ବା ସ୍ୱ-ରାଶି ଚନ୍ଦ୍ର ଭାବନାତ୍ମକ ସ୍ଥିତିସ୍ଥାପକତା ଏବଂ ସଫଳତାର ଦୃଢ଼ ଯୋଗ ଦିଏ।"
+    }
+  }
+]
