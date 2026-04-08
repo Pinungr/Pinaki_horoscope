@@ -185,6 +185,8 @@ class RuleEngine:
 
     @staticmethod
     def _is_aspect_condition(condition: Dict[str, Any]) -> bool:
+        if condition.get("type") == "aspect":
+            return True
         aspect_keys = {"from_planet", "to_planet", "from_house", "to_house", "aspect_type"}
         return any(key in condition for key in aspect_keys)
 
@@ -202,16 +204,22 @@ class RuleEngine:
         condition: Dict[str, Any],
         aspects: List[Dict[str, Any]],
     ) -> bool:
-        target_from_planet = condition.get("from_planet", condition.get("from"))
-        target_to_planet = condition.get("to_planet", condition.get("to"))
+        if not isinstance(aspects, list) or not aspects:
+            return False
+
+        target_from_planet = RuleEngine._normalize_planet_name(condition.get("from_planet", condition.get("from")))
+        target_to_planet = RuleEngine._normalize_planet_name(condition.get("to_planet", condition.get("to")))
         target_from_house = condition.get("from_house")
         target_to_house = condition.get("to_house")
         target_aspect_type = condition.get("aspect_type", "drishti" if condition.get("type") == "aspect" else None)
 
         for aspect in aspects:
-            if target_from_planet and aspect.get("from_planet") != target_from_planet:
+            aspect_from = RuleEngine._normalize_planet_name(aspect.get("from_planet"))
+            aspect_to = RuleEngine._normalize_planet_name(aspect.get("to_planet"))
+
+            if target_from_planet and aspect_from != target_from_planet:
                 continue
-            if target_to_planet and aspect.get("to_planet") != target_to_planet:
+            if target_to_planet and aspect_to != target_to_planet:
                 continue
             if target_from_house and aspect.get("from_house") != target_from_house:
                 continue

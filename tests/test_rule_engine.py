@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from app.engine.rule_engine import RuleEngine
 from app.models.domain import ChartData, Rule
@@ -110,6 +111,24 @@ class RuleEngineTests(unittest.TestCase):
         self.assertEqual(1, len(predictions))
         self.assertEqual("Typed aspect match succeeded.", predictions[0]["text"])
 
+    def test_evaluate_supports_case_insensitive_typed_aspect_conditions(self) -> None:
+        chart = [
+            ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
+            ChartData(user_id=1, planet_name="Moon", sign="Leo", house=5, degree=12.0),
+        ]
+        rules = [
+            Rule(
+                condition_json='{"type": "aspect", "from": "saturn", "to": "MOON"}',
+                result_text="Case-insensitive typed aspect match succeeded.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Case-insensitive typed aspect match succeeded.", predictions[0]["text"])
+
     def test_evaluate_supports_mixed_chart_and_aspect_conditions(self) -> None:
         chart = [
             ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
@@ -145,6 +164,43 @@ class RuleEngineTests(unittest.TestCase):
 
         self.assertEqual(1, len(predictions))
         self.assertEqual("Nested typed aspect condition matched.", predictions[0]["text"])
+
+    def test_evaluate_rejects_typed_aspect_condition_when_no_aspects_match(self) -> None:
+        rules = [
+            Rule(
+                condition_json='{"type": "aspect", "from": "Jupiter", "to": "Moon"}',
+                result_text="This typed aspect should not match.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(self.chart, aspects=[])
+
+        self.assertEqual([], predictions)
+
+    def test_evaluate_computes_aspects_once_for_multiple_typed_aspect_rules(self) -> None:
+        chart = [
+            ChartData(user_id=1, planet_name="Saturn", sign="Gemini", house=3, degree=10.0),
+            ChartData(user_id=1, planet_name="Moon", sign="Leo", house=5, degree=12.0),
+        ]
+        rules = [
+            Rule(
+                condition_json='{"type": "aspect", "from": "Saturn", "to": "Moon"}',
+                result_text="First typed aspect match.",
+                category="general",
+            ),
+            Rule(
+                condition_json='{"type": "aspect", "from": "Saturn", "to": "Moon"}',
+                result_text="Second typed aspect match.",
+                category="general",
+            ),
+        ]
+
+        with patch("app.engine.rule_engine.calculate_aspects", return_value=[{"from_planet": "Saturn", "to_planet": "Moon", "from_house": 3, "to_house": 5, "aspect_type": "drishti"}]) as mock_calculate_aspects:
+            predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual(2, len(predictions))
+        self.assertEqual(1, mock_calculate_aspects.call_count)
 
     def test_evaluate_supports_conjunction_conditions(self) -> None:
         chart = [
