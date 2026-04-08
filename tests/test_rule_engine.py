@@ -250,6 +250,55 @@ class RuleEngineTests(unittest.TestCase):
 
         self.assertEqual([], predictions)
 
+    def test_evaluate_supports_relative_house_conditions(self) -> None:
+        rules = [
+            Rule(
+                condition_json='{"type": "relative_house", "from": "Moon", "to": "Jupiter", "houses": [5]}',
+                result_text="Jupiter is 5th from Moon.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(self.chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Jupiter is 5th from Moon.", predictions[0]["text"])
+
+    def test_evaluate_supports_case_insensitive_relative_house_with_dict_rows(self) -> None:
+        chart = [
+            {"planet_name": "moon", "house": 10},
+            {"Planet": "JUPITER", "House": 1},
+        ]
+        rules = [
+            Rule(
+                condition_json='{"type": "relative_house", "from": "MOON", "to": "jupiter", "houses": [4]}',
+                result_text="Jupiter is 4th from Moon.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual(1, len(predictions))
+        self.assertEqual("Jupiter is 4th from Moon.", predictions[0]["text"])
+
+    def test_evaluate_rejects_relative_house_when_planet_is_missing_or_house_invalid(self) -> None:
+        chart = [
+            {"planet_name": "Moon", "house": "bad-house"},
+            {"planet_name": "Jupiter"},
+        ]
+        rules = [
+            Rule(
+                condition_json='{"type": "relative_house", "from": "Moon", "to": "Jupiter", "houses": [1, 4, 7, 10]}',
+                result_text="This relative-house rule should not match.",
+                category="general",
+            )
+        ]
+
+        predictions = RuleEngine(rules).evaluate(chart)
+
+        self.assertEqual([], predictions)
+
     def test_evaluate_supports_conjunction_conditions(self) -> None:
         chart = [
             ChartData(user_id=1, planet_name="Moon", sign="Cancer", house=4, degree=12.5),

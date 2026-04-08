@@ -97,6 +97,9 @@ class RuleEngine:
         if condition.get("type") == "in_kendra":
             return self._match_house_group_condition(condition, chart_data, "kendra")
 
+        if condition.get("type") == "relative_house":
+            return self._match_relative_house_condition(condition, chart_data)
+
         if self._is_aspect_condition(condition):
             return self._match_aspect_condition(
                 condition,
@@ -175,6 +178,38 @@ class RuleEngine:
             return False
 
         return target_house in HOUSE_GROUPS.get(group_name, set())
+
+    @staticmethod
+    def _match_relative_house_condition(
+        condition: Dict[str, Any],
+        chart_data: List[Any],
+    ) -> bool:
+        from_planet = condition.get("from")
+        to_planet = condition.get("to")
+        target_houses = condition.get("houses", [])
+
+        if not isinstance(target_houses, list) or not target_houses:
+            return False
+
+        normalized_target_houses = set()
+        for house in target_houses:
+            try:
+                house_number = int(house)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= house_number <= 12:
+                normalized_target_houses.add(house_number)
+
+        if not normalized_target_houses:
+            return False
+
+        from_house = RuleEngine.get_planet_house(chart_data, from_planet)
+        to_house = RuleEngine.get_planet_house(chart_data, to_planet)
+        if from_house is None or to_house is None:
+            return False
+
+        relative_house = (to_house - from_house) % 12 + 1
+        return relative_house in normalized_target_houses
 
     @staticmethod
     def _normalize_planet_name(planet_name: Any) -> str:
