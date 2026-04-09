@@ -30,9 +30,13 @@ class YogaModelTests(unittest.TestCase):
             "strength_rules": [
                 {"id": "jupiter_own_sign_bonus", "type": "planet_strength", "planet": "Jupiter", "score": 20},
             ],
+            "bhanga_rules": [
+                {"id": "jupiter_debilitated", "type": "planet_debilitated", "effect": "cancel", "planets": ["jupiter"]},
+                {"type": "weak_shadbala", "effect": "downgrade", "planets": ["moon"], "max_score": 40},
+            ],
             "prediction": {
                 "en": "Gajakesari Yoga is present.",
-                "hi": "गजकेसरी योग उपस्थित है।",
+                "hi": "Gajakesari Yoga is present.",
             },
         }
 
@@ -43,6 +47,9 @@ class YogaModelTests(unittest.TestCase):
         self.assertEqual("conjunction", yoga.conditions[0].type)
         self.assertEqual("in_kendra", yoga.conditions[1].type)
         self.assertEqual(1, len(yoga.strength_rules))
+        self.assertEqual(2, len(yoga.bhanga_rules))
+        self.assertEqual("cancel", yoga.bhanga_rules[0].effect)
+        self.assertEqual("weak_shadbala", yoga.bhanga_rules[1].type)
         self.assertEqual("Gajakesari Yoga is present.", yoga.prediction.get_text("en"))
         self.assertEqual("Gajakesari Yoga is present.", yoga.prediction.get_text("fr"))
 

@@ -159,15 +159,26 @@ class StrengthEngine:
         for planet_id, sb in shadbala_result.planets.items():
             score = self._to_percentage(sb.total, planet_id)
             level = self._level_for_score(score)
+            shadbala_payload = sb.as_dict()
             
             # Map Shadbala factors back to the breakdown for UI compatibility
             breakdown = {
-                "sthana": round(sb.sthana_bala, 1),
-                "dik": round(sb.dik_bala, 1),
-                "kala": round(sb.kala_bala, 1),
-                "chestha": round(sb.chestha_bala, 1),
-                "naisargika": round(sb.naisargika_bala, 1),
-                "total_virupas": round(sb.total, 1)
+                "sthana": shadbala_payload["sthana_bala"],
+                "dik": shadbala_payload["dik_bala"],
+                "kala": shadbala_payload["kala_bala"],
+                "chestha": shadbala_payload["chestha_bala"],
+                "naisargika": shadbala_payload["naisargika_bala"],
+                "drik": shadbala_payload["drik_bala"],
+                "total_virupas": shadbala_payload["total"],
+                "is_vargottama": shadbala_payload["is_vargottama"],
+                # Canonical keys for downstream consumers.
+                "sthana_bala": shadbala_payload["sthana_bala"],
+                "dik_bala": shadbala_payload["dik_bala"],
+                "kala_bala": shadbala_payload["kala_bala"],
+                "chestha_bala": shadbala_payload["chestha_bala"],
+                "naisargika_bala": shadbala_payload["naisargika_bala"],
+                "drik_bala": shadbala_payload["drik_bala"],
+                "total": shadbala_payload["total"],
             }
             
             results[planet_id] = PlanetStrength(

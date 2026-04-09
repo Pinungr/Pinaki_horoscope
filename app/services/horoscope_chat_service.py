@@ -354,6 +354,9 @@ class HoroscopeChatService:
                 result["data"] = self.fetch_intent_data(user_id, result["intent"], language=active_language)
             unified_predictions = self._get_unified_predictions(user_id, language=active_language)
             result["data"]["unified_predictions"] = unified_predictions
+            selected_narrative = self._select_parashari_narrative(unified_predictions, result["intent"])
+            if selected_narrative:
+                result["data"]["prediction_summary"] = selected_narrative
             unified_dasha_timeline = self._get_unified_dasha_timeline(user_id, language=active_language)
             result["data"]["timeline_forecast"] = self._get_cached_timeline_forecast(
                 user_id=user_id,
@@ -372,6 +375,9 @@ class HoroscopeChatService:
                     if not isinstance(section, dict):
                         continue
                     section_intent = str(section.get("intent", "general")).strip().lower() or "general"
+                    section_narrative = self._select_parashari_narrative(unified_predictions, section_intent)
+                    if section_narrative:
+                        section["prediction_summary"] = section_narrative
                     section["reasoning"] = self.reasoning_service.generate_explanations(
                         unified_predictions,
                         user_question=section_intent,
@@ -675,6 +681,38 @@ class HoroscopeChatService:
         if not isinstance(dasha_timeline, list):
             return []
         return [dict(item) for item in dasha_timeline if isinstance(item, dict)]
+
+    def _select_parashari_narrative(self, predictions: list[dict[str, Any]], intent: str) -> str:
+        """Returns the highest-scored Promise->Strength->Timing->Caution narrative for an intent."""
+        normalized_intent = str(intent or "general").strip().lower() or "general"
+        candidate_rows: list[dict[str, Any]] = []
+
+        for row in predictions or []:
+            if not isinstance(row, dict):
+                continue
+            area = str(row.get("area", "general")).strip().lower() or "general"
+            if normalized_intent != "general" and area != normalized_intent:
+                continue
+            candidate_rows.append(row)
+
+        if not candidate_rows:
+            if normalized_intent != "general":
+                return self._select_parashari_narrative(predictions, "general")
+            return ""
+
+        candidate_rows.sort(key=lambda item: self._safe_score(item.get("score")), reverse=True)
+        for row in candidate_rows:
+            narrative = _clean_sentence(row.get("final_narrative", ""))
+            if narrative:
+                return narrative
+        return ""
+
+    @staticmethod
+    def _safe_score(value: Any) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
 
     def _get_advanced_data_payload(self, user_id: int, *, language: str = "en") -> dict[str, Any]:
         """

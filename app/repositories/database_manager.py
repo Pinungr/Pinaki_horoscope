@@ -1,7 +1,10 @@
 import sqlite3
 import logging
 import json
+import queue
+import threading
 from pathlib import Path
+from contextlib import contextmanager
 from app.config.settings import DB_PATH
 from app.utils.safe_execution import AppError
 from app.utils.runtime_paths import resolve_resource
@@ -9,34 +12,68 @@ from app.utils.runtime_paths import resolve_resource
 logger = logging.getLogger(__name__)
 
 class DatabaseManager:
-    """Manages SQLite database connections and schema initialization."""
+    """Manages SQLite database connections with thread-safe pooling."""
     
-    def __init__(self, db_path: str = str(DB_PATH)):
+    def __init__(self, db_path: str = str(DB_PATH), pool_size: int = 5):
         self.db_path = db_path
+        self.pool_size = pool_size
+        self._pool = queue.Queue()
+        self._lock = threading.Lock()
+        self._created_connections = 0
 
     def get_connection(self):
-        """Returns a new SQLite database connection."""
+        """
+        Retrieves a connection from the pool or creates a new one.
+        Note: Use connection_context() instead for automatic cleanup.
+        """
         try:
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row  # Access columns by name
+            return self._pool.get(block=False)
+        except queue.Empty:
+            with self._lock:
+                if self._created_connections < self.pool_size:
+                    conn = self._create_new_connection()
+                    self._created_connections += 1
+                    return conn
+            # If pool is full and empty, block until one is available
+            return self._pool.get(block=True)
+
+    def _create_new_connection(self):
+        """Creates a raw SQLite connection with standard configuration."""
+        try:
+            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            # Enable WAL mode for better concurrency in desktop environments
+            conn.execute("PRAGMA journal_mode=WAL")
             return conn
         except sqlite3.Error as exc:
             logger.exception("Failed to open database connection '%s': %s", self.db_path, exc)
-            raise AppError("Unable to connect to the local database right now. Please try again.") from exc
+            raise AppError("Unable to connect to the local database. Please try again.") from exc
 
-    def connection_context(self):
-        """Helper to ensure the connection is always closed, even if exceptions occur."""
-        from contextlib import contextmanager
-
-        @contextmanager
-        def _execute():
-            conn = self.get_connection()
+    def return_connection(self, conn: sqlite3.Connection):
+        """Returns a connection to the pool."""
+        try:
+            # Ensure no pending transactions before returning
+            if conn.in_transaction:
+                conn.rollback()
+            self._pool.put(conn)
+        except Exception as exc:
+            logger.error("Error returning connection to pool: %s", exc)
             try:
-                yield conn
-            finally:
                 conn.close()
+            except:
+                pass
 
-        return _execute()
+    @contextmanager
+    def connection_context(self):
+        """
+        Context manager to lease and return database connections safely.
+        Usage: with db_manager.connection_context() as conn: ...
+        """
+        conn = self.get_connection()
+        try:
+            yield conn
+        finally:
+            self.return_connection(conn)
 
     def _migrate_chart_data_table(self, conn: sqlite3.Connection) -> None:
         """Safely extends the existing chart_data table with exact astronomical coordinates."""
@@ -63,6 +100,10 @@ class DatabaseManager:
         existing_columns = {row["name"] for row in cursor.fetchall()}
 
         alter_statements = []
+        if "priority" not in existing_columns:
+            alter_statements.append("ALTER TABLE rules ADD COLUMN priority INTEGER DEFAULT 0")
+        if "category" not in existing_columns:
+            alter_statements.append("ALTER TABLE rules ADD COLUMN category TEXT")
         if "effect" not in existing_columns:
             alter_statements.append("ALTER TABLE rules ADD COLUMN effect TEXT DEFAULT 'positive'")
         if "weight" not in existing_columns:
@@ -73,7 +114,7 @@ class DatabaseManager:
             alter_statements.append("ALTER TABLE rules ADD COLUMN result_key TEXT")
 
         for statement in alter_statements:
-            cursor.execute(statement)
+            conn.execute(statement)
 
         key_backfills = {
             "Sun in the 1st House provides strong vitality, leadership skills, and radiant energy.": "sun_first_house_vitality",
@@ -92,8 +133,20 @@ class DatabaseManager:
                 (result_key, result_text),
             )
 
-        if alter_statements:
-            logger.info("Applied rules table migration for scoring/effect columns.")
+        # Ticket P0.3: Data cleanup migrations
+        # 1. Rename 'sasa_yoga' to 'shasha_yoga' to match canonical ID
+        cursor.execute("UPDATE rules SET result_key = 'shasha_yoga' WHERE result_key = 'sasa_yoga'")
+        # 2. Fix 'Libre' typo in condition_json for Malavya Yoga
+        cursor.execute(
+            """
+            UPDATE rules 
+            SET condition_json = REPLACE(condition_json, '"sign": "Libre"', '"sign": "Libra"')
+            WHERE result_key = 'malavya_yoga' AND condition_json LIKE '%"sign": "Libre"%'
+            """
+        )
+
+        if alter_statements or cursor.rowcount > 0:
+            logger.info("Applied rules table migrations and data cleanup.")
 
     def _seed_default_rules(self, conn: sqlite3.Connection) -> None:
         """Ensures core bundled rules exist without creating duplicates."""
@@ -133,29 +186,81 @@ class DatabaseManager:
                 60,
                 "Yoga",
             ),
+            (
+                '{"AND": [{"planet": "Mars", "type": "in_kendra"}, {"OR": [{"planet": "Mars", "sign": "Aries"}, {"planet": "Mars", "sign": "Scorpio"}, {"planet": "Mars", "sign": "Capricorn"}]}]}',
+                "Ruchaka Yoga: Mars is powerful in a Kendra. Grants courage, leadership, and physical power.",
+                "ruchaka_yoga",
+                70,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Mercury", "type": "in_kendra"}, {"OR": [{"planet": "Mercury", "sign": "Gemini"}, {"planet": "Mercury", "sign": "Virgo"}]}]}',
+                "Bhadra Yoga: Mercury is powerful in a Kendra. Grants intellectual brilliance and eloquent speech.",
+                "bhadra_yoga",
+                70,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Jupiter", "type": "in_kendra"}, {"OR": [{"planet": "Jupiter", "sign": "Sagittarius"}, {"planet": "Jupiter", "sign": "Pisces"}, {"planet": "Jupiter", "sign": "Cancer"}]}]}',
+                "Hamsa Yoga: Jupiter is powerful in a Kendra. Grants wisdom, spirituality, and divine grace.",
+                "hamsa_yoga",
+                70,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Venus", "type": "in_kendra"}, {"OR": [{"planet": "Venus", "sign": "Taurus"}, {"planet": "Venus", "sign": "Libra"}, {"planet": "Venus", "sign": "Pisces"}]}]}',
+                "Malavya Yoga: Venus is powerful in a Kendra. Grants prosperity, luxury, and artistic talent.",
+                "malavya_yoga",
+                70,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Saturn", "type": "in_kendra"}, {"OR": [{"planet": "Saturn", "sign": "Capricorn"}, {"planet": "Saturn", "sign": "Aquarius"}, {"planet": "Saturn", "sign": "Libra"}]}]}',
+                "Shasha Yoga: Saturn is powerful in a Kendra. Grants persistence, authority, and mass leadership.",
+                "shasha_yoga",
+                70,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Jupiter", "house": 10}, {"OR": [{"planet": "Moon", "house": 1}, {"planet": "lagna", "house": 1}]}]}',
+                "Amala Yoga: A strong benefic in the 10th house. Promises spotless reputation and professional success.",
+                "amala_yoga",
+                65,
+                "Yoga",
+            ),
         ]
 
         cursor = conn.cursor()
         for condition_json, result_text, result_key, priority, category in default_rules:
-            cursor.execute(
-                """
-                SELECT 1
-                FROM rules
-                WHERE result_key = ? OR (condition_json = ? AND result_text = ?)
-                LIMIT 1
-                """,
-                (result_key, condition_json, result_text),
-            )
-            if cursor.fetchone():
-                continue
+            # Check if rule exists by result_key
+            cursor.execute("SELECT id, condition_json, result_text FROM rules WHERE result_key = ?", (result_key,))
+            existing = cursor.fetchone()
 
-            cursor.execute(
-                """
-                INSERT INTO rules (condition_json, result_text, result_key, priority, category)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (condition_json, result_text, result_key, priority, category),
-            )
+            if existing:
+                # If it exists, update it to ensure typo fixes and content updates are applied
+                if existing["condition_json"] != condition_json or existing["result_text"] != result_text:
+                    cursor.execute(
+                        """
+                        UPDATE rules 
+                        SET condition_json = ?, result_text = ?, priority = ?, category = ?
+                        WHERE id = ?
+                        """,
+                        (condition_json, result_text, priority, category, existing["id"]),
+                    )
+            else:
+                # If not exists, insert but still double check by content as fallback
+                cursor.execute(
+                    "SELECT 1 FROM rules WHERE condition_json = ? AND result_text = ?",
+                    (condition_json, result_text),
+                )
+                if not cursor.fetchone():
+                    cursor.execute(
+                        """
+                        INSERT INTO rules (condition_json, result_text, result_key, priority, category)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (condition_json, result_text, result_key, priority, category),
+                    )
 
     def _migrate_users_table(self, conn: sqlite3.Connection) -> None:
         """Safely extends the users table with structured location columns."""
@@ -297,7 +402,7 @@ class DatabaseManager:
         '''
         
         try:
-            with self.get_connection() as conn:
+            with self.connection_context() as conn:
                 # Execution of the schema script
                 conn.executescript(schema)
                 self._migrate_chart_data_table(conn)

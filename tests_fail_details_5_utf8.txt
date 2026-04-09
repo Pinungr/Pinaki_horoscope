@@ -1,0 +1,148 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.14.2, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope
+configfile: pytest.ini
+plugins: anyio-4.13.0
+collected 171 items
+
+tests\test_aspect_engine.py ......                                       [  3%]
+tests\test_astrology_advanced_service.py ...                             [  5%]
+tests\test_chart_utils.py ...                                            [  7%]
+tests\test_contextual_prediction_service.py .........                    [ 12%]
+tests\test_core_activations.py FF                                        [ 13%]
+tests\test_cross_varga.py ...                                            [ 15%]
+tests\test_dasha_engine.py ...                                           [ 16%]
+tests\test_event_service.py .....                                        [ 19%]
+tests\test_failure_registry.py ..                                        [ 21%]
+tests\test_horoscope_chat_service_reasoning.py ....                      [ 23%]
+tests\test_language_manager.py .                                         [ 23%]
+tests\test_openai_refiner_service.py .....                               [ 26%]
+tests\test_precision_boundaries.py ..                                    [ 28%]
+tests\test_prediction_aggregation_service.py ......                      [ 31%]
+tests\test_prediction_service.py .F..                                    [ 33%]
+tests\test_professional_intelligence.py ....                             [ 36%]
+tests\test_reasoning_service.py ......                                   [ 39%]
+tests\test_report_service_localization.py .                              [ 40%]
+tests\test_rule_editor_screen.py ..                                      [ 41%]
+tests\test_rule_engine.py ......................                         [ 54%]
+tests\test_shadbala.py ...                                               [ 56%]
+tests\test_strength_engine.py .....................                      [ 68%]
+tests\test_timeline_service.py .....                                     [ 71%]
+tests\test_transit_engine.py .F.                                         [ 73%]
+tests\test_unified_astrology_engine.py ........                          [ 77%]
+tests\test_yoga_condition_engine.py ...............                      [ 86%]
+tests\test_yoga_engine.py .....................                          [ 98%]
+tests\test_yoga_models.py ..                                             [100%]
+
+================================== FAILURES ===================================
+________________ TestCoreActivations.test_shadbala_integration ________________
+app\utils\safe_execution.py:62: in execute_safely
+    return operation()
+           ^^^^^^^^^^^
+app\services\horoscope_service.py:351: in <lambda>
+    lambda: self._calculate_chart_data(user),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\services\horoscope_service.py:73: in _calculate_chart_data
+    return AstrologyEngine().calculate_chart(user)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\engine\calculator.py:150: in calculate_chart
+    jd_et, jd_ut = swe.utc_to_jd(
+E   TypeError: install_engine_dependency_stubs.<locals>._utc_to_jd_stub() takes 6 positional arguments but 7 were given
+
+The above exception was the direct cause of the following exception:
+tests\test_core_activations.py:24: in test_shadbala_integration
+    display_data, predictions = self.horoscope_service.generate_and_save_chart(user_data)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\services\horoscope_service.py:350: in generate_and_save_chart
+    chart_data_models = execute_safely(
+app\utils\safe_execution.py:73: in execute_safely
+    raise AppError(user_message, log_message=f"{operation_name} failed") from exc
+E   app.utils.safe_execution.AppError: Unable to generate the chart right now. Please verify the birth details and try again.
+------------------------------ Captured log call ------------------------------
+ERROR    app.services.horoscope_service:safe_execution.py:67 Chart calculation failed: install_engine_dependency_stubs.<locals>._utc_to_jd_stub() takes 6 positional arguments but 7 were given
+Traceback (most recent call last):
+  File "C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope\app\utils\safe_execution.py", line 62, in execute_safely
+    return operation()
+  File "C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope\app\services\horoscope_service.py", line 351, in <lambda>
+    lambda: self._calculate_chart_data(user),
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope\app\services\horoscope_service.py", line 73, in _calculate_chart_data
+    return AstrologyEngine().calculate_chart(user)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope\app\engine\calculator.py", line 150, in calculate_chart
+    jd_et, jd_ut = swe.utc_to_jd(
+                   ~~~~~~~~~~~~~^
+        utc_dt.year, utc_dt.month, utc_dt.day,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        utc_dt.hour, utc_dt.minute, utc_dt.second,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        swe.GREG_CAL
+        ^^^^^^^^^^^^
+    )
+    ^
+TypeError: install_engine_dependency_stubs.<locals>._utc_to_jd_stub() takes 6 positional arguments but 7 were given
+________________ TestCoreActivations.test_transit_integration _________________
+app\utils\safe_execution.py:62: in execute_safely
+    return operation()
+           ^^^^^^^^^^^
+app\services\horoscope_service.py:351: in <lambda>
+    lambda: self._calculate_chart_data(user),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\services\horoscope_service.py:73: in _calculate_chart_data
+    return AstrologyEngine().calculate_chart(user)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\engine\calculator.py:150: in calculate_chart
+    jd_et, jd_ut = swe.utc_to_jd(
+E   TypeError: install_engine_dependency_stubs.<locals>._utc_to_jd_stub() takes 6 positional arguments but 7 were given
+
+The above exception was the direct cause of the following exception:
+tests\test_core_activations.py:43: in test_transit_integration
+    self.horoscope_service.generate_and_save_chart(user_data)
+app\services\horoscope_service.py:350: in generate_and_save_chart
+    chart_data_models = execute_safely(
+app\utils\safe_execution.py:73: in execute_safely
+    raise AppError(user_message, log_message=f"{operation_name} failed") from exc
+E   app.utils.safe_execution.AppError: Unable to generate the chart right now. Please verify the birth details and try again.
+------------------------------ Captured log call ------------------------------
+ERROR    app.services.horoscope_service:safe_execution.py:67 Chart calculation failed: install_engine_dependency_stubs.<locals>._utc_to_jd_stub() takes 6 positional arguments but 7 were given
+Traceback (most recent call last):
+  File "C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope\app\utils\safe_execution.py", line 62, in execute_safely
+    return operation()
+  File "C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope\app\services\horoscope_service.py", line 351, in <lambda>
+    lambda: self._calculate_chart_data(user),
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope\app\services\horoscope_service.py", line 73, in _calculate_chart_data
+    return AstrologyEngine().calculate_chart(user)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope\app\engine\calculator.py", line 150, in calculate_chart
+    jd_et, jd_ut = swe.utc_to_jd(
+                   ~~~~~~~~~~~~~^
+        utc_dt.year, utc_dt.month, utc_dt.day,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        utc_dt.hour, utc_dt.minute, utc_dt.second,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        swe.GREG_CAL
+        ^^^^^^^^^^^^
+    )
+    ^
+TypeError: install_engine_dependency_stubs.<locals>._utc_to_jd_stub() takes 6 positional arguments but 7 were given
+_ HoroscopePredictionServiceTests.test_default_gajakesari_yoga_rule_is_seeded_and_matches _
+tests\test_prediction_service.py:137: in test_default_gajakesari_yoga_rule_is_seeded_and_matches
+    self.assertIn("gajakesari", yoga["summary"].lower())
+E   AssertionError: 'gajakesari' not found in 'overall indications look strongly supportive. hamsa yoga: jupiter is powerful in a kendra. grants wisdom, spirituality, and divine grace.'
+_____________ TransitEngineTests.test_relative_house_calculation ______________
+tests\test_transit_engine.py:26: in test_relative_house_calculation
+    self.assertEqual(saturn_transit["house_from_reference"], 12)
+E   AssertionError: 11 != 12
+============================== warnings summary ===============================
+tests/test_transit_engine.py::TransitEngineTests::test_rahu_ketu_opposite
+  C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope\tests\test_transit_engine.py:47: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    results = self.engine._get_current_positions(datetime.utcnow())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_core_activations.py::TestCoreActivations::test_shadbala_integration
+FAILED tests/test_core_activations.py::TestCoreActivations::test_transit_integration
+FAILED tests/test_prediction_service.py::HoroscopePredictionServiceTests::test_default_gajakesari_yoga_rule_is_seeded_and_matches
+FAILED tests/test_transit_engine.py::TransitEngineTests::test_relative_house_calculation
+================== 4 failed, 167 passed, 1 warning in 0.57s ===================

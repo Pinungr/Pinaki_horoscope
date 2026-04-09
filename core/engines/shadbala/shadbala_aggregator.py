@@ -20,6 +20,9 @@ class ShadbalaEngine:
     Aggregates positional, directional, temporal, motional, natural, and aspectual strengths.
     """
 
+    def __init__(self):
+        self.navamsha_engine = NavamshaEngine()
+
     def calculate(self, chart: ChartSnapshot) -> ShadbalaResult:
         """Calculates total Shadbala for all planets in the chart."""
         result = ShadbalaResult()
@@ -28,8 +31,9 @@ class ShadbalaEngine:
         sun_placement = chart.get("sun")
         asc_placement = chart.get("ascendant") or chart.get("lagna")
         
+        logger.debug("Shadbala calculation: Sun=%s, Ascendant=%s", sun_placement is not None, asc_placement is not None)
         if not sun_placement or not asc_placement:
-            logger.warning("Shadbala calculation requires Sun and Ascendant placements.")
+            logger.warning("Shadbala calculation requires Sun and Ascendant placements. Found keys: %s", list(chart.placements.keys()))
             return result
 
         for planet_id, placement in chart.placements.items():
@@ -54,8 +58,8 @@ class ShadbalaEngine:
             # 6. Drik Bala
             drik = drik_calc.calculate(planet_id, chart)
             
-            # Vargottama detection
-            d9_sign = NavamshaEngine.get_navamsha_sign(placement.sign, placement.degree)
+            # Vargottama detection using high-precision instance
+            d9_sign = self.navamsha_engine.get_navamsha_sign(placement.sign, placement.degree)
             vargottama = (d9_sign.lower() == placement.sign.lower()) if d9_sign else False
             
             result.planets[planet_id] = PlanetShadbala(

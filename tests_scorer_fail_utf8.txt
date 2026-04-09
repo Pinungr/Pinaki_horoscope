@@ -1,0 +1,30 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.14.2, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope
+configfile: pytest.ini
+collected 4 items
+
+tests\test_scorer_dedup.py F...                                          [100%]
+
+================================== FAILURES ===================================
+___________ ScorerDedupTests.test_collapse_preserves_multiple_yogas ___________
+
+self = <tests.test_scorer_dedup.ScorerDedupTests testMethod=test_collapse_preserves_multiple_yogas>
+
+    def test_collapse_preserves_multiple_yogas(self):
+        sentences = [
+            "Hamsa Yoga: Jupiter is powerful.",
+            "Gajakesari Yoga: Moon and Jupiter combine.",
+            "Hamsa Yoga is present.", # Should collapse into the first one
+            "Overall results are good."
+        ]
+        collapsed = _collapse_similar_sentences(sentences)
+    
+        # Should have 3 unique clusters: Hamsa, Gajakesari, Overall
+>       self.assertEqual(len(collapsed), 3)
+E       AssertionError: 4 != 3
+
+tests\test_scorer_dedup.py:35: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_scorer_dedup.py::ScorerDedupTests::test_collapse_preserves_multiple_yogas
+========================= 1 failed, 3 passed in 0.03s =========================

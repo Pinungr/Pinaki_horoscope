@@ -200,6 +200,21 @@ class StrengthEngineTests(unittest.TestCase):
         self.assertIn("level", d)
         self.assertIn("breakdown", d)
 
+    def test_breakdown_contains_canonical_shadbala_fields(self) -> None:
+        chart = self._build_chart([{"planet_name": "Sun", "house": 1, "sign": "Aries", "degree": 10.0, "absolute_longitude": 10.0}])
+        result = self.engine.score_planet("sun", chart)
+        for key in (
+            "sthana_bala",
+            "dik_bala",
+            "kala_bala",
+            "chestha_bala",
+            "naisargika_bala",
+            "drik_bala",
+            "total",
+            "is_vargottama",
+        ):
+            self.assertIn(key, result.breakdown)
+
 
 if __name__ == "__main__":
     unittest.main()

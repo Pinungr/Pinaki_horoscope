@@ -1,10 +1,36 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, TypeVar
+import threading
+from typing import Any, Callable, List, TypeVar, Optional
 
 
 T = TypeVar("T")
+
+
+class FailureRegistry:
+    """Thread-local storage for tracking non-fatal service failures."""
+    def __init__(self):
+        self._local = threading.local()
+
+    def _ensure_init(self):
+        if not hasattr(self._local, "failures"):
+            self._local.failures = []
+
+    def record(self, operation_name: str, message: str):
+        self._ensure_init()
+        self._local.failures.append({"operation": operation_name, "message": message})
+
+    def get_failures(self) -> List[dict]:
+        self._ensure_init()
+        return list(self._local.failures)
+
+    def clear(self):
+        self._local.failures = []
+
+
+# Global instance for easy access across the app
+failure_registry = FailureRegistry()
 
 
 class AppError(Exception):
@@ -24,12 +50,13 @@ def execute_safely(
     user_message: str,
     fallback: T | Callable[[], T] | None = None,
     raise_app_error: bool = False,
+    record_failure: bool = True,
 ) -> T:
     """
     Executes an operation with consistent logging and fallback behavior.
 
-    When ``raise_app_error`` is True, failures become ``AppError`` instances for
-    UI-safe presentation. Otherwise, the provided fallback is returned.
+    When ``raise_app_error`` is True, failures become ``AppError`` instances.
+    When ``record_failure`` is True, non-fatal errors are logged in FailureRegistry.
     """
     try:
         return operation()
@@ -38,6 +65,9 @@ def execute_safely(
     except Exception as exc:
         active_logger = logger or logging.getLogger(__name__)
         active_logger.exception("%s failed: %s", operation_name, exc)
+
+        if record_failure:
+            failure_registry.record(operation_name, user_message)
 
         if raise_app_error:
             raise AppError(user_message, log_message=f"{operation_name} failed") from exc

@@ -5,6 +5,12 @@
       {"type": "kendra_from_moon", "planet": "jupiter"}
     ],
     "strength_rules": [{"id": "jupiter_strength", "planet": "jupiter"}],
+    "bhanga_rules": [
+      {"id": "jupiter_debilitated", "type": "planet_debilitated", "effect": "cancel", "planets": ["jupiter"]},
+      {"id": "moon_jupiter_severe_affliction", "type": "severe_affliction", "effect": "cancel", "planets": ["moon", "jupiter"], "min_hits": 3, "min_afflicted_planets": 2},
+      {"id": "jupiter_combust", "type": "combustion", "effect": "downgrade", "planets": ["jupiter"]},
+      {"id": "moon_jupiter_weak_shadbala", "type": "weak_shadbala", "effect": "downgrade", "planets": ["moon", "jupiter"], "max_score": 42}
+    ],
     "prediction": {
       "en": "Gajakesari Yoga: Jupiter in a kendra from Moon grants wisdom, fame, and emotional strength. The native commands respect in society.",
       "hi": "गजकेसरी योग: चंद्र से केंद्र में बृहस्पति ज्ञान, यश और भावनात्मक दृढ़ता प्रदान करता है। जातक समाज में सम्मान पाता है।",
@@ -91,6 +97,12 @@
       {"type": "conjunction", "planets": ["moon", "mars"]}
     ],
     "strength_rules": [{"id": "moon_mars", "planet": "moon"}, {"id": "moon_mars_2", "planet": "mars"}],
+    "bhanga_rules": [
+      {"id": "moon_or_mars_debilitated", "type": "planet_debilitated", "effect": "cancel", "planets": ["moon", "mars"]},
+      {"id": "moon_mars_severe_affliction", "type": "severe_affliction", "effect": "cancel", "planets": ["moon", "mars"], "min_hits": 3, "min_afflicted_planets": 2},
+      {"id": "mars_combust", "type": "combustion", "effect": "downgrade", "planets": ["mars"]},
+      {"id": "moon_mars_low_shadbala", "type": "weak_shadbala", "effect": "downgrade", "planets": ["moon", "mars"], "max_score": 40}
+    ],
     "prediction": {
       "en": "Chandra-Mangal Yoga: Moon and Mars conjoin, producing courage, emotional drive, and strong earning capacity.",
       "hi": "चंद्र-मंगल योग: चंद्र और मंगल का संयोग साहस, भावनात्मक दृढ़ता और अच्छी आय क्षमता देता है।",

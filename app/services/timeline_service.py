@@ -68,6 +68,7 @@ class TimelineService:
             "notable": "{area} ରେ ଲକ୍ଷଣୀୟ ଉନ୍ନତି",
         },
     }
+    _ACTIVATION_LABELS = {"active_now", "upcoming", "dormant"}
 
     def extract_dasha_windows(self, dasha_timeline: Any) -> list[dict[str, Any]]:
         """
@@ -139,6 +140,7 @@ class TimelineService:
         normalized_language = self._normalize_language(language)
         windows = self.extract_dasha_windows(dasha_timeline)
         timeline: list[dict[str, Any]] = []
+        today = date.today()
 
         for prediction in predictions or []:
             if not isinstance(prediction, Mapping):
@@ -148,14 +150,85 @@ class TimelineService:
             if not matched_windows:
                 continue
 
+            trend_context = self._compute_activation_trend_context(prediction, windows, today=today)
             for window in matched_windows[: max(1, int(max_windows_per_prediction))]:
+                timing = prediction.get("timing", {})
+                if not isinstance(timing, Mapping):
+                    timing = {}
+                activation_level = str(
+                    prediction.get("activation_level", timing.get("activation_level", timing.get("relevance", "low")))
+                ).strip().lower() or "low"
+                dasha_evidence = self._normalize_evidence(
+                    prediction.get("dasha_evidence", timing.get("dasha_evidence", []))
+                )
+                if not dasha_evidence:
+                    maha = str(window.get("mahadasha", "")).strip()
+                    antar = str(window.get("antardasha", "")).strip()
+                    if maha and antar:
+                        dasha_evidence = [
+                            f"Active dasha window: {maha} Mahadasha with {antar} Antardasha."
+                        ]
+                    elif maha:
+                        dasha_evidence = [f"Active dasha window: {maha} Mahadasha."]
+                    else:
+                        dasha_evidence = ["Timing is mapped from the current dasha window."]
+                activation_score = self._safe_int(
+                    prediction.get("activation_score", timing.get("activation_score"))
+                )
+                projected_score = self._project_activation_for_window(
+                    prediction,
+                    window,
+                    base_score=activation_score,
+                    today=today,
+                )
+                activation_label = self._resolve_activation_label(
+                    window=window,
+                    prediction=prediction,
+                    projected_score=projected_score,
+                    today=today,
+                    trend_context=trend_context,
+                )
+                source_factors = self._build_source_factors(
+                    prediction=prediction,
+                    window=window,
+                    activation_label=activation_label,
+                    projected_score=projected_score,
+                    trend_context=trend_context,
+                    dasha_evidence=dasha_evidence,
+                    today=today,
+                )
+                prediction_text = str(
+                    prediction.get("final_narrative")
+                    or prediction.get("refined_text")
+                    or prediction.get("text")
+                    or self._build_event_label(prediction, language=normalized_language)
+                ).strip()
                 timeline.append(
                     {
                         "period": self._format_period(window["start"], window["end"], month_granularity),
                         "area": self._normalize_area(str(prediction.get("area", "general"))),
                         "event": self._build_event_label(prediction, language=normalized_language),
+                        "prediction": prediction_text,
                         "confidence": self._event_confidence(prediction, window),
                         "yoga": str(prediction.get("yoga", "")).strip(),
+                        "activation_level": activation_level,
+                        "activation_score": projected_score,
+                        "activation_label": activation_label,
+                        "activation_trend": trend_context.get("trend", "stable"),
+                        "strength_level": str(prediction.get("strength", "")).strip().lower() or "unknown",
+                        "strength_score": self._safe_int(prediction.get("strength_score")),
+                        "agreement_level": str(prediction.get("agreement_level", "medium")).strip().lower() or "medium",
+                        "concordance_score": prediction.get("concordance_score", None),
+                        "transit_support_state": str(
+                            (
+                                prediction.get("transit", {})
+                                if isinstance(prediction.get("transit"), Mapping)
+                                else {}
+                            ).get("support_state", "neutral")
+                        ).strip().lower()
+                        or "neutral",
+                        "dasha_evidence": dasha_evidence,
+                        "source_factors": source_factors,
                         "reasoning_link": self._build_reasoning_link(
                             prediction,
                             window,
@@ -174,6 +247,161 @@ class TimelineService:
         )
         return {"timeline": timeline}
 
+    def _compute_activation_trend_context(
+        self,
+        prediction: Mapping[str, Any],
+        windows: list[dict[str, Any]],
+        *,
+        today: date,
+    ) -> dict[str, Any]:
+        if not windows:
+            return {"trend": "stable", "current_score": 0, "next_score": 0}
+
+        timing = prediction.get("timing", {})
+        if not isinstance(timing, Mapping):
+            timing = {}
+        base_score = self._safe_int(prediction.get("activation_score", timing.get("activation_score")))
+        if base_score <= 0:
+            base_score = self._safe_int(prediction.get("score"))
+
+        current_window = self._find_current_window(windows, today=today)
+        next_window = self._find_next_window(windows, today=today)
+
+        current_score = (
+            self._project_activation_for_window(prediction, current_window, base_score=base_score, today=today)
+            if current_window
+            else 0
+        )
+        next_score = (
+            self._project_activation_for_window(prediction, next_window, base_score=base_score, today=today)
+            if next_window
+            else 0
+        )
+        delta = next_score - current_score
+        if delta >= 8:
+            trend = "rising"
+        elif delta <= -8:
+            trend = "falling"
+        else:
+            trend = "stable"
+
+        return {
+            "trend": trend,
+            "current_score": current_score,
+            "next_score": next_score,
+            "current_window": current_window,
+            "next_window": next_window,
+        }
+
+    def _project_activation_for_window(
+        self,
+        prediction: Mapping[str, Any],
+        window: Mapping[str, Any] | None,
+        *,
+        base_score: int,
+        today: date,
+    ) -> int:
+        if not isinstance(window, Mapping):
+            return max(0, min(100, base_score))
+
+        support = self._window_support_type(prediction, window)
+        adjustment = 0
+        if support == "maha_antar":
+            adjustment += 12
+        elif support == "maha":
+            adjustment += 7
+        elif support == "antar":
+            adjustment += 4
+        else:
+            adjustment -= 18
+
+        start = window.get("start")
+        if isinstance(start, date) and start > today:
+            days_to_start = (start - today).days
+            if days_to_start <= 540 and support in {"maha_antar", "maha", "antar"}:
+                adjustment += 4
+            elif days_to_start > 540:
+                adjustment -= 3
+
+        return max(0, min(100, int(round(base_score + adjustment))))
+
+    def _resolve_activation_label(
+        self,
+        *,
+        window: Mapping[str, Any],
+        prediction: Mapping[str, Any],
+        projected_score: int,
+        today: date,
+        trend_context: Mapping[str, Any],
+    ) -> str:
+        support = self._window_support_type(prediction, window)
+        start = window.get("start")
+        end = window.get("end")
+        is_current = isinstance(start, date) and isinstance(end, date) and start <= today <= end
+        is_future = isinstance(start, date) and start > today
+
+        if is_current and support in {"maha_antar", "maha", "antar"} and projected_score >= 67:
+            return "active_now"
+
+        trend = str(trend_context.get("trend", "stable")).strip().lower() or "stable"
+        if is_future and support in {"maha_antar", "maha", "antar"}:
+            if projected_score >= 40 or trend == "rising":
+                return "upcoming"
+
+        return "dormant"
+
+    def _build_source_factors(
+        self,
+        *,
+        prediction: Mapping[str, Any],
+        window: Mapping[str, Any],
+        activation_label: str,
+        projected_score: int,
+        trend_context: Mapping[str, Any],
+        dasha_evidence: list[str],
+        today: date,
+    ) -> list[str]:
+        factors: list[str] = []
+
+        for line in dasha_evidence:
+            text = str(line or "").strip()
+            if text and text not in factors:
+                factors.append(text)
+
+        support = self._window_support_type(prediction, window)
+        maha = str(window.get("mahadasha", "")).strip()
+        antar = str(window.get("antardasha", "")).strip()
+        if support == "maha_antar" and maha and antar:
+            factors.append(f"{maha} Mahadasha and {antar} Antardasha both support this promise.")
+        elif support == "maha" and maha:
+            factors.append(f"{maha} Mahadasha is the main activation driver.")
+        elif support == "antar" and antar:
+            factors.append(f"{antar} Antardasha provides focused activation support.")
+        else:
+            factors.append("Current window has limited direct dasha support for this promise.")
+
+        trend = str(trend_context.get("trend", "stable")).strip().lower() or "stable"
+        next_window = trend_context.get("next_window")
+        if trend == "rising" and isinstance(next_window, Mapping):
+            next_maha = str(next_window.get("mahadasha", "")).strip()
+            next_antar = str(next_window.get("antardasha", "")).strip()
+            start = next_window.get("start")
+            if next_maha and next_antar and isinstance(start, date):
+                if start > today:
+                    factors.append(f"{next_antar} Antardasha under {next_maha} Mahadasha is starting soon.")
+        elif trend == "falling":
+            factors.append("Activation is expected to soften in the next dasha window.")
+
+        factors.append(f"Projected activation score for this window: {projected_score}.")
+        if activation_label == "active_now":
+            factors.append("This window is currently active with high dasha support.")
+        elif activation_label == "upcoming":
+            factors.append("Support is strengthening in a future dasha window.")
+        else:
+            factors.append("This window remains comparatively dormant.")
+
+        return factors[:8]
+
     def _match_prediction_windows(
         self,
         prediction: Mapping[str, Any],
@@ -185,7 +413,7 @@ class TimelineService:
 
         mahadasha = self._normalize_planet_name(timing.get("mahadasha"))
         antardasha = self._normalize_planet_name(timing.get("antardasha"))
-        relevance = str(timing.get("relevance", "low")).strip().lower() or "low"
+        relevance = str(timing.get("activation_level", timing.get("relevance", "low"))).strip().lower() or "low"
 
         if not windows:
             return []
@@ -211,6 +439,30 @@ class TimelineService:
             return []
         return []
 
+    def _window_support_type(
+        self,
+        prediction: Mapping[str, Any],
+        window: Mapping[str, Any],
+    ) -> str:
+        timing = prediction.get("timing", {})
+        if not isinstance(timing, Mapping):
+            timing = {}
+
+        mahadasha = self._normalize_planet_name(timing.get("mahadasha"))
+        antardasha = self._normalize_planet_name(timing.get("antardasha"))
+        window_maha = self._normalize_planet_name(window.get("mahadasha"))
+        window_antar = self._normalize_planet_name(window.get("antardasha"))
+
+        maha_match = bool(mahadasha and window_maha and mahadasha == window_maha)
+        antar_match = bool(antardasha and window_antar and antardasha == window_antar)
+        if maha_match and antar_match:
+            return "maha_antar"
+        if maha_match:
+            return "maha"
+        if antar_match:
+            return "antar"
+        return "none"
+
 
     def _build_event_label(self, prediction: Mapping[str, Any], *, language: str) -> str:
         area = self._normalize_area(str(prediction.get("area", "general")))
@@ -219,7 +471,12 @@ class TimelineService:
         if (area, strength) in event_map:
             return event_map[(area, strength)]
 
-        text = str(prediction.get("refined_text") or prediction.get("text") or "").strip()
+        text = str(
+            prediction.get("final_narrative")
+            or prediction.get("refined_text")
+            or prediction.get("text")
+            or ""
+        ).strip()
         if text:
             first_sentence = text.split(".")[0].strip()
             if first_sentence:
@@ -233,13 +490,16 @@ class TimelineService:
         timing = prediction.get("timing", {})
         if not isinstance(timing, Mapping):
             timing = {}
-        relevance = str(timing.get("relevance", "low")).strip().lower() or "low"
+        relevance = str(timing.get("activation_level", timing.get("relevance", "low"))).strip().lower() or "low"
+        activation_score = self._safe_int(timing.get("activation_score"))
 
         confidence = base_score
         if relevance == "high":
             confidence += 5
         elif relevance == "medium":
             confidence += 2
+        if activation_score > 0:
+            confidence += max(-3, min(6, int(round((activation_score - 50) / 12))))
 
         antardasha = self._normalize_planet_name(timing.get("antardasha"))
         window_antar = self._normalize_planet_name(window.get("antardasha"))
@@ -247,6 +507,17 @@ class TimelineService:
             confidence += 3
 
         return max(0, min(100, confidence))
+
+    @staticmethod
+    def _normalize_evidence(raw_evidence: Any) -> list[str]:
+        if not isinstance(raw_evidence, (list, tuple, set)):
+            return []
+        evidence: list[str] = []
+        for row in raw_evidence:
+            text = str(row or "").strip()
+            if text and text not in evidence:
+                evidence.append(text)
+        return evidence[:8]
 
     def _build_reasoning_link(
         self,
@@ -288,6 +559,26 @@ class TimelineService:
                 }
             )
         return sub_windows
+
+    @staticmethod
+    def _find_current_window(windows: list[dict[str, Any]], *, today: date) -> dict[str, Any] | None:
+        for window in windows:
+            start = window.get("start")
+            end = window.get("end")
+            if isinstance(start, date) and isinstance(end, date) and start <= today <= end:
+                return window
+        return None
+
+    @staticmethod
+    def _find_next_window(windows: list[dict[str, Any]], *, today: date) -> dict[str, Any] | None:
+        future = [
+            window
+            for window in windows
+            if isinstance(window.get("start"), date) and window.get("start") > today
+        ]
+        if not future:
+            return None
+        return sorted(future, key=lambda item: item.get("start"))[0]
 
     @staticmethod
     def _extract_timeline_rows(dasha_timeline: Any) -> list[dict[str, Any]]:

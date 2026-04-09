@@ -1,175 +1,308 @@
 {
-  "meta": {
-    "code": "en",
-    "native_name": "English"
-  },
-  "language": {
-    "english": "English",
-    "hindi": "Hindi",
-    "odia": "Odia"
-  },
-  "ui": {
-    "app_title": "Offline Horoscope (Kundli) Engine",
-    "chart_generator": "Chart Generator",
-    "chart_information": "Chart Information",
-    "birth_chart": "Birth Chart",
-    "north_indian_kundli": "North Indian Kundli",
-    "user_management": "User Management",
-    "rule_editor": "Rule Editor",
-    "horoscope_chat": "Horoscope Chat",
-    "aspects": "Aspects",
-    "dasha": "Dasha",
-    "life_timeline": "Life Timeline",
-    "navamsha_d9": "Navamsha D9",
-    "plugins": "Plugins",
-    "settings": "Settings",
-    "name": "Name",
-    "date_of_birth": "Date of Birth",
-    "time_of_birth": "Time of Birth",
-    "place": "Place",
-    "state": "State",
-    "city": "City",
-    "select_state": "Select State",
-    "select_city": "Select City",
-    "auto_fill_location": "Auto-filled from city, or enter manually",
-    "language": "Language",
-    "latitude": "Latitude",
-    "longitude": "Longitude",
-    "generate_chart": "Generate Chart",
-    "save_user": "Save User",
-    "generate_report": "Generate Report",
-    "save_settings": "Save Settings",
-    "predictions": "Predictions",
-    "hover_chart_hint": "Hover over a planet or house to view a quick insight.",
-    "awaiting_generation": "Awaiting generation...",
-    "no_predictions_found": "No predictions found for this chart.",
-    "validation_error": "Validation Error",
-    "name_required": "Name is required!",
-    "ai_optional_info": "AI enhancement is optional. Leave it off to use the local horoscope chat only.",
-    "enable_openai_refinement": "Enable OpenAI refinement",
-    "optional_openai_api_key": "Optional: paste your OpenAI API key",
-    "model_placeholder": "e.g. gpt-5-mini",
-    "ai_mode": "AI Mode",
-    "openai_api_key": "OpenAI API Key",
-    "model": "Model",
-    "api_key_optional_title": "API Key Optional",
-    "api_key_optional_message": "AI mode is enabled, but no API key is saved here. The app will fall back to the OPENAI_API_KEY environment variable if available.",
-    "settings_saved_title": "Settings Saved",
-    "settings_saved_message": "Settings saved successfully.\nMode: {mode}",
-    "mode_openai": "OpenAI enhancement enabled",
-    "mode_local": "Local chat only",
-    "all": "All",
-    "chart_subtitle": "Explore your core strengths, timing, and practical predictions.",
-    "top_insights": "Top Insights",
-    "overall_confidence": "Overall Confidence",
-    "generating_pdf": "Generating PDF...",
-    "no_area_predictions": "No {area} predictions available yet.",
-    "top_focus_rank": "Top focus #{rank}",
-    "timing_active": "Timing active",
-    "no_major_signal": "No major signal yet"
-  },
-  "chart": {
-    "house": "House",
-    "sign": "Sign",
-    "planet": "Planet",
-    "in_house": "in House",
-    "insight_fallback": "Hover or click to inspect chart placements.",
-    "planet_insight_fallback": "No specific insight available for this placement yet.",
-    "house_insight_fallback": "No specific insight available for this house yet."
-  },
-  "planet": {
-    "sun": "Sun",
-    "moon": "Moon",
-    "mars": "Mars",
-    "mercury": "Mercury",
-    "jupiter": "Jupiter",
-    "venus": "Venus",
-    "saturn": "Saturn",
-    "rahu": "Rahu",
-    "ketu": "Ketu",
-    "ascendant": "Ascendant",
-    "lagna": "Lagna"
-  },
-  "prediction": {
-    "connector": {
-      "however": "However,",
-      "still": "Still,",
-      "at_same_time": "At the same time,"
-    },
-    "message": {
-      "chart_generated_no_rules": "Chart generated successfully. No matching rules found.",
-      "sun_first_house_vitality": "Sun in the 1st House provides strong vitality, leadership skills, and radiant energy.",
-      "moon_cancer_intuition": "Moon in Cancer (Own Sign) gives deep emotional intelligence and strong intuition.",
-      "budhaditya_yoga_first_house": "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.",
-      "jupiter_first_house_wisdom": "Jupiter in the 1st House grants wisdom, optimism, and a protective aura.",
-      "gajakesari_yoga": "Gajakesari Yoga is present: Moon and Jupiter combine in a kendra, supporting wisdom, recognition, and emotional strength."
-    }
-  },
-  "report": {
-    "meta": {
-      "document_title": "Horoscope Report",
-      "document_author": "Offline Horoscope (Kundli) Engine"
-    },
-    "sections": {
-      "offline_horoscope_report": "Offline Horoscope Report",
-      "subtitle": "A structured summary of chart insights, prediction scores, and life timing indicators.",
-      "kundli_chart": "Kundli Chart",
-      "top_insights": "Top Insights",
-      "predictions": "Predictions",
-      "timeline_forecast": "Timeline Forecast",
-      "key_life_events": "Key Life Events",
-      "reasoning_summary": "Reasoning Summary",
-      "dasha_timeline": "Dasha Timeline"
-    },
-    "labels": {
-      "name": "Name",
-      "date_of_birth": "Date of Birth",
-      "time_of_birth": "Time of Birth",
-      "place": "Place",
-      "overall_confidence": "Overall Confidence",
-      "top_areas": "Top Areas",
-      "time_focus": "Time Focus",
-      "strength": "Strength",
-      "score": "Score",
-      "timing": "Timing",
-      "summary": "Summary",
-      "period": "Period",
-      "area": "Area",
-      "event": "Event",
-      "confidence": "Confidence",
-      "planet": "Planet",
-      "start": "Start",
-      "end": "End",
-      "window": "Window",
-      "supporting_factors": "Supporting factors"
-    },
-    "messages": {
-      "chart_unavailable": "Chart image could not be rendered in this environment. The rest of the report remains available offline.",
-      "no_forecast_rows": "No forecast timeline rows are available yet.",
-      "reasoning_unavailable": "Reasoning details are not available yet."
-    },
-    "values": {
-      "confidence_high": "High",
-      "confidence_medium": "Medium",
-      "confidence_low": "Low",
-      "career": "Career",
-      "marriage": "Marriage",
-      "finance": "Finance",
-      "medium": "medium",
-      "low": "low",
-      "mahadasha": "Mahadasha",
-      "antardasha": "Antardasha",
-      "not_enough_data_yet": "Not enough data yet",
-      "no_immediate_timing_hotspot": "No immediate timing hotspot",
-      "no_specific_dasha_activation": "No specific dasha activation.",
-      "no_summary_available": "No summary available.",
-      "no_event_summary": "No event summary",
-      "no_strong_indication": "No strong indication available.",
-      "no_explanation_available": "No explanation available.",
-      "notable_development": "Notable development",
-      "upcoming": "Upcoming",
-      "unknown": "Unknown",
-      "no_strong_period": "No strong period identified."
-    }
-  }
+    "meta":  {
+                 "code":  "en",
+                 "native_name":  "English"
+             },
+    "language":  {
+                     "english":  "English",
+                     "hindi":  "Hindi",
+                     "odia":  "Odia"
+                 },
+    "ui":  {
+               "app_title":  "Offline Horoscope (Kundli) Engine",
+               "chart_generator":  "Chart Generator",
+               "chart_information":  "Chart Information",
+               "birth_chart":  "Birth Chart",
+               "north_indian_kundli":  "North Indian Kundli",
+               "user_management":  "User Management",
+               "rule_editor":  "Rule Editor",
+               "horoscope_chat":  "Horoscope Chat",
+               "aspects":  "Aspects",
+               "dasha":  "Dasha",
+               "transits":  "Transits",
+               "shadbala":  "Shadbala",
+               "life_timeline":  "Life Timeline",
+               "navamsha_d9":  "Navamsha D9",
+               "plugins":  "Plugins",
+               "settings":  "Settings",
+               "name":  "Name",
+               "date_of_birth":  "Date of Birth",
+               "time_of_birth":  "Time of Birth",
+               "place":  "Place",
+               "state":  "State",
+               "city":  "City",
+               "select_state":  "Select State",
+               "select_city":  "Select City",
+               "auto_fill_location":  "Auto-filled from city, or enter manually",
+               "language":  "Language",
+               "latitude":  "Latitude",
+               "longitude":  "Longitude",
+               "generate_chart":  "Generate Chart",
+               "save_user":  "Save User",
+               "generate_report":  "Generate Report",
+               "save_settings":  "Save Settings",
+               "predictions":  "Predictions",
+               "hover_chart_hint":  "Hover over a planet or house to view a quick insight.",
+               "awaiting_generation":  "Awaiting generation...",
+               "no_predictions_found":  "No predictions found for this chart.",
+               "validation_error":  "Validation Error",
+               "name_required":  "Name is required!",
+               "ai_optional_info":  "AI enhancement is optional. Leave it off to use the local horoscope chat only.",
+               "enable_openai_refinement":  "Enable OpenAI refinement",
+               "optional_openai_api_key":  "Optional: paste your OpenAI API key",
+               "model_placeholder":  "e.g. gpt-5-mini",
+               "ai_mode":  "AI Mode",
+               "openai_api_key":  "OpenAI API Key",
+               "model":  "Model",
+               "api_key_optional_title":  "API Key Optional",
+               "api_key_optional_message":  "AI mode is enabled, but no API key is saved here. The app will fall back to the OPENAI_API_KEY environment variable if available.",
+               "settings_saved_title":  "Settings Saved",
+               "settings_saved_message":  "Settings saved successfully.\nMode: {mode}",
+               "mode_openai":  "OpenAI enhancement enabled",
+               "mode_local":  "Local chat only",
+               "all":  "All",
+               "chart_subtitle":  "Explore your core strengths, timing, and practical predictions.",
+               "top_insights":  "Top Insights",
+               "overall_confidence":  "Overall Confidence",
+               "generating_pdf":  "Generating PDF...",
+               "no_area_predictions":  "No {area} predictions available yet.",
+               "top_focus_rank":  "Top focus #{rank}",
+               "timing_active":  "Timing active",
+               "no_major_signal":  "No major signal yet"
+           },
+    "chart":  {
+                  "house":  "House",
+                  "sign":  "Sign",
+                  "planet":  "Planet",
+                  "in_house":  "in House",
+                  "insight_fallback":  "Hover or click to inspect chart placements.",
+                  "planet_insight_fallback":  "No specific insight available for this placement yet.",
+                  "house_insight_fallback":  "No specific insight available for this house yet."
+              },
+    "planet":  {
+                   "sun":  "Sun",
+                   "moon":  "Moon",
+                   "mars":  "Mars",
+                   "mercury":  "Mercury",
+                   "jupiter":  "Jupiter",
+                   "venus":  "Venus",
+                   "saturn":  "Saturn",
+                   "rahu":  "Rahu",
+                   "ketu":  "Ketu",
+                   "ascendant":  "Ascendant",
+                   "lagna":  "Lagna"
+               },
+    "prediction":  {
+                       "connector":  {
+                                         "however":  "However,",
+                                         "still":  "Still,",
+                                         "at_same_time":  "At the same time,"
+                                     },
+                       "message":  {
+                                       "chart_generated_no_rules":  "Chart generated successfully. No matching rules found.",
+                                       "sun_first_house_vitality":  "Sun in the 1st House provides strong vitality, leadership skills, and radiant energy.",
+                                       "moon_cancer_intuition":  "Moon in Cancer (Own Sign) gives deep emotional intelligence and strong intuition.",
+                                       "budhaditya_yoga_first_house":  "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.",
+                                       "jupiter_first_house_wisdom":  "Jupiter in the 1st House grants wisdom, optimism, and a protective aura.",
+                                       "gajakesari_yoga":  "Gajakesari Yoga is present: Moon and Jupiter combine in a kendra, supporting wisdom, recognition, and emotional strength."
+                                   },
+                       "conflict":  {
+                                        "factor_labels":  {
+                                                              "strength_gate":  "strength gate",
+                                                              "dasha_activation":  "dasha activation",
+                                                              "house_lord_condition":  "house-lord condition",
+                                                              "yoga_status":  "yoga status",
+                                                              "varga_concordance":  "varga concordance",
+                                                              "transit_trigger":  "transit trigger"
+                                                          },
+                                        "outcomes":  {
+                                                         "valid":  "valid",
+                                                         "tempered":  "tempered",
+                                                         "suppressed":  "suppressed"
+                                                     },
+                                        "fallback":  {
+                                                         "none_supporting":  "limited supporting factors",
+                                                         "none_conflicting":  "no major conflicting factors"
+                                                     },
+                                        "reasons":  {
+                                                        "strength_gate_failed":  "the natal strength gate is below the minimum threshold",
+                                                        "dasha_inactive":  "timing authority is inactive in the current dasha",
+                                                        "house_lord_weak":  "the house-lord condition is weak",
+                                                        "yoga_cancelled":  "the yoga indication is cancelled (bhanga)",
+                                                        "varga_conflict":  "varga layers conflict with the natal promise",
+                                                        "balanced_layers":  "higher-priority layers remain aligned after reconciliation"
+                                                    },
+                                        "rationale":  {
+                                                          "strength_passed":  "Strength gate passed.",
+                                                          "strength_failed":  "Strength gate failed and blocks lower-priority promotion.",
+                                                          "dasha_active":  "Dasha activation is active and timing-valid.",
+                                                          "dasha_inactive":  "Dasha activation is inactive, so manifestation is suppressed.",
+                                                          "house_lord_weak":  "House-lord condition is weak and tempers lower-priority support.",
+                                                          "house_lord_strong":  "House-lord condition is strong.",
+                                                          "house_lord_neutral":  "House-lord condition is neutral.",
+                                                          "yoga_supportive":  "Yoga status is supportive.",
+                                                          "yoga_weak_secondary":  "Yoga status is weak and remains secondary.",
+                                                          "yoga_cancelled":  "Yoga is cancelled (bhanga), so yoga-driven promise is suppressed.",
+                                                          "varga_conflict_reduced":  "Varga conflict reduced confidence without overturning higher-priority layers.",
+                                                          "varga_non_conflict":  "Varga concordance does not conflict materially.",
+                                                          "transit_weak_non_override":  "Transit is weak, but it does not suppress strong natal promise with active dasha.",
+                                                          "transit_suppressing_mild":  "Transit is suppressing and mildly reduced intensity.",
+                                                          "transit_amplifying_secondary":  "Transit is amplifying but cannot override higher-priority filters.",
+                                                          "transit_neutral":  "Transit is neutral trigger context.",
+                                                          "balanced_layers":  "Higher-priority layers remain dominant after deterministic reconciliation."
+                                                      },
+                                        "suppression_reasons":  {
+                                                                    "hard_filter_strength":  "Strength gate is a hard filter.",
+                                                                    "inactive_dasha_timing":  "Inactive dasha suppresses manifestation timing.",
+                                                                    "house_lord_over_yoga":  "Weak house-lord condition has higher priority than yoga status.",
+                                                                    "yoga_cancelled_no_domination":  "Cancelled/bhanga yoga cannot dominate final outcome.",
+                                                                    "transit_cannot_revive_cancelled_yoga":  "Transit cannot revive cancelled yoga promise.",
+                                                                    "weak_transit_low_priority":  "Weak transit is low-priority trigger; strong natal plus active dasha remain valid.",
+                                                                    "varga_conflict_confidence_only":  "Conflicting varga reduced confidence but did not override higher-priority layers."
+                                                                },
+                                        "sections":  {
+                                                         "primary_conclusion":  "Primary conclusion: {final_conclusion}. Dominant factor: {dominant_factor}.",
+                                                         "supporting_factors":  "Supporting factors: {positive_factor}.",
+                                                         "conflicting_factors":  "Conflicting factors: {negative_factor}.",
+                                                         "resolution_explanation":  "Resolution explanation: {resolution_text}"
+                                                     },
+                                        "templates":  {
+                                                          "mixed":  "While there are indications of {positive_factor}, the influence of {dominant_factor} is stronger due to {reason}. Therefore, the overall outcome is {final_conclusion}.",
+                                                          "dominant":  "The influence of {dominant_factor} is decisive due to {reason}. Therefore, the overall outcome is {final_conclusion}.",
+                                                          "suppressed":  "Although there are indications of {positive_factor}, {dominant_factor} prevails because {reason}. Therefore, the overall outcome is {final_conclusion}."
+                                                      }
+                                    },
+                       "parashari":  {
+                                         "labels":  {
+                                                        "promise":  "Promise",
+                                                        "strength":  "Strength",
+                                                        "timing":  "Timing",
+                                                        "caution":  "Caution"
+                                                    },
+                                         "areas":  {
+                                                      "career":  "Career",
+                                                      "marriage":  "Marriage",
+                                                      "finance":  "Finance",
+                                                      "health":  "Health",
+                                                      "self":  "Self",
+                                                      "home":  "Home",
+                                                      "education":  "Education",
+                                                      "communication":  "Communication",
+                                                      "luck":  "Luck",
+                                                      "gains":  "Gains",
+                                                      "transformation":  "Transformation",
+                                                      "general":  "General"
+                                                  },
+                                         "promise":  {
+                                                         "with_yoga":  "{area} outcomes are indicated through {yoga}, with {lordship_state}.",
+                                                         "without_yoga":  "{area} outcomes are indicated with {lordship_state}.",
+                                                         "lordship_supportive":  "supportive bhava-lord alignment",
+                                                         "lordship_mixed":  "moderate bhava-lord alignment",
+                                                         "lordship_neutral":  "balanced bhava-lord alignment"
+                                                     },
+                                         "strength":  {
+                                                          "strong_indication":  "strong indication",
+                                                          "moderate_strength":  "moderate strength",
+                                                          "weak_influence":  "weak influence",
+                                                          "varga_clause":  "varga concordance is {agreement_level} ({score})",
+                                                          "composed":  "{strength_expression}; {varga_clause}; {karaka_clause}"
+                                                      },
+                                         "timing":  {
+                                                        "currently_active":  "currently active",
+                                                        "upcoming_period":  "upcoming period",
+                                                        "dormant_phase":  "dormant phase",
+                                                        "transit_amplifying":  "transit support is amplifying",
+                                                        "transit_suppressing":  "transit pressure is suppressing",
+                                                        "transit_neutral":  "transit influence is neutral",
+                                                        "composed":  "{timing_expression}; {transit_clause}"
+                                                    },
+                                         "conflict":  {
+                                                          "despite_conflicting_indications":  "despite conflicting indications",
+                                                          "dominant_factor":  "dominant factor: {dominant_factor}",
+                                                          "suppressed_influence":  "suppressed influence: {suppressed}",
+                                                          "balanced":  "conflict pressure is limited"
+                                                      },
+                                         "karaka":  {
+                                                        "natural_significator_supports":  "natural significator supports",
+                                                        "afflicted_karaka_reduces_outcome":  "afflicted karaka reduces outcome",
+                                                        "neutral_karaka":  "karaka influence remains neutral"
+                                                    },
+                                         "caution":  {
+                                                         "reason_clause":  "context note: {reason}",
+                                                         "reason_fallback":  "monitor changing conditions before escalation",
+                                                         "composed":  "{outcome_clause}; {dominant_clause}; {suppressed_clause}; {reason_clause}"
+                                                     },
+                                         "fallback":  {
+                                                          "section_unavailable":  "details are currently unavailable",
+                                                          "narrative_unavailable":  "Narrative could not be composed at this moment."
+                                                      }
+                                     }
+                   },
+    "report":  {
+                   "meta":  {
+                                "document_title":  "Horoscope Report",
+                                "document_author":  "Offline Horoscope (Kundli) Engine"
+                            },
+                   "sections":  {
+                                    "offline_horoscope_report":  "Offline Horoscope Report",
+                                    "subtitle":  "A structured summary of chart insights, prediction scores, and life timing indicators.",
+                                    "kundli_chart":  "Kundli Chart",
+                                    "top_insights":  "Top Insights",
+                                    "predictions":  "Predictions",
+                                    "timeline_forecast":  "Timeline Forecast",
+                                    "key_life_events":  "Key Life Events",
+                                    "reasoning_summary":  "Reasoning Summary",
+                                    "dasha_timeline":  "Dasha Timeline"
+                                },
+                   "labels":  {
+                                  "name":  "Name",
+                                  "date_of_birth":  "Date of Birth",
+                                  "time_of_birth":  "Time of Birth",
+                                  "place":  "Place",
+                                  "overall_confidence":  "Overall Confidence",
+                                  "top_areas":  "Top Areas",
+                                  "time_focus":  "Time Focus",
+                                  "strength":  "Strength",
+                                  "score":  "Score",
+                                  "timing":  "Timing",
+                                  "summary":  "Summary",
+                                  "period":  "Period",
+                                  "area":  "Area",
+                                  "event":  "Event",
+                                  "confidence":  "Confidence",
+                                  "planet":  "Planet",
+                                  "start":  "Start",
+                                  "end":  "End",
+                                  "window":  "Window",
+                                  "supporting_factors":  "Supporting factors"
+                              },
+                   "messages":  {
+                                    "chart_unavailable":  "Chart image could not be rendered in this environment. The rest of the report remains available offline.",
+                                    "no_forecast_rows":  "No forecast timeline rows are available yet.",
+                                    "reasoning_unavailable":  "Reasoning details are not available yet."
+                                },
+                   "values":  {
+                                  "confidence_high":  "High",
+                                  "confidence_medium":  "Medium",
+                                  "confidence_low":  "Low",
+                                  "career":  "Career",
+                                  "marriage":  "Marriage",
+                                  "finance":  "Finance",
+                                  "medium":  "medium",
+                                  "low":  "low",
+                                  "mahadasha":  "Mahadasha",
+                                  "antardasha":  "Antardasha",
+                                  "not_enough_data_yet":  "Not enough data yet",
+                                  "no_immediate_timing_hotspot":  "No immediate timing hotspot",
+                                  "no_specific_dasha_activation":  "No specific dasha activation.",
+                                  "no_summary_available":  "No summary available.",
+                                  "no_event_summary":  "No event summary",
+                                  "no_strong_indication":  "No strong indication available.",
+                                  "no_explanation_available":  "No explanation available.",
+                                  "notable_development":  "Notable development",
+                                  "upcoming":  "Upcoming",
+                                  "unknown":  "Unknown",
+                                  "no_strong_period":  "No strong period identified."
+                              }
+               }
 }

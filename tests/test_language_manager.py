@@ -10,7 +10,10 @@ from app.services.language_manager import LanguageManager
 
 class LanguageManagerFallbackTests(unittest.TestCase):
     def test_missing_translation_key_falls_back_to_english_safely(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
+        # Create a workspace-local temp directory to avoid system temp permission issues
+        temp_root = Path("tmp")
+        temp_root.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=temp_root) as temp_dir:
             translations_dir = Path(temp_dir)
             (translations_dir / "en.json").write_text(
                 json.dumps(

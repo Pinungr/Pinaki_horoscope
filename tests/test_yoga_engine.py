@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+from core.engines.strength_engine import PlanetStrength
 from core.yoga.yoga_engine import YogaEngine, YogaResult
 from core.yoga.models import ChartSnapshot, YogaDefinition
 
@@ -274,6 +275,121 @@ class YogaEngineBulkTests(unittest.TestCase):
         self.assertFalse(result.detected)
         self.assertTrue(len(result.trace) > 0)
         self.assertIsNotNone(result.trace_summary)
+
+
+class YogaStateClassificationTests(unittest.TestCase):
+    class _StubStrengthEngine:
+        def __init__(self, score_map: dict[str, int], sthana_map: dict[str, float] | None = None) -> None:
+            self._scores = {str(k).strip().lower(): int(v) for k, v in (score_map or {}).items()}
+            self._sthana = {str(k).strip().lower(): float(v) for k, v in (sthana_map or {}).items()}
+
+        def _to_result(self, planet: str) -> PlanetStrength:
+            normalized = str(planet).strip().lower()
+            score = int(self._scores.get(normalized, 50))
+            if score >= 70:
+                level = "strong"
+            elif score >= 40:
+                level = "medium"
+            else:
+                level = "weak"
+            breakdown = {"sthana_bala": float(self._sthana.get(normalized, 40.0))}
+            return PlanetStrength(planet=normalized, score=score, level=level, breakdown=breakdown)
+
+        def score_chart(self, chart: ChartSnapshot) -> dict[str, PlanetStrength]:
+            planets = [
+                planet
+                for planet in chart.placements.keys()
+                if planet not in {"ascendant", "lagna"}
+            ]
+            return {planet: self._to_result(planet) for planet in planets}
+
+        def score_planet(self, planet: str, _chart: ChartSnapshot) -> PlanetStrength:
+            return self._to_result(planet)
+
+    @staticmethod
+    def _build_engine(score_map: dict[str, int], sthana_map: dict[str, float] | None = None, *, cancellation_rules: dict | None = None) -> YogaEngine:
+        yoga_payload = {
+            "id": "stateful_test_yoga",
+            "conditions": [{"type": "conjunction", "planets": ["moon", "jupiter"]}],
+            "prediction": {"en": "Stateful test yoga matched."},
+        }
+        if cancellation_rules:
+            yoga_payload["cancellation_rules"] = cancellation_rules
+        definition = YogaDefinition.from_dict(yoga_payload)
+        stub_strength = YogaStateClassificationTests._StubStrengthEngine(score_map, sthana_map)
+        return YogaEngine(
+            config_dir=Path("/nonexistent"),
+            extra_definitions=[definition],
+            strength_engine=stub_strength,
+        )
+
+    @staticmethod
+    def _base_chart_rows() -> list[dict]:
+        return [
+            {"planet_name": "Ascendant", "house": 1, "sign": "Cancer", "degree": 5.0},
+            {"planet_name": "Moon", "house": 10, "sign": "Aries", "degree": 10.0},
+            {"planet_name": "Jupiter", "house": 10, "sign": "Aries", "degree": 11.0},
+        ]
+
+    def test_same_yoga_varies_across_strong_formed_and_weak(self) -> None:
+        chart = ChartSnapshot.from_rows(self._base_chart_rows())
+
+        strong_engine = self._build_engine(
+            {"moon": 88, "jupiter": 86},
+            {"moon": 60.0, "jupiter": 58.0},
+        )
+        formed_engine = self._build_engine(
+            {"moon": 45, "jupiter": 45},
+            {"moon": 40.0, "jupiter": 40.0},
+        )
+        weak_engine = self._build_engine(
+            {"moon": 35, "jupiter": 34},
+            {"moon": 20.0, "jupiter": 22.0},
+        )
+
+        strong = strong_engine.evaluate_one("stateful_test_yoga", chart)
+        formed = formed_engine.evaluate_one("stateful_test_yoga", chart)
+        weak = weak_engine.evaluate_one("stateful_test_yoga", chart)
+
+        self.assertIsNotNone(strong)
+        self.assertIsNotNone(formed)
+        self.assertIsNotNone(weak)
+        self.assertEqual("strong", strong.state)
+        self.assertEqual("formed", formed.state)
+        self.assertEqual("weak", weak.state)
+
+    def test_multiple_afflictions_can_cancel_yoga(self) -> None:
+        chart_rows = self._base_chart_rows() + [
+            {"planet_name": "Sun", "house": 10, "sign": "Aries", "degree": 10.5},
+            {"planet_name": "Saturn", "house": 4, "sign": "Libra", "degree": 10.0},
+            {"planet_name": "Mars", "house": 4, "sign": "Libra", "degree": 15.0},
+        ]
+        chart = ChartSnapshot.from_rows(chart_rows)
+        engine = self._build_engine(
+            {"moon": 45, "jupiter": 45, "sun": 45, "saturn": 45, "mars": 45},
+            {"moon": 35.0, "jupiter": 35.0},
+            cancellation_rules={"cancel_affliction_hits": 2},
+        )
+
+        result = engine.evaluate_one("stateful_test_yoga", chart)
+        self.assertIsNotNone(result)
+        self.assertTrue(result.detected)
+        self.assertEqual("cancelled", result.state)
+        self.assertEqual("weak", result.strength_level)
+
+    def test_reasoning_and_state_are_present_in_payload(self) -> None:
+        chart = ChartSnapshot.from_rows(self._base_chart_rows())
+        engine = self._build_engine(
+            {"moon": 45, "jupiter": 45},
+            {"moon": 40.0, "jupiter": 40.0},
+        )
+
+        result = engine.evaluate_one("stateful_test_yoga", chart)
+        self.assertIsNotNone(result)
+        payload = result.as_dict()
+        self.assertIn("state", payload)
+        self.assertIn("reasoning", payload)
+        self.assertTrue(len(payload["reasoning"]) > 0)
 
 
 if __name__ == "__main__":

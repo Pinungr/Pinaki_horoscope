@@ -4,7 +4,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-KNOWN_PLANET_IDS = {
+VALID_PLANET_IDS = [
     "sun",
     "moon",
     "mars",
@@ -16,7 +16,7 @@ KNOWN_PLANET_IDS = {
     "ketu",
     "ascendant",
     "lagna",
-}
+]
 
 
 def normalize_planet_id(value: Any) -> str:
@@ -60,7 +60,10 @@ class PlanetPlacement:
         except (TypeError, ValueError):
             return None
 
-        if not planet or planet not in KNOWN_PLANET_IDS or house is None or not 1 <= house <= 12:
+        VALID_PLANET_IDS_LOCAL = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn", "rahu", "ketu", "ascendant", "lagna"]
+        if not planet or planet not in VALID_PLANET_IDS_LOCAL or house is None or not 1 <= house <= 12:
+            import logging
+            logging.getLogger(__name__).debug(f"Row rejected: planet={repr(planet)}, house={house}, ids={VALID_PLANET_IDS_LOCAL}")
             return None
 
         return cls(
@@ -130,6 +133,28 @@ class StrengthRule:
 
 
 @dataclass(frozen=True)
+class BhangaRule:
+    """Config-driven cancellation/weakening rule evaluated after yoga formation."""
+
+    id: str
+    type: str
+    effect: str
+    params: dict[str, Any]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any], index: int) -> BhangaRule:
+        rule_id = str(payload.get("id", f"bhanga_rule_{index}")).strip() or f"bhanga_rule_{index}"
+        rule_type = str(payload.get("type", "")).strip().lower()
+        effect = str(payload.get("effect", "downgrade")).strip().lower() or "downgrade"
+        params = {
+            str(key): value
+            for key, value in payload.items()
+            if str(key) not in {"id", "type", "effect"}
+        }
+        return cls(id=rule_id, type=rule_type, effect=effect, params=params)
+
+
+@dataclass(frozen=True)
 class LocalizedPrediction:
     """Language-keyed prediction messages for one yoga."""
 
@@ -156,7 +181,10 @@ class YogaDefinition:
     id: str
     conditions: tuple[YogaCondition, ...]
     strength_rules: tuple[StrengthRule, ...]
+    bhanga_rules: tuple[BhangaRule, ...]
     prediction: LocalizedPrediction
+    state_thresholds: dict[str, float] = field(default_factory=dict)
+    cancellation_rules: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> YogaDefinition:
@@ -171,11 +199,35 @@ class YogaDefinition:
             for index, item in enumerate(payload.get("strength_rules", []), start=1)
             if isinstance(item, Mapping)
         )
+        bhanga_rules = tuple(
+            BhangaRule.from_dict(item, index)
+            for index, item in enumerate(payload.get("bhanga_rules", []), start=1)
+            if isinstance(item, Mapping)
+        )
         prediction = LocalizedPrediction.from_dict(payload.get("prediction", {}))
+        raw_state_thresholds = payload.get("state_thresholds", {})
+        if isinstance(raw_state_thresholds, Mapping):
+            state_thresholds: dict[str, float] = {}
+            for key, value in raw_state_thresholds.items():
+                normalized_key = str(key).strip().lower()
+                if not normalized_key:
+                    continue
+                try:
+                    state_thresholds[normalized_key] = float(value)
+                except (TypeError, ValueError):
+                    continue
+        else:
+            state_thresholds = {}
+
+        raw_cancellation_rules = payload.get("cancellation_rules", {})
+        cancellation_rules = dict(raw_cancellation_rules) if isinstance(raw_cancellation_rules, Mapping) else {}
 
         return cls(
             id=yoga_id,
             conditions=conditions,
             strength_rules=strength_rules,
+            bhanga_rules=bhanga_rules,
             prediction=prediction,
+            state_thresholds=state_thresholds,
+            cancellation_rules=cancellation_rules,
         )

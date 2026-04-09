@@ -20,6 +20,7 @@ from app.ui.theme import (
     set_button_icon,
     set_button_variant,
 )
+from app.ui.prediction_panel import PredictionPanel
 from core.predictions.aggregation_service import aggregate_predictions
 from core.predictions.prediction_service import get_prediction
 
@@ -139,6 +140,7 @@ class ChartDisplay(QWidget):
             "background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; "
             "padding: 10px 12px; color: #1e293b; line-height: 1.5;"
         )
+        self.reasoning_panel = PredictionPanel(self.language_manager)
 
         self.report_button = QPushButton()
         self.report_button.setEnabled(False)
@@ -159,6 +161,7 @@ class ChartDisplay(QWidget):
         layout.addLayout(confidence_row)
         layout.addLayout(filter_row)
         layout.addWidget(self.predictions_text)
+        layout.addWidget(self.reasoning_panel)
         layout.addWidget(self.report_button)
         
         self.setLayout(layout)
@@ -193,9 +196,12 @@ class ChartDisplay(QWidget):
         self._clear_chart_insight()
         if self._prediction_display_state == "awaiting":
             self.predictions_text.setText(self._tr("ui.awaiting_generation"))
+            self.reasoning_panel.clear()
         elif self._prediction_display_state == "empty":
             self.predictions_text.setText(self._tr("ui.no_predictions_found"))
             self.display_top_insights({})
+            self.reasoning_panel.clear()
+        self.reasoning_panel.apply_translations()
         generating_pdf_text = self._tr("ui.generating_pdf")
         if generating_pdf_text == "ui.generating_pdf":
             generating_pdf_text = "Generating PDF..."
@@ -244,6 +250,7 @@ class ChartDisplay(QWidget):
             self.predictions_text.setText(self._tr("ui.no_predictions_found"))
             self.display_top_insights({})
             self._set_confidence_visual(0)
+            self.reasoning_panel.clear()
             return
 
         localized_predictions = self._localize_predictions(predictions)
@@ -254,6 +261,11 @@ class ChartDisplay(QWidget):
             self._set_confidence_visual(self._derive_confidence_from_predictions(localized_predictions))
         self._render_predictions(localized_predictions)
         self.kundli_widget.set_insights(**self._build_chart_insights(localized_predictions))
+
+    def display_reasoning_predictions(self, predictions: Any) -> None:
+        """Renders per-prediction reasoning cards from unified backend output."""
+        self.reasoning_panel.set_predictions(predictions)
+        self.reasoning_panel.set_area_filter(self._active_area_filter)
 
     def _render_predictions(self, localized_predictions: Any) -> None:
         html = "<ul>"
@@ -557,6 +569,7 @@ class ChartDisplay(QWidget):
 
         if self._latest_localized_predictions is not None:
             self._render_predictions(self._latest_localized_predictions)
+        self.reasoning_panel.set_area_filter(normalized)
 
         if emit_signal:
             self.area_filter_changed.emit(normalized)

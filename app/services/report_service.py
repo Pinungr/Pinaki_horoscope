@@ -65,6 +65,8 @@ class ReportService:
             story.extend(self._build_header_section(report_data))
             story.extend(self._build_chart_section(chart_image_path))
             story.extend(self._build_top_insights_section(report_data))
+            story.extend(self._build_shadbala_section(report_data))
+            story.extend(self._build_transits_section(report_data))
             story.extend(self._build_predictions_section(report_data))
             story.extend(self._build_timeline_forecast_section(report_data))
             story.extend(self._build_key_events_section(report_data))
@@ -95,6 +97,8 @@ class ReportService:
 
         unified_summary: Dict[str, Any] = {}
         unified_predictions: list[dict[str, Any]] = []
+        transits_data: Dict[str, Any] = {}
+        shadbala_data: Dict[str, Any] = {}
         timeline_forecast: Dict[str, Any] = {"timeline": []}
         reasoning_rows: list[dict[str, Any]] = []
         key_events: Dict[str, Dict[str, Any]] = {}
@@ -110,6 +114,8 @@ class ReportService:
                 user.dob,
                 language=language,
             )
+            transits_data = dict(advanced_data.get("transits", {}) or {})
+            shadbala_data = dict(advanced_data.get("shadbala", {}) or {})
             unified_payload = advanced_data.get("unified", {}) if isinstance(advanced_data, dict) else {}
             if isinstance(unified_payload, dict):
                 unified_summary = dict(unified_payload.get("summary", {}) or {})
@@ -122,11 +128,15 @@ class ReportService:
         # ── 2. Timeline forecast ──────────────────────────────────────────────
         dasha_timeline = advanced_data.get("dasha", []) if isinstance(advanced_data, dict) else []
         try:
-            timeline_forecast = self.timeline_service.build_timeline_forecast(
-                unified_predictions,
-                dasha_timeline,
-                language=language,
-            )
+            advanced_forecast = advanced_data.get("timeline_forecast", {}) if isinstance(advanced_data, dict) else {}
+            if isinstance(advanced_forecast, dict) and isinstance(advanced_forecast.get("timeline"), list):
+                timeline_forecast = advanced_forecast
+            else:
+                timeline_forecast = self.timeline_service.build_timeline_forecast(
+                    unified_predictions,
+                    dasha_timeline,
+                    language=language,
+                )
         except Exception as exc:
             _rlog.warning("ReportService: timeline forecast failed — timeline section will be empty: %s", exc)
 
@@ -177,6 +187,8 @@ class ReportService:
             ],
             "predictions": predictions,
             "timeline": timeline_data,
+            "transits": transits_data,
+            "shadbala": shadbala_data,
             "unified_summary": unified_summary,
             "unified_predictions": unified_predictions,
             "timeline_forecast": timeline_forecast,
@@ -369,40 +381,73 @@ class ReportService:
                 reverse=True,
             )
             for row in sorted_predictions[:6]:
-                area = self._normalize_area(row.get("area", "general")).title()
+                area = escape(self._normalize_area(row.get("area", "general")).title())
                 yoga = escape(str(row.get("yoga", "Yoga")))
-                strength = escape(str(row.get("strength", self._tr("report.values.medium", "medium"))).title())
                 score = self._safe_int(row.get("score"))
-                text = escape(
-                    str(
-                        row.get("refined_text")
-                        or row.get("text")
-                        or self._tr("report.values.no_summary_available", "No summary available.")
-                    )
+
+                confidence_label = str(row.get("confidence", "")).strip().title()
+                title_bits = [area]
+                if yoga:
+                    title_bits.append(yoga)
+                header_text = " | ".join(title_bits)
+                if confidence_label:
+                    header_text += f" | {escape(self._tr('report.labels.confidence', 'Confidence'))} {escape(confidence_label)}"
+                header_text += f" | {escape(self._tr('report.labels.score', 'Score'))} {score}"
+
+                narrative = self._extract_parashari_sections(row)
+                section_html = [
+                    self._format_report_subsection(
+                        self._tr("report.labels.why_this_is_predicted", "Why this is predicted"),
+                        narrative["promise"],
+                    ),
+                    self._format_report_subsection(
+                        self._tr("report.labels.strength_of_indication", "Strength of indication"),
+                        narrative["strength"],
+                    ),
+                    self._format_report_subsection(
+                        self._tr("report.labels.when_it_may_manifest", "When it may manifest"),
+                        narrative["timing"],
+                    ),
+                    self._format_report_subsection(
+                        self._tr("report.labels.caution_and_limitations", "Caution & limitations"),
+                        narrative["caution"],
+                    ),
+                ]
+
+                reasoning_sections = [
+                    (
+                        self._tr("report.labels.strength_explanation", "Strength explanation"),
+                        self._build_strength_reasoning_line(row),
+                    ),
+                    (
+                        self._tr("report.labels.dasha_activation", "Dasha activation"),
+                        self._build_dasha_reasoning_line(row),
+                    ),
+                    (
+                        self._tr("report.labels.transit_trigger", "Transit trigger"),
+                        self._build_transit_reasoning_line(row),
+                    ),
+                    (
+                        self._tr("report.labels.conflict_resolution", "Conflict resolution"),
+                        self._build_conflict_reasoning_line(row),
+                    ),
+                    (
+                        self._tr("report.labels.concordance_summary", "Concordance summary"),
+                        self._build_concordance_reasoning_line(row),
+                    ),
+                ]
+                reasoning_html = "<br/>".join(
+                    f"<i>{escape(label)}:</i> {escape(text)}"
+                    for label, text in reasoning_sections
+                    if str(text).strip()
                 )
 
-                timing = row.get("timing", {}) if isinstance(row.get("timing"), dict) else {}
-                maha = escape(str(timing.get("mahadasha", "")))
-                antar = escape(str(timing.get("antardasha", "")))
-                relevance = escape(str(timing.get("relevance", self._tr("report.values.low", "low"))).title())
-
-                timing_label = self._tr("report.labels.timing", "Timing")
-                timing_line = f"{timing_label}: {self._tr('report.values.no_specific_dasha_activation', 'No specific dasha activation.')}"
-                if maha and antar:
-                    timing_line = (
-                        f"{timing_label}: {maha} {self._tr('report.values.mahadasha', 'Mahadasha')} / "
-                        f"{antar} {self._tr('report.values.antardasha', 'Antardasha')} ({relevance})."
+                card_text = f"<b>{header_text}</b><br/>{'<br/>'.join(section_html)}"
+                if reasoning_html:
+                    card_text += (
+                        f"<br/><b>{escape(self._tr('report.labels.reasoning_details', 'Reasoning details'))}</b><br/>"
+                        f"{reasoning_html}"
                     )
-                elif maha:
-                    timing_line = f"{timing_label}: {maha} {self._tr('report.values.mahadasha', 'Mahadasha')} ({relevance})."
-
-                card_text = (
-                    f"<b>{area} | {yoga}</b><br/>"
-                    f"{escape(self._tr('report.labels.strength', 'Strength'))}: {strength} | "
-                    f"{escape(self._tr('report.labels.score', 'Score'))}: {score}<br/>"
-                    f"{text}<br/>"
-                    f"<i>{timing_line}</i>"
-                )
                 story.append(Paragraph(card_text, self.styles["PredictionCard"]))
 
             story.append(Spacer(1, 4 * mm))
@@ -429,6 +474,432 @@ class ReportService:
         story.append(Spacer(1, 4 * mm))
         return story
 
+    def _extract_parashari_sections(self, row: Dict[str, Any]) -> Dict[str, str]:
+        labels = {
+            "promise": self._tr("prediction.parashari.labels.promise", "Promise"),
+            "strength": self._tr("prediction.parashari.labels.strength", "Strength"),
+            "timing": self._tr("prediction.parashari.labels.timing", "Timing"),
+            "caution": self._tr("prediction.parashari.labels.caution", "Caution"),
+        }
+        sections: Dict[str, str] = {}
+        for key in ("promise", "strength", "timing", "caution"):
+            raw = str(row.get(f"{key}_text", "")).strip()
+            sections[key] = self._strip_labeled_prefix(raw, labels[key]) if raw else ""
+
+        final_narrative = str(row.get("final_narrative", "")).strip()
+        if final_narrative:
+            parsed = self._parse_parashari_narrative(final_narrative, labels)
+            for key, value in parsed.items():
+                if not sections.get(key) and value:
+                    sections[key] = value
+
+        if not sections["promise"]:
+            sections["promise"] = str(
+                row.get("final_prediction")
+                or row.get("prediction")
+                or row.get("text")
+                or row.get("refined_text")
+                or self._tr("report.values.no_summary_available", "No summary available.")
+            ).strip()
+
+        if not sections["strength"]:
+            sections["strength"] = self._build_strength_reasoning_line(row)
+        if not sections["timing"]:
+            sections["timing"] = self._build_dasha_reasoning_line(row)
+        if not sections["caution"]:
+            sections["caution"] = self._build_conflict_reasoning_line(row)
+
+        for key in sections:
+            sections[key] = self._ensure_terminal_punctuation(sections[key])
+        return sections
+
+    @staticmethod
+    def _format_report_subsection(title: str, body: str) -> str:
+        heading = escape(str(title or "").strip())
+        text = escape(str(body or "").strip())
+        return f"<b>{heading}</b><br/>{text}"
+
+    def _build_strength_reasoning_line(self, row: Dict[str, Any]) -> str:
+        lines: list[str] = []
+        strength = str(row.get("strength", "")).strip().lower()
+        if strength:
+            score = row.get("strength_score")
+            if score is not None:
+                lines.append(f"Strength is {strength} ({self._safe_int(score)}).")
+            else:
+                lines.append(f"Strength is {strength}.")
+
+        strength_gate = row.get("strength_gate")
+        if isinstance(strength_gate, dict):
+            status = str(strength_gate.get("status", "")).strip().lower()
+            if status:
+                lines.append(f"Strength gate status: {status}.")
+
+        agreement = str(row.get("agreement_level", "")).strip().lower()
+        concordance_score = row.get("concordance_score")
+        if agreement and concordance_score is not None:
+            lines.append(f"Varga concordance is {agreement} ({concordance_score}).")
+        elif agreement:
+            lines.append(f"Varga concordance is {agreement}.")
+
+        trace = row.get("trace")
+        if isinstance(trace, dict):
+            strength_trace = trace.get("strength")
+            if isinstance(strength_trace, dict):
+                weighted = strength_trace.get("weighted_contribution")
+                if weighted is not None:
+                    lines.append(f"Weighted bala contribution: {weighted}.")
+
+        karaka_impact = row.get("karaka_impact")
+        if isinstance(karaka_impact, list):
+            snippets = [str(item).strip() for item in karaka_impact if str(item).strip()]
+            if snippets:
+                lines.append("; ".join(snippets[:2]) + ".")
+
+        return self._finalize_reasoning_line(lines, self._tr("report.values.no_strength_reasoning", "Strength details are not available."))
+
+    def _build_dasha_reasoning_line(self, row: Dict[str, Any]) -> str:
+        lines: list[str] = []
+        timing = row.get("timing")
+        if not isinstance(timing, dict):
+            timing = {}
+
+        mahadasha = str(timing.get("mahadasha", "")).strip()
+        antardasha = str(timing.get("antardasha", "")).strip()
+        activation_label = self._resolve_activation_code(
+            row.get("activation_label", timing.get("activation_level", timing.get("relevance", "")))
+        )
+        if mahadasha and antardasha:
+            lines.append(
+                f"{mahadasha} {self._tr('report.values.mahadasha', 'Mahadasha')} with "
+                f"{antardasha} {self._tr('report.values.antardasha', 'Antardasha')}."
+            )
+        elif mahadasha:
+            lines.append(f"{mahadasha} {self._tr('report.values.mahadasha', 'Mahadasha')}.")
+
+        if activation_label:
+            lines.append(f"Activation status: {self._format_activation_label(activation_label)}.")
+
+        activation_score = row.get("activation_score", timing.get("activation_score"))
+        if activation_score is not None:
+            lines.append(f"Activation score: {self._safe_int(activation_score)}.")
+
+        dasha_evidence = row.get("dasha_evidence", timing.get("dasha_evidence", []))
+        evidence_line = self._format_source_factor_line(dasha_evidence, max_length=140, fallback_when_missing=False)
+        if evidence_line:
+            lines.append(evidence_line)
+
+        return self._finalize_reasoning_line(lines, self._tr("report.values.no_dasha_reasoning", "Dasha details are not available."))
+
+    def _build_transit_reasoning_line(self, row: Dict[str, Any]) -> str:
+        lines: list[str] = []
+        transit = row.get("transit")
+        if not isinstance(transit, dict):
+            transit = {}
+
+        support_state = str(
+            transit.get("support_state", row.get("transit_support_state", ""))
+        ).strip().lower()
+        trigger_level = str(transit.get("trigger_level", "")).strip().lower()
+        if support_state:
+            lines.append(f"Transit support is {support_state}.")
+        if trigger_level:
+            lines.append(f"Transit trigger level is {trigger_level}.")
+
+        source_factors = transit.get("source_factors")
+        if isinstance(source_factors, list):
+            snippets = [str(item).strip() for item in source_factors if str(item).strip()]
+            if snippets:
+                lines.append("; ".join(snippets[:2]) + ".")
+
+        return self._finalize_reasoning_line(lines, self._tr("report.values.no_transit_reasoning", "Transit details are not available."))
+
+    def _build_conflict_reasoning_line(self, row: Dict[str, Any]) -> str:
+        lines: list[str] = []
+        resolution = row.get("resolution")
+        if not isinstance(resolution, dict):
+            resolution = {}
+
+        dominant_outcome = str(row.get("dominant_outcome", resolution.get("dominant_outcome", ""))).strip().lower()
+        if dominant_outcome:
+            lines.append(f"Conflict outcome is {dominant_outcome}.")
+
+        dominant_factor = str(resolution.get("dominant_factor", row.get("dominant_factor", ""))).strip().lower()
+        if dominant_factor:
+            template = self._tr("prediction.parashari.conflict.dominant_factor", "dominant factor: {dominant_factor}")
+            lines.append(str(template).replace("{dominant_factor}", dominant_factor))
+
+        dominant_reasoning = str(row.get("dominant_reasoning", resolution.get("dominant_reasoning", ""))).strip()
+        resolution_explanation = str(
+            row.get("resolution_explanation", resolution.get("resolution_explanation", ""))
+        ).strip()
+        if dominant_reasoning:
+            lines.append(dominant_reasoning)
+        elif resolution_explanation:
+            lines.append(resolution_explanation)
+
+        suppressed = row.get("suppressed_signals", row.get("suppressed_factors", resolution.get("suppressed_factors", [])))
+        if isinstance(suppressed, list):
+            factors: list[str] = []
+            for entry in suppressed:
+                if isinstance(entry, dict):
+                    factor = str(entry.get("factor", "")).strip()
+                    reason = str(entry.get("reason", "")).strip()
+                    if factor and reason:
+                        factors.append(f"{factor} ({reason})")
+                    elif factor:
+                        factors.append(factor)
+                else:
+                    text = str(entry).strip()
+                    if text:
+                        factors.append(text)
+            if factors:
+                template = self._tr("prediction.parashari.conflict.suppressed_influence", "suppressed influence: {suppressed}")
+                lines.append(str(template).replace("{suppressed}", ", ".join(factors[:3])))
+
+        return self._finalize_reasoning_line(lines, self._tr("report.values.no_conflict_reasoning", "Conflict resolution details are not available."))
+
+    def _build_concordance_reasoning_line(self, row: Dict[str, Any]) -> str:
+        lines: list[str] = []
+        agreement_level = str(row.get("agreement_level", "")).strip().lower()
+        concordance_score = row.get("concordance_score")
+        if agreement_level and concordance_score is not None:
+            lines.append(f"Agreement level is {agreement_level} ({concordance_score}).")
+        elif agreement_level:
+            lines.append(f"Agreement level is {agreement_level}.")
+
+        factors = row.get("concordance_factors")
+        if isinstance(factors, list):
+            snippets = [str(item).strip() for item in factors if str(item).strip()]
+            if snippets:
+                lines.append("; ".join(snippets[:2]) + ".")
+
+        return self._finalize_reasoning_line(lines, self._tr("report.values.no_concordance_reasoning", "Concordance details are not available."))
+
+    @staticmethod
+    def _resolve_activation_code(raw_value: Any) -> str:
+        normalized = str(raw_value or "").strip().lower()
+        if normalized in {"active_now", "upcoming", "dormant"}:
+            return normalized
+        if normalized == "high":
+            return "active_now"
+        if normalized == "medium":
+            return "upcoming"
+        if normalized == "low":
+            return "dormant"
+        return ""
+
+    @staticmethod
+    def _parse_parashari_narrative(narrative: str, labels: Dict[str, str]) -> Dict[str, str]:
+        text = str(narrative or "").strip()
+        if not text:
+            return {"promise": "", "strength": "", "timing": "", "caution": ""}
+
+        patterns = {
+            key: f"{str(label).strip()}:"
+            for key, label in labels.items()
+            if str(label).strip()
+        }
+        lowered_text = text.casefold()
+        index_map: Dict[str, int] = {}
+        for key, marker in patterns.items():
+            idx = lowered_text.find(marker.casefold())
+            if idx >= 0:
+                index_map[key] = idx
+
+        if len(index_map) < 2:
+            return {"promise": text, "strength": "", "timing": "", "caution": ""}
+
+        ordered = sorted(index_map.items(), key=lambda item: item[1])
+        parsed = {"promise": "", "strength": "", "timing": "", "caution": ""}
+        for idx, (key, start_idx) in enumerate(ordered):
+            marker = patterns[key]
+            content_start = start_idx + len(marker)
+            content_end = len(text)
+            if idx + 1 < len(ordered):
+                content_end = ordered[idx + 1][1]
+            parsed[key] = text[content_start:content_end].strip(" .;")
+        return parsed
+
+    @staticmethod
+    def _strip_labeled_prefix(text: str, label: str) -> str:
+        cleaned = str(text or "").strip()
+        marker = f"{str(label or '').strip()}:"
+        if marker and cleaned.casefold().startswith(marker.casefold()):
+            return cleaned[len(marker):].strip()
+        return cleaned
+
+    @staticmethod
+    def _ensure_terminal_punctuation(text: str) -> str:
+        cleaned = str(text or "").strip()
+        if not cleaned:
+            return cleaned
+        if cleaned[-1] in ".!?":
+            return cleaned
+        return f"{cleaned}."
+
+    def _finalize_reasoning_line(self, lines: list[str], fallback: str) -> str:
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for line in lines:
+            text = self._ensure_terminal_punctuation(str(line).strip())
+            if not text:
+                continue
+            fingerprint = text.casefold()
+            if fingerprint in seen:
+                continue
+            seen.add(fingerprint)
+            cleaned.append(text)
+        if cleaned:
+            return " ".join(cleaned)
+        return self._ensure_terminal_punctuation(fallback)
+
+    def _build_shadbala_section(self, report_data: Dict[str, Any]) -> list:
+        """Builds a compact planetary-strength table from Shadbala output."""
+        story = [
+            Paragraph(self._tr("report.sections.shadbala", "Shadbala (Six-Fold Strength)"), self.styles["SectionTitle"]),
+            Spacer(1, 2 * mm),
+        ]
+
+        shadbala_rows = report_data.get("shadbala", {})
+        if not isinstance(shadbala_rows, dict) or not shadbala_rows:
+            story.append(
+                Paragraph(
+                    self._tr("report.messages.shadbala_unavailable", "Shadbala data is not available right now."),
+                    self.styles["MutedBody"],
+                )
+            )
+            story.append(Spacer(1, 4 * mm))
+            return story
+
+        table_data = [[
+            self._tr("report.labels.planet", "Planet"),
+            self._tr("report.labels.total", "Total"),
+            self._tr("report.labels.sthana", "Sthana"),
+            self._tr("report.labels.dik", "Dik"),
+            self._tr("report.labels.kala", "Kala"),
+            self._tr("report.labels.chestha", "Chestha"),
+            self._tr("report.labels.naisargika", "Naisargika"),
+            self._tr("report.labels.drik", "Drik"),
+            self._tr("report.labels.vargottama", "Vargottama"),
+        ]]
+
+        rows = []
+        for planet, payload in shadbala_rows.items():
+            if not isinstance(payload, dict):
+                continue
+            rows.append(
+                (
+                    str(payload.get("planet", planet)).title(),
+                    self._safe_float(payload.get("total")),
+                    self._safe_float(payload.get("sthana_bala")),
+                    self._safe_float(payload.get("dik_bala")),
+                    self._safe_float(payload.get("kala_bala")),
+                    self._safe_float(payload.get("chestha_bala")),
+                    self._safe_float(payload.get("naisargika_bala")),
+                    self._safe_float(payload.get("drik_bala")),
+                    "Yes" if bool(payload.get("is_vargottama")) else "No",
+                )
+            )
+
+        rows.sort(key=lambda row: row[1], reverse=True)
+        for row in rows[:9]:
+            table_data.append([
+                row[0],
+                f"{row[1]:.2f}",
+                f"{row[2]:.2f}",
+                f"{row[3]:.2f}",
+                f"{row[4]:.2f}",
+                f"{row[5]:.2f}",
+                f"{row[6]:.2f}",
+                f"{row[7]:.2f}",
+                row[8],
+            ])
+
+        table = Table(table_data, colWidths=[24 * mm, 17 * mm, 17 * mm, 15 * mm, 15 * mm, 20 * mm, 24 * mm, 15 * mm, 19 * mm])
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#ede9fe")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1f2937")),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#ddd6fe")),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                ]
+            )
+        )
+
+        story.extend([table, Spacer(1, 6 * mm)])
+        return story
+
+    def _build_transits_section(self, report_data: Dict[str, Any]) -> list:
+        """Builds the current Gochar transit summary table."""
+        story = [
+            Paragraph(self._tr("report.sections.current_transits", "Current Transits (Gochar)"), self.styles["SectionTitle"]),
+            Spacer(1, 2 * mm),
+        ]
+
+        transit_payload = report_data.get("transits", {})
+        transit_rows = {}
+        if isinstance(transit_payload, dict):
+            transit_rows = transit_payload.get("transits", {})
+        if not isinstance(transit_rows, dict) or not transit_rows:
+            story.append(
+                Paragraph(
+                    self._tr("report.messages.transits_unavailable", "Transit data is not available right now."),
+                    self.styles["MutedBody"],
+                )
+            )
+            story.append(Spacer(1, 4 * mm))
+            return story
+
+        reference = str(transit_payload.get("reference", "moon")).strip().lower() or "moon"
+        target_time = str(transit_payload.get("target_time", "")).strip()
+        reference_line = (
+            f"{self._tr('report.labels.reference', 'Reference')}: {reference.title()}"
+            + (f" | {self._tr('report.labels.calculated_at', 'Calculated At')}: {target_time}" if target_time else "")
+        )
+        story.append(Paragraph(escape(reference_line), self.styles["MutedBody"]))
+
+        table_data = [[
+            self._tr("report.labels.planet", "Planet"),
+            self._tr("report.labels.sign", "Sign"),
+            self._tr("report.labels.house_from_reference", "House From Reference"),
+            self._tr("report.labels.retrograde", "Retrograde"),
+        ]]
+
+        planet_order = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn", "rahu", "ketu"]
+        ordered_names = [name for name in planet_order if name in transit_rows] + [name for name in transit_rows.keys() if name not in planet_order]
+        for planet in ordered_names:
+            payload = transit_rows.get(planet, {})
+            if not isinstance(payload, dict):
+                continue
+            table_data.append(
+                [
+                    str(planet).title(),
+                    str(payload.get("sign", "")).title(),
+                    str(payload.get("house_from_reference", "")),
+                    self._tr("report.values.yes", "Yes") if bool(payload.get("is_retrograde")) else self._tr("report.values.no", "No"),
+                ]
+            )
+
+        table = Table(table_data, colWidths=[30 * mm, 30 * mm, 72 * mm, 30 * mm])
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#dcfce7")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#14532d")),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bbf7d0")),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                ]
+            )
+        )
+        story.extend([table, Spacer(1, 6 * mm)])
+        return story
+
     def _build_timeline_forecast_section(self, report_data: Dict[str, Any]) -> list:
         """Builds a year-wise timeline table from forecast rows."""
         story = [
@@ -451,22 +922,28 @@ class ReportService:
             self._tr("report.labels.period", "Period"),
             self._tr("report.labels.area", "Area"),
             self._tr("report.labels.event", "Event"),
+            self._tr("report.labels.activation_status", "Activation"),
             self._tr("report.labels.confidence", "Confidence"),
+            self._tr("report.labels.source_factors", "Source Factors"),
         ]]
         for row in forecast_rows[:12]:
             event_text = str(row.get("event", "")).strip() or self._tr("report.values.no_event_summary", "No event summary")
             if len(event_text) > 62:
                 event_text = event_text[:59].rstrip() + "..."
+            source_factors = row.get("source_factors", row.get("dasha_evidence", []))
+            source_line = self._format_source_factor_line(source_factors, max_length=68)
             table_data.append(
                 [
                     str(row.get("period", "Upcoming")),
                     self._normalize_area(row.get("area", "general")).title(),
                     event_text,
+                    self._format_activation_label(row.get("activation_label")),
                     str(self._safe_int(row.get("confidence"))),
+                    source_line,
                 ]
             )
 
-        table = Table(table_data, colWidths=[28 * mm, 24 * mm, 86 * mm, 22 * mm])
+        table = Table(table_data, colWidths=[20 * mm, 16 * mm, 52 * mm, 20 * mm, 16 * mm, 38 * mm])
         table.setStyle(
             TableStyle(
                 [
@@ -695,6 +1172,38 @@ class ReportService:
             return "en"
         return normalized
 
+    def _format_activation_label(self, raw_label: Any) -> str:
+        label = str(raw_label or "").strip().lower()
+        if label == "active_now":
+            return self._tr("report.values.active_now", "Active Now")
+        if label == "upcoming":
+            return self._tr("report.values.upcoming", "Upcoming")
+        if label == "dormant":
+            return self._tr("report.values.dormant", "Dormant")
+        return self._tr("report.values.unknown", "Unknown")
+
+    def _format_source_factor_line(
+        self,
+        raw_factors: Any,
+        *,
+        max_length: int = 90,
+        fallback_when_missing: bool = True,
+    ) -> str:
+        fallback = (
+            self._tr("report.values.no_strong_dasha_trigger_yet", "No strong dasha trigger yet.")
+            if fallback_when_missing
+            else ""
+        )
+        if not isinstance(raw_factors, (list, tuple)) or not raw_factors:
+            return fallback
+        cleaned = [str(item).strip() for item in raw_factors if str(item).strip()]
+        if not cleaned:
+            return fallback
+        line = "; ".join(cleaned[:2]).strip()
+        if len(line) > max_length:
+            return line[: max(0, max_length - 3)].rstrip() + "..."
+        return line
+
     @staticmethod
     def _normalize_area(area: Any) -> str:
         normalized = str(area or "general").strip().lower() or "general"
@@ -708,3 +1217,10 @@ class ReportService:
             return int(round(float(value)))
         except (TypeError, ValueError):
             return 0
+
+    @staticmethod
+    def _safe_float(value: Any) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0

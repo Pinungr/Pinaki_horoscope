@@ -84,7 +84,7 @@ class InterpreterEngine:
     ) -> str:
         """Builds a readable narrative sentence while removing duplicate phrasing."""
         clean_sentences = self._collapse_similar_sentences(self._split_sentences(raw_summary))
-        detail_text = " ".join(clean_sentences[:2]).strip()
+        detail_text = " ".join(clean_sentences).strip()
         lead = self._lead_phrase(category=category, effect=effect, confidence=confidence, has_detail=bool(detail_text))
 
         if not detail_text:
@@ -154,11 +154,25 @@ class InterpreterEngine:
         second_key = self._normalize_sentence(second)
         if not first_key or not second_key:
             return False
+            
+        # Yoga-aware protection: handles lowercase and boundary variations
+        yoga_regex = r"\b(\w+)\s+[Yy]oga\b"
+        yogas_in_first = {m.group(1).lower() for m in re.finditer(yoga_regex, first)}
+        yogas_in_second = {m.group(1).lower() for m in re.finditer(yoga_regex, second)}
+        
+        if yogas_in_first != yogas_in_second:
+            return False
+
         if first_key == second_key:
             return True
         if first_key in second_key or second_key in first_key:
             return True
-        return SequenceMatcher(None, first_key, second_key).ratio() >= 0.8
+            
+        similarity_threshold = 0.8
+        if yogas_in_first and yogas_in_first == yogas_in_second:
+            similarity_threshold = 0.6
+            
+        return SequenceMatcher(None, first_key, second_key).ratio() >= similarity_threshold
 
     def _normalize_sentence(self, sentence: str) -> str:
         """Normalizes a sentence for duplicate detection."""

@@ -1,5 +1,7 @@
 import unittest
 from datetime import datetime
+from unittest.mock import patch
+
 from app.engine.transit_engine import TransitEngine
 from core.yoga.models import ChartSnapshot, PlanetPlacement
 
@@ -51,6 +53,95 @@ class TransitEngineTests(unittest.TestCase):
         # Ketu must be exactly 180 degrees from Rahu
         diff = abs(rahu - ketu)
         self.assertTrue(abs(diff - 180.0) < 0.001 or abs(diff - 180.0) > 359.999)
+
+    def test_dual_reference_payload_separates_lagna_and_moon_views(self):
+        natal_chart = ChartSnapshot(
+            placements={
+                "ascendant": PlanetPlacement(
+                    planet="ascendant",
+                    house=1,
+                    sign="aries",
+                    degree=5.0,
+                    absolute_longitude=5.0,
+                    is_retrograde=False,
+                ),
+                "moon": PlanetPlacement(
+                    planet="moon",
+                    house=4,
+                    sign="cancer",
+                    degree=5.0,
+                    absolute_longitude=95.0,
+                    is_retrograde=False,
+                ),
+            }
+        )
+
+        mocked_positions = {
+            "sun": {"long": 95.0, "is_retrograde": False},   # Cancer
+            "saturn": {"long": 275.0, "is_retrograde": True},  # Capricorn
+            "rahu": {"long": 10.0, "is_retrograde": True},
+            "ketu": {"long": 190.0, "is_retrograde": True},
+        }
+
+        with patch.object(self.engine, "_get_current_positions", return_value=mocked_positions):
+            result = self.engine.calculate_transits(natal_chart, datetime(2026, 1, 1, 12, 0, 0), reference="both")
+
+        self.assertEqual("both", result["reference"])
+        self.assertIn("from_lagna", result)
+        self.assertIn("from_moon", result)
+        self.assertIn("transit_matrix", result)
+        self.assertIn("sun", result["transit_matrix"])
+
+        sun_row = result["transit_matrix"]["sun"]
+        self.assertIn("from_lagna", sun_row)
+        self.assertIn("from_moon", sun_row)
+        self.assertNotEqual(
+            sun_row["from_lagna"]["house_position"],
+            sun_row["from_moon"]["house_position"],
+        )
+        self.assertEqual(4, sun_row["from_lagna"]["house_position"])
+        self.assertEqual(1, sun_row["from_moon"]["house_position"])
+
+    def test_dual_reference_payload_matches_when_lagna_equals_moon_sign(self):
+        natal_chart = ChartSnapshot(
+            placements={
+                "ascendant": PlanetPlacement(
+                    planet="ascendant",
+                    house=1,
+                    sign="aries",
+                    degree=5.0,
+                    absolute_longitude=5.0,
+                    is_retrograde=False,
+                ),
+                "moon": PlanetPlacement(
+                    planet="moon",
+                    house=1,
+                    sign="aries",
+                    degree=15.0,
+                    absolute_longitude=15.0,
+                    is_retrograde=False,
+                ),
+            }
+        )
+        mocked_positions = {
+            "jupiter": {"long": 125.0, "is_retrograde": False},  # Leo
+            "saturn": {"long": 275.0, "is_retrograde": True},   # Capricorn
+            "rahu": {"long": 10.0, "is_retrograde": True},
+            "ketu": {"long": 190.0, "is_retrograde": True},
+        }
+
+        with patch.object(self.engine, "_get_current_positions", return_value=mocked_positions):
+            result = self.engine.calculate_transits(natal_chart, datetime(2026, 1, 1, 12, 0, 0), reference="both")
+
+        jupiter = result["transit_matrix"]["jupiter"]
+        self.assertEqual(
+            jupiter["from_lagna"]["house_position"],
+            jupiter["from_moon"]["house_position"],
+        )
+        self.assertEqual(
+            result["from_lagna"]["jupiter"]["house_from_reference"],
+            result["from_moon"]["jupiter"]["house_from_reference"],
+        )
 
 if __name__ == "__main__":
     unittest.main()

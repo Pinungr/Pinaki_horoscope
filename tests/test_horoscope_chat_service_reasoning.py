@@ -26,6 +26,12 @@ class HoroscopeChatServiceReasoningTests(unittest.TestCase):
                 "area": "career",
                 "strength": "strong",
                 "score": 92,
+                "final_narrative": (
+                    "Promise: Career outcomes are indicated through Raj Yoga. "
+                    "Strength: strong bala and supportive varga. "
+                    "Timing: Jupiter-Venus window is active. "
+                    "Caution: monitor lower-priority conflicting signals."
+                ),
                 "timing": {
                     "mahadasha": "Jupiter",
                     "antardasha": "Venus",
@@ -38,6 +44,12 @@ class HoroscopeChatServiceReasoningTests(unittest.TestCase):
                 "area": "wealth",
                 "strength": "medium",
                 "score": 73,
+                "final_narrative": (
+                    "Promise: Wealth outcomes are indicated through Dhana Yoga. "
+                    "Strength: steady bala with medium concordance. "
+                    "Timing: Saturn-Mercury support is emerging. "
+                    "Caution: outcomes remain gradual."
+                ),
                 "timing": {
                     "mahadasha": "Saturn",
                     "antardasha": "Mercury",
@@ -69,6 +81,7 @@ class HoroscopeChatServiceReasoningTests(unittest.TestCase):
         self.assertEqual(1, len(reasoning_rows))
         self.assertEqual("career", reasoning_rows[0]["area"])
         self.assertEqual(1, len(result["data"]["timeline_forecast"]["timeline"]))
+        self.assertTrue(result["data"]["prediction_summary"].startswith("Promise:"))
 
     def test_ask_uses_event_service_for_specific_query(self) -> None:
         dasha = [

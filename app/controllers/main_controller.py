@@ -377,6 +377,10 @@ class MainController:
 
             self.view.aspects_view.setText(json.dumps(advanced_data["aspects"], indent=2))
             self.view.dasha_view.setText(json.dumps(advanced_data["dasha"], indent=2))
+            if hasattr(self.view, "transits_view"):
+                self.view.transits_view.setText(json.dumps(advanced_data.get("transits", {}), indent=2))
+            if hasattr(self.view, "shadbala_view"):
+                self.view.shadbala_view.setText(json.dumps(advanced_data.get("shadbala", {}), indent=2))
             self.view.navamsha_view.set_navamsha_data(advanced_data["navamsha"])
             self.view.plugins_view.setText(json.dumps(advanced_data["plugins"], indent=2))
             unified_summary = {}
@@ -400,6 +404,7 @@ class MainController:
                 raw_predictions = unified_payload.get("predictions", [])
                 if isinstance(raw_predictions, list):
                     unified_predictions = [dict(item) for item in raw_predictions if isinstance(item, dict)]
+            self.view.chart_display.display_reasoning_predictions(unified_predictions)
 
             timeline_forecast = self.cache.get("ui_timeline_forecast", user_id)
             timeline_cache_hit = False
@@ -435,9 +440,14 @@ class MainController:
             logger.exception("Failed to populate advanced views for user %s: %s", user_id, exc)
             self.view.aspects_view.setText("{}")
             self.view.dasha_view.setText("[]")
+            if hasattr(self.view, "transits_view"):
+                self.view.transits_view.setText("{}")
+            if hasattr(self.view, "shadbala_view"):
+                self.view.shadbala_view.setText("{}")
             self.view.navamsha_view.clear()
             self.view.plugins_view.setText("{}")
             self.view.timeline_view.clear_timeline()
+            self.view.chart_display.display_reasoning_predictions([])
             self._update_cache_debug_badge(
                 chart_hit=chart_cache_hit,
                 advanced_hit=None,

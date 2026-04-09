@@ -63,6 +63,10 @@ class MainWindow(QMainWindow):
         
         self.plugins_view = QTextEdit()
         self.plugins_view.setReadOnly(True)
+        self.transits_view = QTextEdit()
+        self.transits_view.setReadOnly(True)
+        self.shadbala_view = QTextEdit()
+        self.shadbala_view.setReadOnly(True)
 
         from app.ui.widgets.timeline_widget import TimelineWidget
         self.timeline_view = TimelineWidget()
@@ -85,6 +89,8 @@ class MainWindow(QMainWindow):
             self.tabs.addTab(self.rule_editor_screen, "")
             self.tabs.addTab(self.aspects_view, "")
             self.tabs.addTab(self.dasha_view, "")
+            self.tabs.addTab(self.transits_view, "")
+            self.tabs.addTab(self.shadbala_view, "")
             self.tabs.addTab(self.navamsha_view, "")
             self.tabs.addTab(self.plugins_view, "")
 
@@ -108,6 +114,8 @@ class MainWindow(QMainWindow):
                     self.language_manager.get_text("ui.rule_editor"),
                     self.language_manager.get_text("ui.aspects"),
                     self.language_manager.get_text("ui.dasha"),
+                    self.language_manager.get_text("ui.transits"),
+                    self.language_manager.get_text("ui.shadbala"),
                     self.language_manager.get_text("ui.navamsha_d9"),
                     self.language_manager.get_text("ui.plugins"),
                 ]

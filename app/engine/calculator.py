@@ -26,6 +26,8 @@ class AstrologyEngine:
         "porphyrius": b'O',
         "regiomontanus": b'R',
         "campanus": b'C',
+        "shripati": b'S',
+        "kp": b'P',  # KP often uses Placidus cusps
     }
 
     def __init__(self):

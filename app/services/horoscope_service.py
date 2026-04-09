@@ -1,4 +1,5 @@
 import logging
+import json
 from typing import Tuple, List, Dict, Any, Optional
 from app.repositories.database_manager import DatabaseManager
 from app.repositories.user_repo import UserRepository
@@ -8,12 +9,15 @@ from app.repositories.rule_repo import RuleRepository
 from app.engine.prediction_scorer import score_predictions
 from app.engine.rule_engine import RuleEngine
 from app.engine.interpreter import InterpreterEngine
+from app.engine.shadbala_engine_wrapper import calculate_shadbala, normalize_shadbala_payload
 from app.models.domain import User, Rule
 from app.utils.cache import get_astrology_cache
 from app.utils.logger import log_user_action, log_calculation_step
 from app.utils.validators import validate_user_input
-from app.utils.safe_execution import AppError, execute_safely
+from app.utils.safe_execution import AppError, execute_safely, failure_registry
+from core.engines.functional_nature import FunctionalNatureEngine
 from core.engines.aspect_engine import calculate_aspects
+from core.predictions.prediction_service import PredictionService as CorePredictionService
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +29,13 @@ class HoroscopeService:
         self.rule_repo = RuleRepository(db_manager)
         self.location_repo = LocationRepository(db_manager)
         self.interpreter = InterpreterEngine()
+        self.functional_nature_engine = FunctionalNatureEngine()
+        self.prediction_service = CorePredictionService()
         self.cache = get_astrology_cache()
+
+    def get_service_failures(self) -> List[dict]:
+        """Returns non-fatal failures captured during the last operation."""
+        return failure_registry.get_failures()
 
     def _hydrate_location_fields(self, user_data: dict) -> dict:
         """Fills latitude/longitude from selected state/city when available."""
@@ -80,8 +90,21 @@ class HoroscopeService:
             }
         }
 
-    def _evaluate_chart_predictions(self, chart_data_models: List[Any]) -> Dict[str, Dict[str, Any]]:
+    def _evaluate_chart_predictions(
+        self,
+        chart_data_models: List[Any],
+        *,
+        shadbala_payload: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Dict[str, Any]]:
         """Evaluates rules for an existing chart and returns scored predictions."""
+        area_predictions = execute_safely(
+            lambda: self.prediction_service.build_bhava_lord_karaka_predictions(chart_data_models),
+            logger=logger,
+            operation_name="Bhava-lord-karaka area reasoning",
+            user_message="Area-based interpretations are unavailable right now.",
+            fallback=[],
+        )
+
         rules = execute_safely(
             lambda: self.rule_repo.get_all(),
             logger=logger,
@@ -89,34 +112,70 @@ class HoroscopeService:
             user_message="Predictions are unavailable right now.",
             fallback=[],
         )
-        if not rules:
+
+        raw_predictions: List[Any] = []
+        if rules:
+            rule_engine = RuleEngine(rules)
+            precomputed_aspects = execute_safely(
+                lambda: calculate_aspects(chart_data_models),
+                logger=logger,
+                operation_name="Aspect precomputation for rule evaluation",
+                user_message="Predictions are unavailable right now.",
+                fallback=[],
+            )
+            raw_predictions = execute_safely(
+                lambda: rule_engine.evaluate(chart_data_models, aspects=precomputed_aspects),
+                logger=logger,
+                operation_name="Rule engine evaluation",
+                user_message="Predictions are unavailable right now.",
+                fallback=[],
+            )
+
+        combined_predictions: List[Any] = []
+        if isinstance(raw_predictions, list):
+            combined_predictions.extend(raw_predictions)
+        if isinstance(area_predictions, list):
+            combined_predictions.extend(area_predictions)
+
+        if not combined_predictions:
             return {}
 
-        rule_engine = RuleEngine(rules)
-        precomputed_aspects = execute_safely(
-            lambda: calculate_aspects(chart_data_models),
-            logger=logger,
-            operation_name="Aspect precomputation for rule evaluation",
-            user_message="Predictions are unavailable right now.",
-            fallback=[],
+        normalized_shadbala = self._get_or_calculate_shadbala(
+            chart_data_models,
+            precomputed=shadbala_payload,
         )
-        raw_predictions = execute_safely(
-            lambda: rule_engine.evaluate(chart_data_models, aspects=precomputed_aspects),
-            logger=logger,
-            operation_name="Rule engine evaluation",
-            user_message="Predictions are unavailable right now.",
-            fallback=[],
-        )
-        if not raw_predictions:
-            return {}
 
         return execute_safely(
-            lambda: self._score_rule_engine_output(raw_predictions, rules),
+            lambda: self._score_rule_engine_output(
+                combined_predictions,
+                rules,
+                chart_data_models=chart_data_models,
+                strength_payload=normalized_shadbala,
+            ),
             logger=logger,
             operation_name="Prediction scoring",
             user_message="Predictions are unavailable right now.",
             fallback={},
         )
+
+    def _get_or_calculate_shadbala(
+        self,
+        chart_data_models: List[Any],
+        *,
+        precomputed: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Returns normalized Shadbala payload, reusing precomputed values when available."""
+        if precomputed is not None:
+            return normalize_shadbala_payload(precomputed, chart_data_models)
+
+        calculated = execute_safely(
+            lambda: calculate_shadbala(chart_data_models),
+            logger=logger,
+            operation_name="Shadbala calculation",
+            user_message="Planetary strength analysis is unavailable right now.",
+            fallback={},
+        )
+        return normalize_shadbala_payload(calculated, chart_data_models)
 
     @staticmethod
     def _format_display_data(chart_data_models: List[Any]) -> List[Dict[str, Any]]:
@@ -137,12 +196,30 @@ class HoroscopeService:
         *,
         display_data: Optional[List[Dict[str, Any]]] = None,
         predictions: Optional[Dict[str, Dict[str, Any]]] = None,
+        shadbala: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Stores chart and prediction results for one user when available."""
+        """Stores chart, prediction, and shadbala results for one user when available."""
         if display_data is not None:
             self.cache.set("chart_display", user_id, display_data)
         if predictions is not None:
             self.cache.set("predictions", user_id, predictions)
+        if shadbala is not None:
+            self.cache.set("shadbala", user_id, normalize_shadbala_payload(shadbala))
+
+    @staticmethod
+    def _predictions_are_strength_gated(predictions: Any) -> bool:
+        """Checks whether cached predictions already include strength-gate metadata."""
+        if not isinstance(predictions, dict) or not predictions:
+            return False
+
+        for category, details in predictions.items():
+            if not isinstance(details, dict):
+                return False
+            if category == "system":
+                continue
+            if "strength_gate" not in details:
+                return False
+        return True
 
     def _invalidate_user_runtime_cache(self, user_id: int) -> None:
         """Removes all cached runtime data for one user."""
@@ -151,8 +228,9 @@ class HoroscopeService:
             namespaces=(
                 "chart_display",
                 "predictions",
-                "advanced_data",
+                "shadbala",
                 "timeline",
+                "advanced_data",
                 "ui_advanced_data",
                 "ui_timeline_forecast",
                 "chat_advanced_data",
@@ -222,7 +300,14 @@ class HoroscopeService:
 
         return timeline_events
 
-    def _score_rule_engine_output(self, raw_predictions: List[str], rules: List[Rule]) -> Dict[str, Dict[str, Any]]:
+    def _score_rule_engine_output(
+        self,
+        raw_predictions: List[str],
+        rules: List[Rule],
+        *,
+        chart_data_models: Optional[List[Any]] = None,
+        strength_payload: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Dict[str, Any]]:
         """Maps raw rule-engine text back to rule metadata before scoring."""
         logger.info("Prediction scoring started with %d matched rule(s).", len(raw_predictions))
 
@@ -230,6 +315,13 @@ class HoroscopeService:
         for rule in rules:
             normalized_text = rule.result_text.strip().lower()
             rule_lookup.setdefault(normalized_text, []).append(rule)
+
+        lagna_sign = self._resolve_lagna_sign(chart_data_models or [])
+        functional_roles_map = (
+            self.functional_nature_engine.get_planet_roles(lagna_sign)
+            if lagna_sign
+            else {}
+        )
 
         usage_counter: Dict[str, int] = {}
         scorer_input = []
@@ -250,6 +342,11 @@ class HoroscopeService:
             if matching_rules:
                 matched_rule = matching_rules[min(usage_index, len(matching_rules) - 1)]
                 usage_counter[normalized_text] = usage_index + 1
+
+            functional_roles = self._build_rule_functional_roles(
+                matched_rule,
+                functional_roles_map=functional_roles_map,
+            )
 
             scorer_input.append(
                 {
@@ -284,6 +381,8 @@ class HoroscopeService:
                         if isinstance(raw_prediction, dict)
                         else []
                     ),
+                    "functional_lagna": lagna_sign,
+                    "functional_roles": functional_roles,
                 }
             )
 
@@ -302,7 +401,10 @@ class HoroscopeService:
             unique_scorer_input[dedupe_key] = item
         scorer_input = list(unique_scorer_input.values())
 
-        scored_predictions = score_predictions(scorer_input)
+        scored_predictions = score_predictions(
+            scorer_input,
+            strength_payload=strength_payload,
+        )
         scored_predictions = self.interpreter.refine_scored_predictions(scored_predictions)
 
         for category, details in scored_predictions.items():
@@ -316,11 +418,108 @@ class HoroscopeService:
 
         return scored_predictions
 
+    @staticmethod
+    def _resolve_lagna_sign(chart_data_models: List[Any]) -> str | None:
+        for row in chart_data_models or []:
+            raw_planet = (
+                row.get("planet_name")
+                if isinstance(row, dict)
+                else getattr(row, "planet_name", None)
+            )
+            planet = str(raw_planet or "").strip().lower()
+            if planet not in {"ascendant", "lagna"}:
+                continue
+
+            raw_sign = row.get("sign") if isinstance(row, dict) else getattr(row, "sign", None)
+            sign = str(raw_sign or "").strip().lower()
+            if sign:
+                return sign
+        return None
+
+    @staticmethod
+    def _normalize_planet_token(raw_value: Any) -> str:
+        token = str(raw_value or "").strip().lower()
+        canonical = {
+            "sun",
+            "moon",
+            "mars",
+            "mercury",
+            "jupiter",
+            "venus",
+            "saturn",
+            "rahu",
+            "ketu",
+        }
+        return token if token in canonical else ""
+
+    def _extract_planets_from_condition(self, condition: Any) -> List[str]:
+        if isinstance(condition, list):
+            planets: List[str] = []
+            for item in condition:
+                planets.extend(self._extract_planets_from_condition(item))
+            return planets
+
+        if not isinstance(condition, dict):
+            return []
+
+        planets: List[str] = []
+        for key in ("planet", "from", "to", "from_planet", "to_planet"):
+            normalized = self._normalize_planet_token(condition.get(key))
+            if normalized:
+                planets.append(normalized)
+
+        raw_planet_list = condition.get("planets", [])
+        if isinstance(raw_planet_list, (list, tuple, set)):
+            for raw_planet in raw_planet_list:
+                normalized = self._normalize_planet_token(raw_planet)
+                if normalized:
+                    planets.append(normalized)
+
+        if "AND" in condition:
+            planets.extend(self._extract_planets_from_condition(condition.get("AND")))
+        if "OR" in condition:
+            planets.extend(self._extract_planets_from_condition(condition.get("OR")))
+
+        deduped: List[str] = []
+        for planet in planets:
+            if planet not in deduped:
+                deduped.append(planet)
+        return deduped
+
+    def _build_rule_functional_roles(
+        self,
+        matched_rule: Optional[Rule],
+        *,
+        functional_roles_map: Dict[str, str],
+    ) -> List[Dict[str, str]]:
+        if matched_rule is None or not functional_roles_map:
+            return []
+
+        try:
+            condition_payload = json.loads(matched_rule.condition_json or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return []
+
+        planets = self._extract_planets_from_condition(condition_payload)
+        if not planets:
+            return []
+
+        role_rows: List[Dict[str, str]] = []
+        for planet in planets:
+            role_rows.append(
+                {
+                    "planet": planet,
+                    "role": str(functional_roles_map.get(planet, "neutral")).strip().lower() or "neutral",
+                }
+            )
+        return role_rows
+
     def generate_and_save_chart(self, user_data: dict) -> Tuple[List[Dict], Dict[str, Dict[str, Any]]]:
         """
         Parses user data, computes chart, executes rules, and persists everything.
         Returns display data dictionaries and category-scored predictions.
         """
+        failure_registry.clear()
         validated_data = self.prepare_user_input(user_data)
         log_user_action("generate_chart", name=validated_data["name"], place=validated_data["place"])
 
@@ -376,8 +575,13 @@ class HoroscopeService:
             )
             raise
 
+        shadbala = self._get_or_calculate_shadbala(chart_data_models)
+
         # Rule Engine Evaluation
-        predictions = self._evaluate_chart_predictions(chart_data_models)
+        predictions = self._evaluate_chart_predictions(
+            chart_data_models,
+            shadbala_payload=shadbala,
+        )
             
         if not predictions:
             predictions = self._system_prediction("Chart generated successfully. No matching rules found.")
@@ -385,7 +589,7 @@ class HoroscopeService:
 
         # Format for UI Response Layer
         display_data = self._format_display_data(chart_data_models)
-        self._cache_chart_bundle(user_id, display_data=display_data, predictions=predictions)
+        self._cache_chart_bundle(user_id, display_data=display_data, predictions=predictions, shadbala=shadbala)
         log_calculation_step("chart_generation_completed", user_id=user_id, rows=len(display_data), prediction_categories=len(predictions))
 
         return display_data, predictions
@@ -496,10 +700,19 @@ class HoroscopeService:
             language=normalized_language,
         )
         scored_predictions = self.cache.get("predictions", user_id)
-        if scored_predictions is None:
-            scored_predictions = self._evaluate_chart_predictions(chart_data_models)
+        if not self._predictions_are_strength_gated(scored_predictions):
+            cached_shadbala = self.cache.get("shadbala", user_id)
+            normalized_shadbala = self._get_or_calculate_shadbala(
+                chart_data_models,
+                precomputed=cached_shadbala if isinstance(cached_shadbala, dict) else None,
+            )
+            scored_predictions = self._evaluate_chart_predictions(
+                chart_data_models,
+                shadbala_payload=normalized_shadbala,
+            )
             if scored_predictions:
                 self.cache.set("predictions", user_id, scored_predictions)
+                self.cache.set("shadbala", user_id, normalized_shadbala)
 
         timeline_rows = []
         for dasha in advanced_data.get("dasha", []):
@@ -539,9 +752,23 @@ class HoroscopeService:
 
     def load_chart_for_user(self, user_id: int) -> Tuple[List[Dict], Dict[str, Dict[str, Any]]]:
         """Loads a previously calculated chart for a user and re-evaluates rules."""
+        failure_registry.clear()
         cached_display = self.cache.get("chart_display", user_id)
         cached_predictions = self.cache.get("predictions", user_id)
-        if cached_display is not None and cached_predictions is not None:
+        raw_cached_shadbala = self.cache.get("shadbala", user_id)
+        cached_shadbala = (
+            normalize_shadbala_payload(raw_cached_shadbala)
+            if raw_cached_shadbala is not None
+            else None
+        )
+        predictions_cached_with_gate = self._predictions_are_strength_gated(cached_predictions)
+        
+        if (
+            cached_display is not None
+            and cached_predictions is not None
+            and cached_shadbala is not None
+            and predictions_cached_with_gate
+        ):
             logger.info("Chart cache hit for user %s.", user_id)
             return cached_display, cached_predictions
 
@@ -549,11 +776,22 @@ class HoroscopeService:
         if not chart_data_models:
             raise ValueError("No chart data found for this user.")
 
-        predictions = cached_predictions if cached_predictions is not None else self._evaluate_chart_predictions(chart_data_models)
+        shadbala = self._get_or_calculate_shadbala(
+            chart_data_models,
+            precomputed=cached_shadbala,
+        )
+        predictions = (
+            cached_predictions
+            if cached_predictions is not None and predictions_cached_with_gate
+            else self._evaluate_chart_predictions(
+                chart_data_models,
+                shadbala_payload=shadbala,
+            )
+        )
             
         if not predictions:
             predictions = self._system_prediction("Chart generated successfully. No matching rules found.")
 
         display_data = cached_display if cached_display is not None else self._format_display_data(chart_data_models)
-        self._cache_chart_bundle(user_id, display_data=display_data, predictions=predictions)
+        self._cache_chart_bundle(user_id, display_data=display_data, predictions=predictions, shadbala=shadbala)
         return display_data, predictions

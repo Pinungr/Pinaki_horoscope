@@ -81,7 +81,8 @@ def calculate_sthana_bala(
 
     # 5. Cross-Varga Synthesis (D1-D9)
     # We use Navamsha (D9) to refine the internal strength of the planet.
-    d9_sign = NavamshaEngine.get_navamsha_sign(placement.sign, placement.degree)
+    navamsha_engine = NavamshaEngine()
+    d9_sign = navamsha_engine.get_navamsha_sign(placement.sign, placement.degree)
     if d9_sign:
         # 5.1 Vargottama (Same sign in D1 and D9) - Classical big boost
         if d9_sign.lower() == placement.sign.lower():

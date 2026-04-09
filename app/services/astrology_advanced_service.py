@@ -2,13 +2,19 @@ import logging
 from typing import Any, Dict, List
 from app.config.config_loader import get_astrology_config_loader
 from app.models.domain import ChartData
+from core.yoga.models import ChartSnapshot
 from app.services.reasoning_service import ReasoningService
 from app.engine.dasha import DashaEngine
 from app.engine.navamsha import NavamshaEngine
+from app.engine.varga_engine import VargaEngine
+from app.engine.transit_engine import TransitEngine
+from app.engine.shadbala_engine_wrapper import calculate_shadbala
 from app.utils.cache import get_astrology_cache
 from app.utils.safe_execution import execute_safely
 from app.utils.logger import log_calculation_step
 from core.engines.aspect_engine import calculate_aspects
+from core.predictions.prediction_service import PredictionService
+from app.services.timeline_service import TimelineService
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +25,11 @@ class AstrologyAdvancedService:
     def __init__(self):
         self.dasha_engine = DashaEngine()
         self.navamsha_engine = NavamshaEngine()
+        self.varga_engine = VargaEngine()
+        self.transit_engine = TransitEngine()
+        self.prediction_service = PredictionService()
         self.reasoning_service = ReasoningService()
+        self.timeline_service = TimelineService()
         self.cache = get_astrology_cache()
         self.config_loader = get_astrology_config_loader()
         self._unified_engine = None
@@ -99,6 +109,55 @@ class AstrologyAdvancedService:
             fallback=[],
             raise_app_error=True,
         )
+        shastiamsha_output = execute_safely(
+            lambda: self.varga_engine.calculate_varga_chart(60, chart_data_models),
+            logger=logger,
+            operation_name="Shastiamsha (D60) calculation",
+            user_message="D60 analysis is unavailable right now.",
+            fallback={},
+        )
+        dashamsha_output = execute_safely(
+            lambda: self.varga_engine.get_d10_chart(chart_data_models),
+            logger=logger,
+            operation_name="Dashamsha (D10) calculation",
+            user_message="D10 analysis is unavailable right now.",
+            fallback={"ascendant_sign": "", "rows": [], "placements": {}},
+        )
+        d10_career_validation = execute_safely(
+            lambda: self.prediction_service.evaluate_d10_career_validation(
+                chart_data=chart_data_models,
+                prediction_context={"area": "career", "relevant_houses": [10]},
+            ),
+            logger=logger,
+            operation_name="D10 career validation",
+            user_message="D10 career validation is unavailable right now.",
+            fallback={
+                "status": "neutral",
+                "factors": ["D10 validation unavailable."],
+                "multiplier": 1.0,
+                "score": 0.0,
+            },
+        )
+        # Transit calculation with explicit dual references:
+        # - Lagna (Ascendant)
+        # - Chandra Lagna (Moon)
+        transit_output = execute_safely(
+            lambda: self.transit_engine.calculate_transits(
+                ChartSnapshot.from_rows(chart_data_models),
+                reference="both",
+            ),
+            logger=logger,
+            operation_name="Transit (Gochar) calculation",
+            user_message="Current transits are unavailable right now.",
+            fallback={},
+        )
+        shadbala_output = execute_safely(
+            lambda: calculate_shadbala(chart_data_models),
+            logger=logger,
+            operation_name="Shadbala calculation",
+            user_message="Planetary strength analysis is unavailable right now.",
+            fallback={},
+        )
 
         # Step 17: Enhance Dasha with Event Detection Tags
         from app.engine.event_detector import EventDetectorEngine
@@ -125,6 +184,7 @@ class AstrologyAdvancedService:
             fallback={},
         )
         unified_output: Dict[str, Any] = {}
+        timeline_forecast: Dict[str, Any] = {"timeline": []}
         if self._is_unified_engine_enabled():
             engine = self._get_unified_engine()
             unified_output = execute_safely(
@@ -141,19 +201,85 @@ class AstrologyAdvancedService:
             if isinstance(unified_output, dict):
                 unified_predictions = unified_output.get("predictions", [])
                 if isinstance(unified_predictions, list):
+                    for row in unified_predictions:
+                        if not isinstance(row, dict):
+                            continue
+                        timing = row.get("timing", {}) if isinstance(row.get("timing"), dict) else {}
+
+                        raw_concordance = timing.get("concordance_score", row.get("concordance_score", 0.5))
+                        try:
+                            concordance_score = float(raw_concordance)
+                        except (TypeError, ValueError):
+                            concordance_score = 0.5
+                        concordance_score = max(0.0, min(1.0, concordance_score))
+
+                        agreement_level = str(
+                            timing.get("agreement_level", row.get("agreement_level", "medium"))
+                        ).strip().lower() or "medium"
+                        if agreement_level not in {"high", "medium", "low"}:
+                            agreement_level = "medium"
+
+                        raw_factors = timing.get("concordance_factors", row.get("concordance_factors", []))
+                        concordance_factors = (
+                            [str(item).strip() for item in raw_factors if str(item).strip()]
+                            if isinstance(raw_factors, list)
+                            else []
+                        )
+
+                        timing["concordance_score"] = round(concordance_score, 3)
+                        timing["agreement_level"] = agreement_level
+                        timing["concordance_factors"] = concordance_factors
+                        row["timing"] = timing
+                        row["concordance_score"] = round(concordance_score, 3)
+                        row["agreement_level"] = agreement_level
+                        row["concordance_factors"] = concordance_factors
+
+                        if str(row.get("area", "")).strip().lower() != "career":
+                            continue
+                        d10_status = str(timing.get("d10_status", d10_career_validation.get("status", "neutral"))).strip().lower() or "neutral"
+                        d10_evidence_raw = timing.get("d10_evidence", d10_career_validation.get("factors", []))
+                        d10_evidence = (
+                            [str(item).strip() for item in d10_evidence_raw if str(item).strip()]
+                            if isinstance(d10_evidence_raw, list)
+                            else [str(item).strip() for item in d10_career_validation.get("factors", []) if str(item).strip()]
+                        )
+
+                        timing["d10_status"] = d10_status
+                        timing["d10_evidence"] = d10_evidence
+                        row["timing"] = timing
+                        row["d10_status"] = d10_status
+                        row["d10_evidence"] = d10_evidence
                     unified_output["ui_payload"] = self.reasoning_service.build_ui_payload(
                         unified_predictions,
                         summary=unified_output.get("summary", {}),
                         language=normalized_language,
                     )
+                    timeline_forecast = execute_safely(
+                        lambda: self.timeline_service.build_timeline_forecast(
+                            unified_predictions,
+                            dasha_output,
+                            language=normalized_language,
+                        ),
+                        logger=logger,
+                        operation_name="Unified timeline activation forecast",
+                        user_message="Timeline activation forecast is unavailable right now.",
+                        fallback={"timeline": []},
+                    )
+                    unified_output["timeline_forecast"] = timeline_forecast
 
         # 3. Compile Master Output
         advanced_payload = {
             "aspects": aspects_output,
             "navamsha": navamsha_output,
+            "shastiamsha": shastiamsha_output,
+            "dashamsha": dashamsha_output,
+            "d10_career_validation": d10_career_validation,
+            "transits": transit_output,
+            "shadbala": shadbala_output,
             "dasha": dasha_output,
             "plugins": plugins_output,
             "unified": unified_output,
+            "timeline_forecast": timeline_forecast,
             "_language": normalized_language,
         }
         if user_id:

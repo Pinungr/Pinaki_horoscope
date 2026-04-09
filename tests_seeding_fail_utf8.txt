@@ -1,0 +1,324 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.14.2, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Users\pinun\OneDrive\Documents\GitHub\Pinaki_horoscope
+configfile: pytest.ini
+collected 3 items
+
+tests\test_database_seeding.py .F.                                       [100%]
+
+================================== FAILURES ===================================
+____________ DatabaseSeedingTests.test_migration_fixes_legacy_data ____________
+
+self = <app.repositories.database_manager.DatabaseManager object at 0x0000023DCC6BD450>
+
+    def initialize_schema(self):
+        """Creates the initial database schema and applies safe migrations."""
+        schema = '''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            dob TEXT NOT NULL,
+            tob TEXT NOT NULL,
+            place TEXT NOT NULL,
+            latitude REAL,
+            longitude REAL,
+            state TEXT,
+            city TEXT
+        );
+    
+        CREATE TABLE IF NOT EXISTS planets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+        );
+    
+        CREATE TABLE IF NOT EXISTS chart_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            planet_name TEXT NOT NULL,
+            sign TEXT NOT NULL,
+            house INTEGER NOT NULL,
+            degree REAL NOT NULL,
+            absolute_longitude REAL DEFAULT 0.0,
+            is_retrograde INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+    
+        CREATE TABLE IF NOT EXISTS rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            condition_json TEXT NOT NULL,
+            result_text TEXT NOT NULL,
+            result_key TEXT,
+            priority INTEGER DEFAULT 0,
+            category TEXT,
+            effect TEXT DEFAULT 'positive',
+            weight REAL DEFAULT 1.0,
+            confidence TEXT DEFAULT 'medium'
+        );
+    
+        CREATE TABLE IF NOT EXISTS locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            country TEXT NOT NULL DEFAULT 'India',
+            state TEXT NOT NULL,
+            city TEXT NOT NULL,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            timezone TEXT DEFAULT 'Asia/Kolkata',
+            UNIQUE(state, city)
+        );
+        '''
+    
+        try:
+            with self.connection_context() as conn:
+                # Execution of the schema script
+                conn.executescript(schema)
+                self._migrate_chart_data_table(conn)
+                self._migrate_rules_table(conn)
+                self._migrate_users_table(conn)
+                self._seed_locations_table(conn)
+    
+                # We optionally pre-populate the planets table if it's empty
+                cursor = conn.cursor()
+                cursor.execute('SELECT COUNT(*) FROM planets')
+                if cursor.fetchone()[0] == 0:
+                    planets = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu", "Ascendant"]
+                    cursor.executemany('INSERT INTO planets (name) VALUES (?)', [(p,) for p in planets])
+>               self._seed_default_rules(conn)
+
+app\repositories\database_manager.py:415: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.repositories.database_manager.DatabaseManager object at 0x0000023DCC6BD450>
+conn = <sqlite3.Connection object at 0x0000023DCC7655D0>
+
+    def _seed_default_rules(self, conn: sqlite3.Connection) -> None:
+        """Ensures core bundled rules exist without creating duplicates."""
+        default_rules = [
+            (
+                '{"planet": "Sun", "house": 1}',
+                "Sun in the 1st House provides strong vitality, leadership skills, and radiant energy.",
+                "sun_first_house_vitality",
+                10,
+                "General",
+            ),
+            (
+                '{"planet": "Moon", "sign": "Cancer"}',
+                "Moon in Cancer (Own Sign) gives deep emotional intelligence and strong intuition.",
+                "moon_cancer_intuition",
+                15,
+                "Strength",
+            ),
+            (
+                '{"AND": [{"planet": "Sun", "house": 1}, {"planet": "Mercury", "house": 1}]}',
+                "Budhaditya Yoga in 1st House: Displays high intelligence, charismatic speech, and strong character.",
+                "budhaditya_yoga_first_house",
+                50,
+                "Yoga",
+            ),
+            (
+                '{"planet": "Jupiter", "house": 1}',
+                "Jupiter in the 1st House grants wisdom, optimism, and a protective aura.",
+                "jupiter_first_house_wisdom",
+                10,
+                "General",
+            ),
+            (
+                '{"AND": [{"type": "conjunction", "planets": ["Moon", "Jupiter"]}, {"type": "in_kendra", "planet": "Jupiter"}]}',
+                "Gajakesari Yoga is present: Moon and Jupiter combine in a kendra, supporting wisdom, recognition, and emotional strength.",
+                "gajakesari_yoga",
+                60,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Mars", "type": "in_kendra"}, {"OR": [{"planet": "Mars", "sign": "Aries"}, {"planet": "Mars", "sign": "Scorpio"}, {"planet": "Mars", "sign": "Capricorn"}]}]}',
+                "Ruchaka Yoga: Mars is powerful in a Kendra. Grants courage, leadership, and physical power.",
+                "ruchaka_yoga",
+                70,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Mercury", "type": "in_kendra"}, {"OR": [{"planet": "Mercury", "sign": "Gemini"}, {"planet": "Mercury", "sign": "Virgo"}]}]}',
+                "Bhadra Yoga: Mercury is powerful in a Kendra. Grants intellectual brilliance and eloquent speech.",
+                "bhadra_yoga",
+                70,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Jupiter", "type": "in_kendra"}, {"OR": [{"planet": "Jupiter", "sign": "Sagittarius"}, {"planet": "Jupiter", "sign": "Pisces"}, {"planet": "Jupiter", "sign": "Cancer"}]}]}',
+                "Hamsa Yoga: Jupiter is powerful in a Kendra. Grants wisdom, spirituality, and divine grace.",
+                "hamsa_yoga",
+                70,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Venus", "type": "in_kendra"}, {"OR": [{"planet": "Venus", "sign": "Taurus"}, {"planet": "Venus", "sign": "Libra"}, {"planet": "Venus", "sign": "Pisces"}]}]}',
+                "Malavya Yoga: Venus is powerful in a Kendra. Grants prosperity, luxury, and artistic talent.",
+                "malavya_yoga",
+                70,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Saturn", "type": "in_kendra"}, {"OR": [{"planet": "Saturn", "sign": "Capricorn"}, {"planet": "Saturn", "sign": "Aquarius"}, {"planet": "Saturn", "sign": "Libra"}]}]}',
+                "Shasha Yoga: Saturn is powerful in a Kendra. Grants persistence, authority, and mass leadership.",
+                "shasha_yoga",
+                70,
+                "Yoga",
+            ),
+            (
+                '{"AND": [{"planet": "Jupiter", "house": 10}, {"OR": [{"planet": "Moon", "house": 1}, {"planet": "lagna", "house": 1}]}]}',
+                "Amala Yoga: A strong benefic in the 10th house. Promises spotless reputation and professional success.",
+                "amala_yoga",
+                65,
+                "Yoga",
+            ),
+        ]
+    
+        cursor = conn.cursor()
+        for condition_json, result_text, result_key, priority, category in default_rules:
+            # Check if rule exists by result_key
+            cursor.execute("SELECT id, condition_json, result_text FROM rules WHERE result_key = ?", (result_key,))
+            existing = cursor.fetchone()
+    
+            if existing:
+                # If it exists, update it to ensure typo fixes and content updates are applied
+                if existing["condition_json"] != condition_json or existing["result_text"] != result_text:
+                    cursor.execute(
+                        """
+                        UPDATE rules
+                        SET condition_json = ?, result_text = ?, priority = ?, category = ?
+                        WHERE id = ?
+                        """,
+                        (condition_json, result_text, priority, category, existing["id"]),
+                    )
+            else:
+                # If not exists, insert but still double check by content as fallback
+                cursor.execute(
+                    "SELECT 1 FROM rules WHERE condition_json = ? AND result_text = ?",
+                    (condition_json, result_text),
+                )
+                if not cursor.fetchone():
+>                   cursor.execute(
+                        """
+                        INSERT INTO rules (condition_json, result_text, result_key, priority, category)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (condition_json, result_text, result_key, priority, category),
+                    )
+E                   sqlite3.OperationalError: table rules has no column named priority
+
+app\repositories\database_manager.py:253: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+self = <tests.test_database_seeding.DatabaseSeedingTests testMethod=test_migration_fixes_legacy_data>
+
+    def test_migration_fixes_legacy_data(self):
+        # 1. Manually create a dirty legacy DB
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("CREATE TABLE rules (id INTEGER PRIMARY KEY, condition_json TEXT, result_text TEXT, result_key TEXT)")
+        # Insert legacy 'sasa_yoga'
+        conn.execute(
+            "INSERT INTO rules (condition_json, result_text, result_key) VALUES (?, ?, ?)",
+            ('{"planet": "Saturn"}', "Old Sasa", "sasa_yoga")
+        )
+        # Insert legacy Malavya with typo
+        conn.execute(
+            "INSERT INTO rules (condition_json, result_text, result_key) VALUES (?, ?, ?)",
+            ('{"planet": "Venus", "sign": "Libre"}', "Old Malavya", "malavya_yoga")
+        )
+        conn.commit()
+        conn.close()
+    
+        # 2. Run initialization (which triggers migrations)
+>       self.db_manager.initialize_schema()
+
+tests\test_database_seeding.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.repositories.database_manager.DatabaseManager object at 0x0000023DCC6BD450>
+
+    def initialize_schema(self):
+        """Creates the initial database schema and applies safe migrations."""
+        schema = '''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            dob TEXT NOT NULL,
+            tob TEXT NOT NULL,
+            place TEXT NOT NULL,
+            latitude REAL,
+            longitude REAL,
+            state TEXT,
+            city TEXT
+        );
+    
+        CREATE TABLE IF NOT EXISTS planets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+        );
+    
+        CREATE TABLE IF NOT EXISTS chart_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            planet_name TEXT NOT NULL,
+            sign TEXT NOT NULL,
+            house INTEGER NOT NULL,
+            degree REAL NOT NULL,
+            absolute_longitude REAL DEFAULT 0.0,
+            is_retrograde INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+    
+        CREATE TABLE IF NOT EXISTS rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            condition_json TEXT NOT NULL,
+            result_text TEXT NOT NULL,
+            result_key TEXT,
+            priority INTEGER DEFAULT 0,
+            category TEXT,
+            effect TEXT DEFAULT 'positive',
+            weight REAL DEFAULT 1.0,
+            confidence TEXT DEFAULT 'medium'
+        );
+    
+        CREATE TABLE IF NOT EXISTS locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            country TEXT NOT NULL DEFAULT 'India',
+            state TEXT NOT NULL,
+            city TEXT NOT NULL,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            timezone TEXT DEFAULT 'Asia/Kolkata',
+            UNIQUE(state, city)
+        );
+        '''
+    
+        try:
+            with self.connection_context() as conn:
+                # Execution of the schema script
+                conn.executescript(schema)
+                self._migrate_chart_data_table(conn)
+                self._migrate_rules_table(conn)
+                self._migrate_users_table(conn)
+                self._seed_locations_table(conn)
+    
+                # We optionally pre-populate the planets table if it's empty
+                cursor = conn.cursor()
+                cursor.execute('SELECT COUNT(*) FROM planets')
+                if cursor.fetchone()[0] == 0:
+                    planets = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu", "Ascendant"]
+                    cursor.executemany('INSERT INTO planets (name) VALUES (?)', [(p,) for p in planets])
+                self._seed_default_rules(conn)
+    
+                conn.commit()
+                logger.debug("Database schema initialized successfully.")
+        except sqlite3.Error as e:
+            logger.error(f"Database initialization error: {e}")
+>           raise AppError("Unable to initialize the local database. Please restart the application.") from e
+E           app.utils.safe_execution.AppError: Unable to initialize the local database. Please restart the application.
+
+app\repositories\database_manager.py:421: AppError
+------------------------------ Captured log call ------------------------------
+ERROR    app.repositories.database_manager:database_manager.py:420 Database initialization error: table rules has no column named priority
+=========================== short test summary info ===========================
+FAILED tests/test_database_seeding.py::DatabaseSeedingTests::test_migration_fixes_legacy_data
+========================= 1 failed, 2 passed in 0.15s =========================

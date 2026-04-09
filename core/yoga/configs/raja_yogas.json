@@ -2,10 +2,37 @@
   {
     "id": "raja_yoga_kendra_trikona",
     "conditions": [
-      {"type": "house_lord_relation", "of_house": 1, "in_houses": [1, 4, 5, 7, 9, 10]},
-      {"type": "house_lord_relation", "of_house": 5, "in_houses": [1, 4, 5, 7, 9, 10]}
+      {
+        "type": "house_lord_relation",
+        "of_house": 1,
+        "in_houses": [
+          1,
+          4,
+          5,
+          7,
+          9,
+          10
+        ]
+      },
+      {
+        "type": "house_lord_relation",
+        "of_house": 5,
+        "in_houses": [
+          1,
+          4,
+          5,
+          7,
+          9,
+          10
+        ]
+      }
     ],
-    "strength_rules": [{"id": "lagna_lord", "planet": "jupiter"}],
+    "strength_rules": [
+      {
+        "id": "lagna_lord",
+        "planet": "jupiter"
+      }
+    ],
     "prediction": {
       "en": "Raja Yoga (Kendra-Trikona): Lords of a kendra and trikona house are associated, creating powerful potential for authority, recognition, and career success.",
       "hi": "राज योग (केंद्र-त्रिकोण): केंद्र और त्रिकोण के स्वामी मिलकर अधिकार, सम्मान और करियर सफलता का शक्तिशाली योग बनाते हैं।",
@@ -15,24 +42,223 @@
   {
     "id": "raja_yoga_9_10",
     "conditions": [
-      {"type": "house_lord_relation", "of_house": 9, "in_houses": [1, 4, 7, 9, 10]},
-      {"type": "house_lord_relation", "of_house": 10, "in_houses": [1, 4, 7, 9, 10]}
+      {
+        "type": "house_lord_relation",
+        "of_house": 9,
+        "in_houses": [
+          1,
+          4,
+          7,
+          9,
+          10
+        ]
+      },
+      {
+        "type": "house_lord_relation",
+        "of_house": 10,
+        "in_houses": [
+          1,
+          4,
+          7,
+          9,
+          10
+        ]
+      }
     ],
-    "strength_rules": [{"id": "dharma_lord", "planet": "jupiter"}],
+    "strength_rules": [
+      {
+        "id": "dharma_lord",
+        "planet": "jupiter"
+      }
+    ],
     "prediction": {
       "en": "Dharma-Karmadhipati Raja Yoga: The lords of the 9th (dharma) and 10th (karma) are powerfully placed, indicating a life-path of righteous achievement and public honour.",
       "hi": "धर्म-कर्माधिपति राज योग: नवम और दशम के स्वामियों की शुभ स्थिति धर्म के मार्ग पर उपलब्धि और जन-सम्मान का योग देती है।",
       "or": "ଧର୍ମ-କର୍ମାଧିପତି ରାଜ ଯୋଗ: ନବମ ଓ ଦଶମ ଅଧୀଶ ଶୁଭ ସ୍ଥାନରେ ଧର୍ମ ପଥରେ ଉପଲବ୍ଧି ଓ ଜନ-ସମ୍ମାନ ଦିଅନ୍ତି।"
+    },
+    "bhanga_rules": [
+      {
+        "id": "dharma_karma_lord_debilitated",
+        "type": "planet_debilitated",
+        "effect": "cancel",
+        "house_lords": [
+          9,
+          10
+        ]
+      },
+      {
+        "id": "dharma_karma_lord_severe_affliction",
+        "type": "severe_affliction",
+        "effect": "cancel",
+        "house_lords": [
+          9,
+          10
+        ],
+        "min_hits": 3,
+        "min_afflicted_planets": 2
+      },
+      {
+        "id": "dharma_karma_lord_combustion",
+        "type": "combustion",
+        "effect": "downgrade",
+        "house_lords": [
+          9,
+          10
+        ]
+      },
+      {
+        "id": "lagna_lord_dusthana",
+        "type": "house_lord_in_dusthana",
+        "effect": "downgrade",
+        "houses": [
+          1
+        ],
+        "dusthana_houses": [
+          6,
+          8,
+          12
+        ]
+      },
+      {
+        "id": "dharma_karma_lord_weak_shadbala",
+        "type": "weak_shadbala",
+        "effect": "downgrade",
+        "house_lords": [
+          9,
+          10
+        ],
+        "max_score": 42
+      }
+    ]
+  },
+  {
+    "id": "dhana_yoga_2_11",
+    "conditions": [
+      {
+        "type": "house_lord_relation",
+        "of_house": 2,
+        "in_houses": [
+          2,
+          5,
+          9,
+          11
+        ]
+      },
+      {
+        "type": "house_lord_relation",
+        "of_house": 11,
+        "in_houses": [
+          2,
+          5,
+          9,
+          11
+        ]
+      }
+    ],
+    "strength_rules": [
+      {
+        "id": "dhana_lord_anchor",
+        "planet": "venus"
+      }
+    ],
+    "bhanga_rules": [
+      {
+        "id": "dhana_lords_debilitated",
+        "type": "planet_debilitated",
+        "effect": "cancel",
+        "house_lords": [
+          2,
+          11
+        ]
+      },
+      {
+        "id": "dhana_lords_severe_affliction",
+        "type": "severe_affliction",
+        "effect": "cancel",
+        "house_lords": [
+          2,
+          11
+        ],
+        "min_hits": 3,
+        "min_afflicted_planets": 2
+      },
+      {
+        "id": "dhana_lords_combustion",
+        "type": "combustion",
+        "effect": "downgrade",
+        "house_lords": [
+          2,
+          11
+        ]
+      },
+      {
+        "id": "dhana_lord_in_dusthana",
+        "type": "house_lord_in_dusthana",
+        "effect": "cancel",
+        "houses": [
+          2,
+          11
+        ],
+        "dusthana_houses": [
+          6,
+          8,
+          12
+        ]
+      },
+      {
+        "id": "dhana_lords_weak_shadbala",
+        "type": "weak_shadbala",
+        "effect": "downgrade",
+        "house_lords": [
+          2,
+          11
+        ],
+        "max_score": 42
+      }
+    ],
+    "prediction": {
+      "en": "Dhana Yoga (2nd-11th Lord Strength): Wealth lords are strongly placed in dhana houses, supporting sustained earnings, savings, and resource growth.",
+      "hi": "Dhana Yoga (2nd-11th Lord Strength): Wealth lords support income, accumulation, and savings.",
+      "or": "Dhana Yoga (2nd-11th Lord Strength): Wealth lords support income, accumulation, and savings."
     }
   },
   {
     "id": "raja_yoga_lagna_jupiter",
     "conditions": [
-      {"type": "planet_in_house",   "planet": "jupiter", "houses": [1, 4, 7, 10]},
-      {"type": "planet_in_dignity", "planet": "jupiter", "dignity": "own_or_exalted"},
-      {"type": "house_lord_relation", "of_house": 1, "in_houses": [1, 4, 5, 7, 9, 10]}
+      {
+        "type": "planet_in_house",
+        "planet": "jupiter",
+        "houses": [
+          1,
+          4,
+          7,
+          10
+        ]
+      },
+      {
+        "type": "planet_in_dignity",
+        "planet": "jupiter",
+        "dignity": "own_or_exalted"
+      },
+      {
+        "type": "house_lord_relation",
+        "of_house": 1,
+        "in_houses": [
+          1,
+          4,
+          5,
+          7,
+          9,
+          10
+        ]
+      }
     ],
-    "strength_rules": [{"id": "jupiter_str", "planet": "jupiter"}],
+    "strength_rules": [
+      {
+        "id": "jupiter_str",
+        "planet": "jupiter"
+      }
+    ],
     "prediction": {
       "en": "Raja Yoga (Jupiter Kendra + Strong Lagna Lord): An angular exalted Jupiter combined with a well-placed lagna lord creates an exceptionally powerful chart for leadership.",
       "hi": "राज योग (केंद्र में बृहस्पति + बलवान लग्नेश): केंद्र में उच्च बृहस्पति और शुभ लग्नेश की स्थिति नेतृत्व का असाधारण योग बनाती है।",
@@ -42,23 +268,97 @@
   {
     "id": "neecha_bhanga_raja_yoga",
     "conditions": [
-      {"type": "planet_in_house", "planet": "saturn", "houses": [1, 4, 7, 10]},
-      {"type": "planet_in_dignity", "planet": "saturn", "dignity": "own_or_exalted"}
+      {
+        "type": "planet_in_house",
+        "planet": "saturn",
+        "houses": [
+          1,
+          4,
+          7,
+          10
+        ]
+      },
+      {
+        "type": "planet_in_dignity",
+        "planet": "saturn",
+        "dignity": "own_or_exalted"
+      }
     ],
-    "strength_rules": [{"id": "saturn_str", "planet": "saturn"}],
+    "strength_rules": [
+      {
+        "id": "saturn_str",
+        "planet": "saturn"
+      }
+    ],
     "prediction": {
       "en": "Neecha Bhanga Raja Yoga: Debilitation of a planet is cancelled by its placement in a kendra or through exchange, reversing weakness into a powerful rise in life.",
       "hi": "नीच भंग राज योग: केंद्र में स्थिति या परिवर्तन से नीच ग्रह का दोष समाप्त होकर नाटकीय उत्थान की संभावना बनती है।",
       "or": "ନୀଚ ଭଙ୍ଗ ରାଜ ଯୋଗ: ଗ୍ରହ ଦୁର୍ବଳ ସ୍ଥିତି ଦୂର ହୋଇ ଜୀବନରେ ଶକ୍ତିଶାଳୀ ଉଥାନ ହୁଏ।"
-    }
+    },
+    "bhanga_rules": [
+      {
+        "id": "neecha_context_missing",
+        "type": "requires_debilitated_planet",
+        "effect": "cancel",
+        "use_key_planets": false
+      },
+      {
+        "id": "saturn_severe_affliction",
+        "type": "severe_affliction",
+        "effect": "cancel",
+        "planets": [
+          "saturn"
+        ],
+        "min_hits": 2,
+        "min_afflicted_planets": 1
+      },
+      {
+        "id": "saturn_combustion",
+        "type": "combustion",
+        "effect": "downgrade",
+        "planets": [
+          "saturn"
+        ]
+      },
+      {
+        "id": "saturn_weak_shadbala",
+        "type": "weak_shadbala",
+        "effect": "downgrade",
+        "planets": [
+          "saturn"
+        ],
+        "max_score": 40
+      }
+    ]
   },
   {
     "id": "vipreet_raja_yoga",
     "conditions": [
-      {"type": "house_lord_relation", "of_house": 6, "in_houses": [6, 8, 12]},
-      {"type": "house_lord_relation", "of_house": 8, "in_houses": [6, 8, 12]}
+      {
+        "type": "house_lord_relation",
+        "of_house": 6,
+        "in_houses": [
+          6,
+          8,
+          12
+        ]
+      },
+      {
+        "type": "house_lord_relation",
+        "of_house": 8,
+        "in_houses": [
+          6,
+          8,
+          12
+        ]
+      }
     ],
-    "strength_rules": [{"id": "dusthana_lord", "planet": "saturn"}],
+    "strength_rules": [
+      {
+        "id": "dusthana_lord",
+        "planet": "saturn"
+      }
+    ],
     "prediction": {
       "en": "Vipreet Raja Yoga: Dusthana lords are confined to dusthana houses, neutralising their malefic power and turning adversity into unexpected success.",
       "hi": "विपरीत राज योग: दु:स्थान के स्वामी दु:स्थानों में रहकर अपनी पीड़ा को समाप्त करते हैं और विपरीत परिस्थितियों को सफलता में बदलते हैं।",
@@ -68,12 +368,27 @@
   {
     "id": "budhaditya_yoga",
     "conditions": [
-      {"type": "conjunction", "planets": ["sun", "mercury"]}
+      {
+        "type": "conjunction",
+        "planets": [
+          "sun",
+          "mercury"
+        ]
+      }
     ],
-    "strength_rules": [{"id": "sun_str", "planet": "sun"}, {"id": "mercury_str", "planet": "mercury"}],
+    "strength_rules": [
+      {
+        "id": "sun_str",
+        "planet": "sun"
+      },
+      {
+        "id": "mercury_str",
+        "planet": "mercury"
+      }
+    ],
     "prediction": {
       "en": "Budhaditya Yoga: Sun and Mercury in the same house create an intellectually luminous personality — intelligent, charismatic, and success-oriented.",
-      "hi": "बुधादित्य योग: सूर्य और बुध का संयोग बौद्धिक तेज, करिश्माई व्यक्तित्व और सफलता का योग बनाता है।",
+      "hi": "\u092c\u0941\u0927\u093e\u0926\u093f\u0924\u094d\u092f \u092f\u094b\u0917: \u0938\u0942\u0930\u094d\u092f \u0914\u0930 \u092c\u0941\u0927 \u0915\u093e \u0938\u0902\u092f\u094b\u0917 \u092c\u094c\u0926\u094d\u0927\u093f\u0915 \u0924\u0947\u091c, \u0915\u0930\u093f\u0936\u094d\u092e\u093e\u0908 \u0935\u094d\u092f\u0915\u094d\u0924\u093f\u0924\u094d\u0935 \u0914\u0930 \u0938\u092b\u0932\u0924\u093e \u0915\u093e \u092f\u094b\u0917 \u092c\u0928\u093e\u0924\u093e \u0939\u0948\u0964",
       "or": "ବୁଧାଦିତ୍ୟ ଯୋଗ: ସୂର୍ଯ୍ୟ ଓ ବୁଧ ଏକ ଭାବରେ ବୌଦ୍ଧିକ ତେଜ, ଆକର୍ଷଣୀୟ ବ୍ୟକ୍ତିତ୍ୱ ଓ ସଫଳତା ଦିଅନ୍ତି।"
     }
   }

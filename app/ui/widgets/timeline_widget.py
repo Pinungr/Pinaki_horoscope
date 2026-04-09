@@ -271,7 +271,7 @@ class TimelineWidget(QGraphicsView):
 
         row_top = self._content_top + 38
         card_width = max(self.viewport().width() - (self.LEFT_MARGIN + self.RIGHT_MARGIN + 12), 520)
-        card_height = 84
+        card_height = 96
         gap = 12
 
         for index, row in enumerate(rows):
@@ -286,6 +286,13 @@ class TimelineWidget(QGraphicsView):
     def _draw_forecast_card(self, row: Dict[str, Any], y: float, width: float, height: float) -> None:
         area = self._normalize_event_type(row.get("area", "general"))
         color = self._color_for_event(area)
+        activation_code = str(row.get("activation_label", "dormant")).strip().lower() or "dormant"
+        activation_trend = str(row.get("activation_trend", "stable")).strip().lower() or "stable"
+        transition_text = self._activation_transition_text(activation_code, activation_trend)
+        activation_text = self._activation_label_text(activation_code)
+        activation_color = self._activation_color(activation_code)
+        transit_text = self._transit_label(row.get("transit_support_state", "neutral"))
+        concordance_text = str(row.get("agreement_level", "medium")).strip().lower() or "medium"
         period = str(row.get("period", "")).strip() or self._period_from_dates(row.get("start"), row.get("end"))
         event = str(row.get("event", "")).strip() or "Notable life developments"
         yoga = str(row.get("yoga", "")).strip()
@@ -294,7 +301,7 @@ class TimelineWidget(QGraphicsView):
 
         card_rect = QRectF(self.LEFT_MARGIN, y, width, height)
         border_pen = QPen(color.darker(125))
-        border_pen.setWidth(2)
+        border_pen.setWidth(3 if transition_text else 2)
         self._scene.addRect(card_rect, border_pen, QBrush(QColor("#ffffff")))
 
         badge_rect = QRectF(self.LEFT_MARGIN + 10, y + 10, 114, 24)
@@ -318,6 +325,28 @@ class TimelineWidget(QGraphicsView):
         headline.setPos(self.LEFT_MARGIN + 132, y + 12)
         self._scene.addItem(headline)
 
+        activation_badge_rect = QRectF(self.LEFT_MARGIN + width - 178, y + 10, 164, 22)
+        activation_fill = QColor(activation_color)
+        activation_fill.setAlpha(220)
+        self._scene.addRect(activation_badge_rect, QPen(Qt.PenStyle.NoPen), QBrush(activation_fill))
+
+        activation_badge_text = QGraphicsSimpleTextItem(f"Activation: {activation_text}")
+        activation_badge_text.setBrush(QBrush(QColor("#ffffff")))
+        activation_badge_text.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+        activation_bounds = activation_badge_text.boundingRect()
+        activation_badge_text.setPos(
+            activation_badge_rect.x() + ((activation_badge_rect.width() - activation_bounds.width()) / 2),
+            activation_badge_rect.y() + ((activation_badge_rect.height() - activation_bounds.height()) / 2) - 1,
+        )
+        self._scene.addItem(activation_badge_text)
+
+        signal_line = f"Transit: {transit_text} | Concordance: {concordance_text.title()}"
+        signal_item = QGraphicsSimpleTextItem(signal_line)
+        signal_item.setBrush(QBrush(QColor("#475569")))
+        signal_item.setFont(QFont("Segoe UI", 8, QFont.Weight.DemiBold))
+        signal_item.setPos(self.LEFT_MARGIN + 132, y + 32)
+        self._scene.addItem(signal_item)
+
         detail_parts = [event]
         if yoga:
             detail_parts.append(f"Yoga: {yoga}")
@@ -327,13 +356,22 @@ class TimelineWidget(QGraphicsView):
         detail_item = QGraphicsSimpleTextItem(detail_text[:180] + ("..." if len(detail_text) > 180 else ""))
         detail_item.setBrush(QBrush(QColor("#334155")))
         detail_item.setFont(QFont("Segoe UI", 8))
-        detail_item.setPos(self.LEFT_MARGIN + 14, y + 44)
+        detail_item.setPos(self.LEFT_MARGIN + 14, y + 54)
         self._scene.addItem(detail_item)
+
+        if transition_text:
+            transition_item = QGraphicsSimpleTextItem(transition_text)
+            transition_item.setBrush(QBrush(QColor("#b45309")))
+            transition_item.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+            transition_item.setPos(self.LEFT_MARGIN + 14, y + 32)
+            self._scene.addItem(transition_item)
 
         payload = {
             "planet": area.title(),
             "start": str(row.get("start", "")),
             "end": str(row.get("end", "")),
+            "activation_label": activation_code,
+            "activation_trend": activation_trend,
             "events": [
                 {
                     "type": area,
@@ -811,6 +849,47 @@ class TimelineWidget(QGraphicsView):
         if summary:
             lines.append(summary)
         return "\n".join(lines)
+
+    @staticmethod
+    def _activation_label_text(code: Any) -> str:
+        normalized = str(code or "").strip().lower()
+        if normalized == "active_now":
+            return "Active Now"
+        if normalized == "upcoming":
+            return "Upcoming"
+        if normalized == "dormant":
+            return "Dormant"
+        return "Unknown"
+
+    @staticmethod
+    def _activation_color(code: Any) -> QColor:
+        normalized = str(code or "").strip().lower()
+        if normalized == "active_now":
+            return QColor("#2563eb")
+        if normalized == "upcoming":
+            return QColor("#ea580c")
+        if normalized == "dormant":
+            return QColor("#64748b")
+        return QColor("#475569")
+
+    @staticmethod
+    def _activation_transition_text(code: Any, trend: Any) -> str:
+        normalized_code = str(code or "").strip().lower()
+        normalized_trend = str(trend or "").strip().lower()
+        if normalized_code == "upcoming" and normalized_trend == "rising":
+            return "Upcoming -> Active"
+        return ""
+
+    @staticmethod
+    def _transit_label(state: Any) -> str:
+        normalized = str(state or "").strip().lower()
+        if normalized == "amplifying":
+            return "Amplifying"
+        if normalized == "suppressing":
+            return "Suppressing"
+        if normalized == "neutral":
+            return "Neutral"
+        return "Unknown"
 
     @staticmethod
     def _safe_int(value: Any) -> int:
