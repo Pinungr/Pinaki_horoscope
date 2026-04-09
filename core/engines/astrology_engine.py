@@ -608,7 +608,7 @@ class UnifiedAstrologyEngine:
             activation_trace.extend(d9_factors)
             activation_trace.extend(d10_factors)
             activation_trace.append(
-                "Final score = weighted base ({base}) x dasha ({dasha}) x transit ({transit}) x concordance ({concordance}) = {final}.".format(
+                "Reasoning Summary: The foundational natal promise ({base}) is filtered through current timing authority ({dasha}), immediate planetary triggers ({transit}), and internal core alignment ({concordance}), resulting in a total interpreted confidence of {final}.".format(
                     base=score_components.get("weighted_base_score", 0),
                     dasha=temporal_score.get("dasha_activation", 1.0),
                     transit=temporal_score.get("transit_modifier", 1.0),
@@ -1001,7 +1001,7 @@ class UnifiedAstrologyEngine:
             signal = "neutral"
 
         factors = [
-            f"D1 signal: yoga state {state} with {strength_level} strength ({round(strength_score, 1)})."
+            f"The primary chart (D1) indicates a {state} promise with {strength_level} directional potential."
         ]
         return signal, round(score, 3), factors
 
@@ -1012,7 +1012,7 @@ class UnifiedAstrologyEngine:
         navamsha_payload: dict[str, dict[str, str]],
     ) -> tuple[str, float, list[str]]:
         if not isinstance(navamsha_payload, dict) or not navamsha_payload:
-            return "neutral", 0.0, ["D9 contribution is neutral or missing."]
+            return "neutral", 0.0, ["Internal foundational support (D9) is neutral or unavailable."]
 
         actors: list[str] = []
         for source in (
@@ -1026,7 +1026,7 @@ class UnifiedAstrologyEngine:
                     if normalized and normalized not in actors:
                         actors.append(normalized)
         if not actors:
-            return "neutral", 0.0, ["D9 contribution is neutral for this area."]
+            return "neutral", 0.0, ["The internal core (D9) shows no specific influence for the primary actors in this area."]
 
         strong = 0
         weak = 0
@@ -1051,7 +1051,7 @@ class UnifiedAstrologyEngine:
                 factors.append(f"D9 keeps {planet.capitalize()} neutral.")
 
         if considered == 0:
-            return "neutral", 0.0, ["D9 contribution is neutral or missing."]
+            return "neutral", 0.0, ["Internal foundational support (D9) is neutral."]
 
         score = (strong - weak) / float(considered)
         score = _clamp_score(score)
@@ -1084,11 +1084,11 @@ class UnifiedAstrologyEngine:
 
         if not factors:
             if status == "confirm":
-                factors = ["D10 confirms execution potential for this promise."]
+                factors = ["Societal and professional layers (D10) confirm the execution potential."]
             elif status == "conflict":
-                factors = ["D10 shows conflict against this promise direction."]
+                factors = ["Professional layers (D10) suggest friction in immediate execution."]
             else:
-                factors = ["D10 is neutral for this prediction area."]
+                factors = ["Professional execution layers (D10) remain neutral."]
 
         return signal, score, factors[:6]
 
@@ -1150,13 +1150,13 @@ class UnifiedAstrologyEngine:
 
         functional_weight = round(sum(multipliers) / len(multipliers), 3) if multipliers else 1.0
         role_summary = ", ".join(
-            f"{row['planet']}={row['role']}({row['multiplier']})"
+            f"{row['planet'].capitalize()} as {row['role']}"
             for row in actor_rows
         )
         return {
             "functional_weight": functional_weight,
             "actors": actor_rows,
-            "trace": [f"M2 functional roles applied: {role_summary}. Aggregate functional weight={functional_weight}."],
+            "trace": [f"Lagna-based roles applied: {role_summary}. Resulting in an aggregate functional weight of {functional_weight}."],
         }
 
     def _evaluate_lordship_layer(

@@ -500,6 +500,7 @@ def compute_final_prediction(context: Dict[str, Any]) -> Dict[str, Any]:
             "input_score": round(base_strength, 2),
             "weight": round(weights["strength"], 3),
             "weighted_contribution": round(strength_component, 3),
+            "reasoning": "Planetary strength (Shadbala) provides the foundational capacity of the indicator.",
         },
         "functional_nature": {
             "raw_input_multiplier": round(raw_functional_weight, 3),
@@ -508,30 +509,36 @@ def compute_final_prediction(context: Dict[str, Any]) -> Dict[str, Any]:
             "normalized_score": round(functional_score, 2),
             "weight": round(weights["functional_nature"], 3),
             "weighted_contribution": round(functional_component, 3),
+            "reasoning": "Functional nature (Benefic/Malefic role for Lagna) modifies how the planet expresses its energy.",
         },
         "lordship": {
             "raw_input_score": round(raw_lordship_score, 2),
             "input_score": round(lordship_score, 2),
             "weight": round(weights["lordship"], 3),
             "weighted_contribution": round(lordship_component, 3),
+            "reasoning": "House lordship and placement determine the specific lifecycle areas affected.",
         },
         "yoga": {
             "raw_input_score": round(raw_yoga_score, 2),
             "input_score": round(yoga_score, 2),
             "weight": round(weights["yoga"], 3),
             "weighted_contribution": round(yoga_component, 3),
+            "reasoning": "Astrological combinations (Yogas) provide specific pattern-based directional strength.",
         },
         "dasha": {
             "raw_multiplier": round(raw_dasha_activation, 3),
             "multiplier": temporal_score.get("dasha_activation", 1.0),
+            "reasoning": "Vimshottari Dasha timing determines if the natal promise is currently active.",
         },
         "transit": {
             "raw_multiplier": round(raw_transit_modifier, 3),
             "multiplier": temporal_score.get("transit_modifier", 1.0),
+            "reasoning": "Transits (Gochar) act as triggers for immediate activation of the dasha promise.",
         },
         "varga": {
             "raw_multiplier": round(raw_varga_concordance, 3),
             "multiplier": temporal_score.get("varga_concordance", 1.0),
+            "reasoning": "Divisional chart agreement (Navamsha/Dashamsha) confirms if the internal core supports the outcome.",
         },
         "karaka": {
             "raw_multiplier": round(raw_karaka_modifier, 3),
@@ -539,6 +546,7 @@ def compute_final_prediction(context: Dict[str, Any]) -> Dict[str, Any]:
             "source": str(karaka_payload.get("source", "neutral")),
             "impact": [str(line).strip() for line in karaka_payload.get("impact", []) if str(line).strip()],
             "details": list(karaka_payload.get("details", [])),
+            "reasoning": "Natural significators (Karakas) provide the universal support for the specific matter.",
         },
         "deduplication": signal_normalization.get("trace", {}),
         "weighted_base_score": round(weighted_base, 2),
@@ -648,30 +656,30 @@ def get_varga_concordance(context: Dict[str, Any]) -> Dict[str, Any]:
     area = str(payload.get("area", "general") or "general").strip().lower() or "general"
 
     if d10_signal == 1 and d1_signal == 1:
-        score += 0.25
-        factors.append(f"D1 and D10 aligned for {area} growth.")
+        score += 0.10
+        factors.append(f"Societal execution (D10) confirms the directional promise of the natal chart (D1) for {area}.")
     elif d10_signal == -1 and d1_signal == 1:
-        score -= 0.25
-        factors.append(f"D10 conflicts with D1 promise in {area}.")
+        score -= 0.10
+        factors.append(f"Execution potential (D10) conflicts with the primary natal promise in {area}.")
     elif d10_signal == 0:
-        factors.append("D10 is neutral for this area.")
+        factors.append("External execution factors (D10) remain neutral.")
 
     if d9_signal == 1 and d1_signal == 1:
-        score += 0.15
-        factors.append("D9 supports the underlying strength.")
+        score += 0.30
+        factors.append("Internal core strength (D9) provides a strong foundation for the natal promise.")
     elif d9_signal == -1 and d1_signal == 1:
-        score -= 0.15
-        factors.append("D9 shows weakness in supporting planets.")
+        score -= 0.30
+        factors.append("Weakness in the internal core (D9) suggests friction in realizing the natal promise.")
     elif d9_signal == 0:
-        factors.append("D9 contribution is neutral or missing.")
+        factors.append("Internal foundational support (D9) is neutral.")
 
     active_signals = [s for s in [d1_signal, d9_signal, d10_signal] if s != 0]
     if len(active_signals) >= 2 and all(s == active_signals[0] for s in active_signals):
         score += 0.1
-        factors.append("D1, D9, and D10 show coherent directional agreement.")
+        factors.append("The natal, foundational, and execution layers show coherent directional agreement.")
     elif len(active_signals) >= 2 and len(set(active_signals)) > 1:
         score -= 0.1
-        factors.append("Varga layers show conflicting directional cues.")
+        factors.append("Divergence between internal and external layers suggests a need for balanced interpretation.")
 
     score = _clamp(score, 0.0, 1.0)
     if score >= 0.75:
